@@ -2,46 +2,57 @@
 
 import { useState } from 'react'
 
-import { notifyFamilyDataChanged } from './FamilyProvider'
+import { useFamily } from './FamilyProvider'
 import { createChild } from '../lib/family/children'
 import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 type ChildProfileFormProps = {
   familyId: string
-  onCreated?: () => void
+  onCreated?: (childName: string) => void | Promise<void>
 }
 
 export default function ChildProfileForm({ familyId, onCreated }: ChildProfileFormProps) {
+  const { refresh } = useFamily()
   const [displayName, setDisplayName] = useState('')
   const [birthYear, setBirthYear] = useState('')
   const [avatarKey, setAvatarKey] = useState<'default' | 'boy' | 'girl'>('default')
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setLoading(true)
     setError(null)
+    setSuccess(null)
 
     const year = birthYear.trim() ? parseInt(birthYear, 10) : null
-    const { error: createError } = await createChild({
+    const { child, error: createError } = await createChild({
       familyId,
       displayName,
       birthYear: Number.isFinite(year) ? year : null,
       avatarKey,
     })
 
-    setLoading(false)
     if (createError) {
+      setLoading(false)
       setError(createError.message)
       return
     }
 
+    if (!child) {
+      setLoading(false)
+      setError('Kind konnte nicht gespeichert werden.')
+      return
+    }
+
+    await refresh()
+    setLoading(false)
+    setSuccess(`${child.display_name} wurde angelegt.`)
     setDisplayName('')
     setBirthYear('')
     setAvatarKey('default')
-    notifyFamilyDataChanged()
-    onCreated?.()
+    await onCreated?.(child.display_name)
   }
 
   return (
@@ -57,7 +68,7 @@ export default function ChildProfileForm({ familyId, onCreated }: ChildProfileFo
           maxLength={80}
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 dark:border-slate-600 dark:bg-slate-900"
+          className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
         />
       </div>
       <div>
@@ -71,7 +82,7 @@ export default function ChildProfileForm({ familyId, onCreated }: ChildProfileFo
           max={2100}
           value={birthYear}
           onChange={(e) => setBirthYear(e.target.value)}
-          className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 dark:border-slate-600 dark:bg-slate-900"
+          className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
         />
       </div>
       <div>
@@ -102,12 +113,17 @@ export default function ChildProfileForm({ familyId, onCreated }: ChildProfileFo
           {error}
         </p>
       ) : null}
+      {success ? (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100">
+          {success}
+        </p>
+      ) : null}
       <button
         type="submit"
         disabled={loading}
         className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 font-bold text-white disabled:opacity-60`}
       >
-        {loading ? 'Wird gespeichert …' : 'Kind anlegen'}
+        {loading ? 'Wird in Supabase gespeichert …' : 'Kind anlegen'}
       </button>
     </form>
   )

@@ -25,6 +25,7 @@ type FamilyContextValue = {
   children: ChildWithTodayXp[]
   loading: boolean
   hasFamily: boolean
+  error: string | null
   refresh: () => Promise<void>
   setActiveFamilyId: (familyId: string) => void
 }
@@ -46,18 +47,30 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [family, setFamily] = useState<Family | null>(null)
   const [childrenWithXp, setChildrenWithXp] = useState<ChildWithTodayXp[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     if (!user) {
       setFamily(null)
       setChildrenWithXp([])
+      setError(null)
       setLoading(false)
       return
     }
 
     setLoading(true)
-    const { families, error } = await fetchFamiliesForUser()
-    if (error || families.length === 0) {
+    setError(null)
+
+    const { families, error: familiesError } = await fetchFamiliesForUser()
+    if (familiesError) {
+      setFamily(null)
+      setChildrenWithXp([])
+      setError(familiesError.message)
+      setLoading(false)
+      return
+    }
+
+    if (families.length === 0) {
       setFamily(null)
       setChildrenWithXp([])
       setLoading(false)
@@ -65,8 +78,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     }
 
     const storedId = readStoredFamilyId()
-    const active =
-      families.find((f) => f.id === storedId) ?? families[0] ?? null
+    const active = families.find((f) => f.id === storedId) ?? families[0] ?? null
 
     if (!active) {
       setFamily(null)
@@ -81,12 +93,16 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     const { children: childRows, error: childError } = await fetchChildrenForFamily(active.id)
     if (childError) {
       setChildrenWithXp([])
+      setError(childError.message)
       setLoading(false)
       return
     }
 
     const { children: enriched, error: xpError } = await attachTodayXpToChildren(childRows, active.id)
-    setChildrenWithXp(xpError ? childRows.map((c) => ({ ...c, todayXp: 0 })) : enriched)
+    setChildrenWithXp(
+      xpError ? childRows.map((c) => ({ ...c, todayXp: 0 })) : enriched,
+    )
+    if (xpError) setError(xpError.message)
     setLoading(false)
   }, [user])
 
@@ -119,10 +135,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       children: childrenWithXp,
       loading: authLoading || loading,
       hasFamily: Boolean(family),
+      error,
       refresh,
       setActiveFamilyId,
     }),
-    [family, childrenWithXp, authLoading, loading, refresh, setActiveFamilyId],
+    [family, childrenWithXp, authLoading, loading, error, refresh, setActiveFamilyId],
   )
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>

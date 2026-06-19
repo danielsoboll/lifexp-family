@@ -13,7 +13,7 @@ import { CARD_SURFACE_CLASS, HOME_PAGE_INSET_CLASS, MAIN_SHELL_CLASS, PRESSABLE_
 
 export default function FamilyDashboard() {
   const { user, signOut } = useAuth()
-  const { family, children, loading } = useFamily()
+  const { family, children, loading, error } = useFamily()
 
   const todayLabel = cetFormatLongDateDe(cetToday())
   const totalTodayXp = children.reduce((sum, child) => sum + child.todayXp, 0)
@@ -41,6 +41,12 @@ export default function FamilyDashboard() {
           Heute gesamt: +{totalTodayXp} XP
         </p>
       </section>
+
+      {error ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+          {error}
+        </p>
+      ) : null}
 
       {loading ? (
         <p className="text-sm text-slate-600 dark:text-slate-400">Wird geladen …</p>
