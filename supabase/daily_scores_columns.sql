@@ -1,0 +1,15 @@
+-- Optionale Spalten für daily_scores (falls noch nicht vorhanden).
+-- In Supabase SQL Editor ausführen.
+
+-- ALTER TABLE public.daily_scores ADD COLUMN IF NOT EXISTS alc_status text;
+-- Geplant: tasks_plan (nicht tasks_plus). Aufgaben-XP-Summe für den Tag.
+-- ALTER TABLE public.daily_scores ADD COLUMN IF NOT EXISTS tasks_plan integer NOT NULL DEFAULT 0;
+-- ALTER TABLE public.daily_scores ADD COLUMN IF NOT EXISTS tasks_done integer NOT NULL DEFAULT 0;
+-- ALTER TABLE public.daily_scores ADD COLUMN IF NOT EXISTS streak_done text;
+-- ALTER TABLE public.daily_scores ADD COLUMN IF NOT EXISTS total_xp_ok text;
+-- ALTER TABLE public.daily_scores ADD COLUMN IF NOT EXISTS movement_xp_ok text;
+-- ALTER TABLE public.daily_scores ADD COLUMN IF NOT EXISTS nutrition_xp_ok text;
+-- ALTER TABLE public.daily_scores ADD COLUMN IF NOT EXISTS day_xp_ok text;
+-- ALTER TABLE public.daily_scores ADD COLUMN IF NOT EXISTS plus_xp_ok text;
+-- ALTER TABLE public.daily_scores ADD COLUMN IF NOT EXISTS calories_ok text;
+-- ALTER TABLE public.daily_scores ADD COLUMN IF NOT EXISTS protein_ok text;

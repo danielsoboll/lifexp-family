@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LifeXP">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6ee7b7"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <circle cx="256" cy="248" r="156" fill="none" stroke="url(#ring)" stroke-width="24"/>
+  <text
+    x="256"
+    y="290"
+    text-anchor="middle"
+    font-family="system-ui, -apple-system, Segoe UI, sans-serif"
+    font-size="132"
+    font-weight="800"
+    fill="#34d399"
+  >XP</text>
+  <text
+    x="256"
+    y="418"
+    text-anchor="middle"
+    font-family="system-ui, -apple-system, Segoe UI, sans-serif"
+    font-size="44"
+    font-weight="700"
+    fill="#94a3b8"
+    opacity="0.9"
+  >Life</text>
+</svg>

@@ -1,0 +1,511 @@
+@import "tailwindcss";
+
+@source "../lib";
+@source "../components";
+@source "../app";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background-top: #475569;
+  --background-mid: #64748b;
+  --background-bottom: #7b8fa3;
+  --background: var(--background-mid);
+  --foreground: #0f172a;
+  --surface: #e8ecf1;
+  --surface-raised: #f1f5f9;
+  --border-strong: #94a3b8;
+  --border-subtle: #cbd5e1;
+  --muted: #475569;
+  --accent: #059669;
+  --accent-soft: #d1fae5;
+  --ring: rgba(5, 150, 105, 0.35);
+}
+
+.dark {
+  --background-top: #020617;
+  --background-mid: #0f172a;
+  --background-bottom: #273449;
+  --background: var(--background-mid);
+  --foreground: #f1f5f9;
+  --surface: #0f172a;
+  --muted: #94a3b8;
+  --accent: #34d399;
+  --accent-soft: #064e3b;
+  --ring: rgba(52, 211, 153, 0.35);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  min-height: 100%;
+  background-color: var(--background-mid);
+}
+
+body {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  min-height: 100%;
+  background: transparent;
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * Verlauf als fixed Layer — zuverlässiger als background-attachment: fixed auf html
+ * (iOS Safari / Home-Screen-PWA rendert sonst oft rein weiss).
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    var(--background-top) 0%,
+    var(--background-mid) 45%,
+    var(--background-bottom) 100%
+  );
+}
+
+/* iOS/Safari: hinter Tastatur & Browser-Zeile kein durchscheinender Seitenhintergrund */
+html.lifexp-keyboard-open {
+  background-color: var(--background-mid);
+}
+
+html.lifexp-keyboard-open body::before {
+  background: var(--background-mid);
+}
+
+html.lifexp-keyboard-open.dark {
+  background-color: #020617;
+}
+
+html.lifexp-keyboard-open.dark body::before {
+  background: #020617;
+}
+
+/*
+ * 3D-Steintafel: matte Platte, leichte Maserung, beim Drücken in die Fläche sinken.
+ */
+:where(
+  button:not(.lifexp-thought-bubble),
+  a.lifexp-pressable-3d,
+  a.rounded-2xl.border-2,
+  a.rounded-xl.border-2,
+  a.rounded-full.border-2
+) {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  transform-origin: center bottom;
+  transform: translateY(0);
+  transition:
+    transform 160ms cubic-bezier(0.33, 1, 0.68, 1),
+    box-shadow 160ms cubic-bezier(0.33, 1, 0.68, 1),
+    border-color 160ms ease-out,
+    background-color 160ms ease-out,
+    background-image 160ms ease-out,
+    color 160ms ease-out,
+    opacity 160ms ease-out;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 240, 0.35),
+    inset 0 -3px 0 rgba(68, 64, 60, 0.18),
+    0 6px 0 rgba(120, 113, 108, 0.5),
+    0 9px 18px -6px rgba(41, 37, 36, 0.32);
+}
+
+/* Steinfläche: warmer, matter Verlauf statt Glanz. */
+:where(
+  button:not(.lifexp-thought-bubble),
+  a.lifexp-pressable-3d,
+  a.rounded-2xl.border-2,
+  a.rounded-xl.border-2,
+  a.rounded-full.border-2
+)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    168deg,
+    rgba(255, 251, 235, 0.28) 0%,
+    rgba(231, 229, 228, 0.1) 42%,
+    rgba(87, 83, 78, 0.14) 100%
+  );
+}
+
+/* Feine Steinmaserung. */
+:where(
+  button:not(.lifexp-thought-bubble),
+  a.lifexp-pressable-3d,
+  a.rounded-2xl.border-2,
+  a.rounded-xl.border-2,
+  a.rounded-full.border-2
+)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.28;
+  mix-blend-mode: multiply;
+  background-image:
+    repeating-linear-gradient(
+      7deg,
+      transparent,
+      transparent 3px,
+      rgba(68, 64, 60, 0.035) 3px,
+      rgba(68, 64, 60, 0.035) 4px
+    ),
+    repeating-linear-gradient(
+      -11deg,
+      transparent,
+      transparent 4px,
+      rgba(120, 113, 108, 0.03) 4px,
+      rgba(120, 113, 108, 0.03) 5px
+    );
+}
+
+.dark :where(
+  button:not(.lifexp-thought-bubble),
+  a.lifexp-pressable-3d,
+  a.rounded-2xl.border-2,
+  a.rounded-xl.border-2,
+  a.rounded-full.border-2
+)::before {
+  background: linear-gradient(
+    168deg,
+    rgba(214, 211, 209, 0.1) 0%,
+    rgba(68, 64, 60, 0.06) 45%,
+    rgba(12, 10, 9, 0.22) 100%
+  );
+}
+
+.dark :where(
+  button:not(.lifexp-thought-bubble),
+  a.lifexp-pressable-3d,
+  a.rounded-2xl.border-2,
+  a.rounded-xl.border-2,
+  a.rounded-full.border-2
+)::after {
+  opacity: 0.35;
+  mix-blend-mode: soft-light;
+}
+
+:where(
+  button:not(.lifexp-thought-bubble),
+  a.lifexp-pressable-3d,
+  a.rounded-2xl.border-2,
+  a.rounded-xl.border-2,
+  a.rounded-full.border-2
+) > * {
+  position: relative;
+  z-index: 1;
+}
+
+:where(button:not(:disabled), a.lifexp-pressable-3d, a.rounded-2xl.border-2, a.rounded-xl.border-2, a.rounded-full.border-2):hover {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 240, 0.22),
+    inset 0 -2px 0 rgba(68, 64, 60, 0.16),
+    0 4px 0 rgba(120, 113, 108, 0.42),
+    0 6px 14px -5px rgba(41, 37, 36, 0.26);
+}
+
+:where(button:not(:disabled), a.lifexp-pressable-3d, a.rounded-2xl.border-2, a.rounded-xl.border-2, a.rounded-full.border-2):active {
+  transform: translateY(6px) scale(0.99);
+  box-shadow:
+    inset 0 5px 12px rgba(41, 37, 36, 0.34),
+    inset 0 1px 0 rgba(255, 250, 240, 0.08),
+    0 1px 0 rgba(87, 83, 78, 0.28);
+}
+
+:where(button:disabled) {
+  transform: translateY(5px);
+  cursor: not-allowed;
+  box-shadow:
+    inset 0 4px 10px rgba(41, 37, 36, 0.22),
+    0 1px 0 rgba(87, 83, 78, 0.2);
+}
+
+.dark :where(
+  button:not(.lifexp-thought-bubble),
+  a.lifexp-pressable-3d,
+  a.rounded-2xl.border-2,
+  a.rounded-xl.border-2,
+  a.rounded-full.border-2
+) {
+  box-shadow:
+    inset 0 1px 0 rgba(214, 211, 209, 0.12),
+    inset 0 -3px 0 rgba(12, 10, 9, 0.45),
+    0 6px 0 rgba(28, 25, 23, 0.65),
+    0 9px 18px -6px rgba(0, 0, 0, 0.48);
+}
+
+.dark :where(button:not(:disabled), a.lifexp-pressable-3d, a.rounded-2xl.border-2, a.rounded-xl.border-2, a.rounded-full.border-2):hover {
+  box-shadow:
+    inset 0 1px 0 rgba(214, 211, 209, 0.08),
+    inset 0 -2px 0 rgba(12, 10, 9, 0.38),
+    0 4px 0 rgba(28, 25, 23, 0.52),
+    0 6px 14px -5px rgba(0, 0, 0, 0.4);
+}
+
+.dark :where(button:not(:disabled), a.lifexp-pressable-3d, a.rounded-2xl.border-2, a.rounded-xl.border-2, a.rounded-full.border-2):active {
+  box-shadow:
+    inset 0 5px 14px rgba(0, 0, 0, 0.58),
+    inset 0 1px 0 rgba(214, 211, 209, 0.05),
+    0 1px 0 rgba(12, 10, 9, 0.35);
+}
+
+.dark :where(button:disabled) {
+  box-shadow:
+    inset 0 4px 11px rgba(0, 0, 0, 0.48),
+    0 1px 0 rgba(12, 10, 9, 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(button, a.lifexp-pressable-3d, a.rounded-2xl.border-2, a.rounded-xl.border-2, a.rounded-full.border-2) {
+    transition-duration: 0ms;
+  }
+
+  :where(button:not(:disabled), a.lifexp-pressable-3d, a.rounded-2xl.border-2, a.rounded-xl.border-2, a.rounded-full.border-2):hover,
+  :where(button:not(:disabled), a.lifexp-pressable-3d, a.rounded-2xl.border-2, a.rounded-xl.border-2, a.rounded-full.border-2):active,
+  :where(button:disabled) {
+    transform: none;
+  }
+}
+
+/* Leichter Schraffur-Hintergrund hinter Text (Bereich: Unterpunkte ok, Ziel-XP fehlt). */
+.lifexp-area-subdone-hatch {
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    -42deg,
+    transparent,
+    transparent 5px,
+    rgb(16 185 129 / 0.07) 5px,
+    rgb(16 185 129 / 0.07) 6px
+  );
+}
+
+.dark .lifexp-area-subdone-hatch {
+  background-image: repeating-linear-gradient(
+    -42deg,
+    transparent,
+    transparent 5px,
+    rgb(52 211 153 / 0.09) 5px,
+    rgb(52 211 153 / 0.09) 6px
+  );
+}
+
+.lifexp-streak-hint,
+.lifexp-task-planner-hint {
+  animation: lifexp-streak-blink 1.05s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lifexp-streak-hint,
+  .lifexp-task-planner-hint {
+    animation: none;
+  }
+}
+
+@keyframes lifexp-streak-blink {
+  0%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.42;
+    transform: translateY(4px);
+  }
+}
+
+/* Denkblase — Positionierung in AvatarWasJetztTunThoughtBubble.tsx (Tailwind) */
+
+/* Komfortables Tippen auf Mobilgeräten */
+@media (pointer: coarse) {
+  button:not(.lifexp-thought-bubble),
+  a[role="button"] {
+    min-height: 2.75rem;
+  }
+}
+
+/* Avatar: volle PNG-Auflösung, kleiner CSS-Rahmen — scharfe Downscale auf Retina */
+.lifexp-avatar-image {
+  image-rendering: auto;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Kurze Feier auf der Startseite nach XP auf einer Unterseite */
+.lifexp-avatar-hop-wrap {
+  animation: lifexp-avatar-hop 2s ease-in-out;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lifexp-avatar-hop-wrap {
+    animation: none;
+  }
+}
+
+@keyframes lifexp-avatar-hop {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  5% {
+    transform: translate3d(0, -14px, 0);
+  }
+  10% {
+    transform: translate3d(0, 0, 0);
+  }
+  16% {
+    transform: translate3d(0, -11px, 0);
+  }
+  22% {
+    transform: translate3d(0, 0, 0);
+  }
+  30% {
+    transform: translate3d(0, -12px, 0);
+  }
+  36% {
+    transform: translate3d(0, 0, 0);
+  }
+  44% {
+    transform: translate3d(0, -8px, 0);
+  }
+  50% {
+    transform: translate3d(0, 0, 0);
+  }
+  58% {
+    transform: translate3d(0, -7px, 0);
+  }
+  64% {
+    transform: translate3d(0, 0, 0);
+  }
+  72% {
+    transform: translate3d(0, -5px, 0);
+  }
+  78% {
+    transform: translate3d(0, 0, 0);
+  }
+  86% {
+    transform: translate3d(0, -3px, 0);
+  }
+  92% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.lifexp-celebrate-emoji {
+  animation: lifexp-celebrate-emoji 2s ease-out forwards;
+  filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.15));
+}
+
+.lifexp-celebrate-emoji--delay {
+  animation-delay: 0.08s;
+  animation-fill-mode: both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lifexp-celebrate-emoji,
+  .lifexp-celebrate-emoji--delay {
+    animation: lifexp-celebrate-emoji-static 2s ease-out forwards;
+  }
+}
+
+@keyframes lifexp-celebrate-emoji {
+  0% {
+    opacity: 0;
+    transform: scale(0.65) translateY(14px);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1.12) translateY(0);
+  }
+  18% {
+    transform: scale(1) translateY(0);
+  }
+  78% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.88) translateY(-10px);
+  }
+}
+
+@keyframes lifexp-onboarding-sheet-up {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.lifexp-onboarding-sheet,
+.lifexp-bottom-sheet {
+  animation: lifexp-onboarding-sheet-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.lifexp-onboarding-sheet--static {
+  animation: none;
+  transform: none;
+}
+
+@keyframes lifexp-onboarding-sheet-reveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18%, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.lifexp-onboarding-sheet-reveal {
+  animation: lifexp-onboarding-sheet-reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lifexp-onboarding-sheet-reveal {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lifexp-onboarding-sheet,
+  .lifexp-bottom-sheet {
+    animation: none;
+  }
+}
+
+@keyframes lifexp-celebrate-emoji-static {
+  0%,
+  78% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+  }
+}
