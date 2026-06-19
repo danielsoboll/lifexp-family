@@ -1,7 +1,14 @@
 import Link from 'next/link'
 
-import type { AreaButtonStatus } from './HomeScreen'
 import { CARD_BUTTON_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
+
+export type AreaButtonStatus =
+  | 'done'
+  | 'subdone'
+  | 'attention'
+  | 'pending'
+  | 'highlight'
+  | undefined
 
 type DashboardButtonProps = {
   href: string

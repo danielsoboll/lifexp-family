@@ -1,6 +1,5 @@
 import type { AvatarGender } from './avatarLibrary'
 import { loadCachedAvatarGender } from './avatarDisplayCache'
-import { loadOnboardingDraft } from './onboardingDraft'
 
 export const APP_ICON_CROP_CENTER_FRACTION = 0.6
 
@@ -22,8 +21,6 @@ export function getAppManifestPath(gender: AvatarGender): string {
 
 export function resolveAppIconGender(preferred?: AvatarGender | null): AvatarGender {
   if (preferred) return preferred
-  const draft = loadOnboardingDraft()
-  if (draft?.avatarGender) return draft.avatarGender
   return loadCachedAvatarGender()
 }
 

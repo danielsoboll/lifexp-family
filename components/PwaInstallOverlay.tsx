@@ -3,43 +3,34 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import PwaInstallPanel from './PwaInstallPanel'
-import { LIFEXP_PROFILE_SETTINGS_CHANGED_EVENT } from '../lib/profile'
 import {
   hasPwaInstallLater,
   isStandaloneDisplayMode,
   recordPwaInstallLaterChoice,
   shouldOfferPwaInstall,
-  syncPwaInstallLaterFromProfile,
 } from '../lib/pwaInstall'
-import { getActiveUsername, LIFEXP_ACTIVE_USER_CHANGED_EVENT } from '../lib/user'
 
 export default function PwaInstallOverlay() {
   const [open, setOpen] = useState(false)
 
   const syncVisibility = useCallback(async () => {
-    if (!getActiveUsername() || isStandaloneDisplayMode()) {
+    if (isStandaloneDisplayMode()) {
       setOpen(false)
       return
     }
-    await syncPwaInstallLaterFromProfile()
     setOpen(shouldOfferPwaInstall())
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Overlay-Sichtbarkeit aus PWA-Status
     void syncVisibility()
     const onChange = () => void syncVisibility()
-    window.addEventListener(LIFEXP_ACTIVE_USER_CHANGED_EVENT, onChange)
     window.addEventListener('storage', onChange)
-    window.addEventListener(LIFEXP_PROFILE_SETTINGS_CHANGED_EVENT, onChange)
-    return () => {
-      window.removeEventListener(LIFEXP_ACTIVE_USER_CHANGED_EVENT, onChange)
-      window.removeEventListener('storage', onChange)
-      window.removeEventListener(LIFEXP_PROFILE_SETTINGS_CHANGED_EVENT, onChange)
-    }
+    return () => window.removeEventListener('storage', onChange)
   }, [syncVisibility])
 
   const handleLater = () => {
-    void recordPwaInstallLaterChoice({ persistToProfile: true }).then(() => {
+    void recordPwaInstallLaterChoice().then(() => {
       setOpen(false)
     })
   }
@@ -64,10 +55,10 @@ export default function PwaInstallOverlay() {
           id="pwa-install-title"
           className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100"
         >
-          LifeXP zum Home-Bildschirm
+          LifeXP Family zum Home-Bildschirm
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-          So startest du LifeXP wie eine App — ohne Browser-Leiste.
+          So startest du die App wie auf dem Home-Bildschirm — ohne Browser-Leiste.
         </p>
         <div className="mt-4">
           <PwaInstallPanel showLaterButton onLater={handleLater} onInstalled={handleInstalled} />

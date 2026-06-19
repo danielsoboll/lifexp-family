@@ -5,11 +5,10 @@ import {
   clearAvatarAssetPreloadCache,
 } from './avatarAsset'
 import { normalizeAvatarGender, type AvatarGender } from './avatarLibrary'
-import { getActiveUsername } from './user'
 
 export { AVATAR_ASSET_VERSION } from './avatarAsset'
 
-const KEY_PREFIX = 'lifexp_avatar_display'
+const CACHE_KEY = 'lifexp_family_avatar_display'
 
 export type AvatarDisplayCache = {
   src: string
@@ -32,11 +31,6 @@ function isAvatarSrc(value: unknown): value is string {
   return typeof value === 'string' && value.startsWith('/avatars/')
 }
 
-function cacheStorageKey(): string | null {
-  const username = getActiveUsername()
-  return username ? `${KEY_PREFIX}:${username}` : null
-}
-
 /** Intro-Bilder nicht als Startseiten-Puffer verwenden. */
 export function avatarSrcMatchesGender(src: string, avatarGender: AvatarGender): boolean {
   if (src.includes('Together')) return false
@@ -45,10 +39,8 @@ export function avatarSrcMatchesGender(src: string, avatarGender: AvatarGender):
 
 export function loadAvatarDisplayCache(): AvatarDisplayCache | null {
   if (typeof window === 'undefined') return null
-  const key = cacheStorageKey()
-  if (!key) return null
   try {
-    const raw = localStorage.getItem(key)
+    const raw = localStorage.getItem(CACHE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as {
       src?: unknown
@@ -104,12 +96,11 @@ export function getCachedAvatarDisplaySnapshot(): AvatarDisplaySnapshot {
 
 export function saveAvatarDisplayCache(entry: AvatarDisplayCache): void {
   if (typeof window === 'undefined') return
-  const key = cacheStorageKey()
-  if (!key || !isAvatarSrc(entry.src)) return
+  if (!isAvatarSrc(entry.src)) return
   const src = normalizeAvatarSrc(entry.src)
   if (!avatarSrcMatchesGender(src, entry.avatarGender)) return
   localStorage.setItem(
-    key,
+    CACHE_KEY,
     JSON.stringify({
       src,
       avatarGender: entry.avatarGender,
@@ -127,17 +118,9 @@ export function loadCachedAvatarGender(): AvatarGender {
   return getCachedAvatarDisplaySnapshot().avatarGender
 }
 
-/** Avatar-Anzeige-Puffer (localStorage) leeren. */
 export function clearAvatarDisplayCache(): void {
   if (typeof window === 'undefined') return
-  const key = cacheStorageKey()
-  if (key) localStorage.removeItem(key)
-  for (let i = localStorage.length - 1; i >= 0; i -= 1) {
-    const storageKey = localStorage.key(i)
-    if (storageKey?.startsWith(`${KEY_PREFIX}:`)) {
-      localStorage.removeItem(storageKey)
-    }
-  }
+  localStorage.removeItem(CACHE_KEY)
   clearAvatarAssetPreloadCache()
 }
 
@@ -146,7 +129,6 @@ export function preloadAvatarImage(src: string): Promise<void> {
   return preloadAvatarAsset(src)
 }
 
-/** Beim App-Start das zuletzt angezeigte Bild sofort in den Speicher laden. */
 export function warmAvatarDisplayCache(): void {
   const cached = loadAvatarDisplayCache()
   if (!cached?.src) return

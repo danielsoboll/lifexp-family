@@ -9,13 +9,11 @@ import {
   isIosDevice,
   isStandaloneDisplayMode,
   LIFEXP_PWA_INSTALL_PROMPT_READY_EVENT,
-  recordPwaInstallSuccess,
   requestPwaInstall,
   type PwaInstallResult,
 } from '../lib/pwaInstall'
 import { getAppIconPath, applyAppIcons, resolveAppIconGender } from '../lib/appIcon'
 import type { AvatarGender } from '../lib/avatarLibrary'
-import { LIFEXP_PROFILE_SETTINGS_CHANGED_EVENT } from '../lib/profile'
 
 type PwaInstallPanelProps = {
   /** „Später“ / „Vielleicht später“ — nur Overlay. */
@@ -103,9 +101,7 @@ export default function PwaInstallPanel({
   const [canInstall, setCanInstall] = useState(false)
   const [installing, setInstalling] = useState(false)
   const [hint, setHint] = useState<string | null>(null)
-  const [iconSrc, setIconSrc] = useState(() =>
-    getAppIconPath(resolveAppIconGender(avatarGender), 192),
-  )
+  const iconSrc = getAppIconPath(resolveAppIconGender(avatarGender), 192)
 
   const ios = isIosDevice()
   const android = isAndroidDevice()
@@ -118,14 +114,7 @@ export default function PwaInstallPanel({
   }, [])
 
   useEffect(() => {
-    const syncIcon = () => {
-      const gender = resolveAppIconGender(avatarGender)
-      setIconSrc(getAppIconPath(gender, 192))
-      applyAppIcons(gender)
-    }
-    syncIcon()
-    window.addEventListener(LIFEXP_PROFILE_SETTINGS_CHANGED_EVENT, syncIcon)
-    return () => window.removeEventListener(LIFEXP_PROFILE_SETTINGS_CHANGED_EVENT, syncIcon)
+    applyAppIcons(resolveAppIconGender(avatarGender))
   }, [avatarGender])
 
   const handleInstall = async () => {
@@ -147,7 +136,7 @@ export default function PwaInstallPanel({
         return
       }
       if (android && !canShowNativeInstallPrompt()) {
-        setHint('Öffne LifeXP in Chrome und warte kurz — dann erscheint „Installieren“.')
+        setHint('Öffne LifeXP Family in Chrome und warte kurz — dann erscheint „Installieren“.')
       }
     } finally {
       setInstalling(false)
@@ -157,7 +146,7 @@ export default function PwaInstallPanel({
   if (isStandaloneDisplayMode() && !showIosDoneButton) {
     return (
       <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-        ✓ LifeXP läuft bereits als App auf deinem Home-Bildschirm.
+        ✓ LifeXP Family läuft bereits als App auf deinem Home-Bildschirm.
       </p>
     )
   }
@@ -175,7 +164,7 @@ export default function PwaInstallPanel({
             priority
           />
           <p className="text-sm leading-snug text-slate-600 dark:text-slate-400">
-            LifeXP auf dem Home-Bildschirm — schneller Zugriff wie bei einer installierten App.
+            LifeXP Family auf dem Home-Bildschirm — schneller Zugriff wie bei einer installierten App.
           </p>
         </div>
       ) : null}
@@ -208,7 +197,7 @@ export default function PwaInstallPanel({
           onClick={() => void handleInstall()}
           className="lifexp-pressable-3d w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white hover:from-emerald-400 hover:to-emerald-600 disabled:opacity-60 dark:border-emerald-500"
         >
-          {installing ? 'Wird geöffnet …' : 'LifeXP installieren'}
+          {installing ? 'Wird geöffnet …' : 'LifeXP Family installieren'}
         </button>
       ) : null}
 

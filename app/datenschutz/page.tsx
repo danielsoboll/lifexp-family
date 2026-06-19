@@ -2,8 +2,8 @@ import LegalPage from '../../components/LegalPage'
 import { DATENSCHUTZ_SECTIONS } from '../../lib/legalContent'
 
 export const metadata = {
-  title: 'Datenschutz — LifeXP',
-  description: 'Datenschutzerklärung für LifeXP.',
+  title: 'Datenschutz — LifeXP Family',
+  description: 'Datenschutzerklärung für LifeXP Family.',
 }
 
 export default function DatenschutzPage() {

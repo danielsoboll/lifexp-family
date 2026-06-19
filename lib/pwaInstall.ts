@@ -10,7 +10,7 @@ export type PwaInstallResult =
 const PREFERENCE_KEY = 'lifexp_home_screen_icon'
 export const PWA_INSTALL_LATER_KEY = 'lifexp-pwa-install-later'
 export const LIFEXP_PWA_INSTALL_PROMPT_READY_EVENT = 'lifexp-pwa-install-prompt-ready'
-/** Vollbild-Overlay nach Login — vorübergehend aus (Onboarding/Ziele reichen). */
+/** Vollbild-Overlay nach Login — im Family-MVP optional. */
 export const PWA_INSTALL_OVERLAY_ENABLED = false
 
 type BeforeInstallPromptEvent = Event & {
@@ -55,14 +55,9 @@ export function isStandaloneDisplayMode(): boolean {
   )
 }
 
-/**
- * Onboarding „Erledigt!“ (iOS): aktiv, wenn die App als PWA läuft.
- * In Safari lässt sich „Zum Home-Bildschirm“ nicht prüfen — Button bleibt trotzdem klickbar.
- */
 export function isIosPwaInstallConfirmEnabled(): boolean {
   if (!isIosDevice()) return true
-  if (isStandaloneDisplayMode()) return true
-  return true
+  return isStandaloneDisplayMode() || true
 }
 
 export function isPwaInstallDetected(): boolean {
@@ -109,39 +104,19 @@ export function attachPwaInstallListener(): void {
 export async function recordPwaInstallSuccess(): Promise<void> {
   saveHomeScreenIconPreference('yes')
   clearPwaInstallLater()
-  const { getActiveUsername } = await import('./user')
-  if (!getActiveUsername()) return
-  const { updateCurrentProfileAppInstalled } = await import('./profile')
-  await updateCurrentProfileAppInstalled(true)
 }
 
-/** „Später“ nach dem Onboarding — localStorage + optional `profiles.app_later`. */
-export async function recordPwaInstallLaterChoice(options?: {
-  persistToProfile?: boolean
-}): Promise<void> {
+export async function recordPwaInstallLaterChoice(): Promise<void> {
   savePwaInstallLater()
-  if (options?.persistToProfile === false) return
-  const { getActiveUsername } = await import('./user')
-  if (!getActiveUsername()) return
-  const { updateCurrentProfileAppLater } = await import('./profile')
-  await updateCurrentProfileAppLater(true)
 }
 
-/** Beim Login: `app_later` aus Supabase in localStorage spiegeln (neues Gerät). */
 export async function syncPwaInstallLaterFromProfile(): Promise<void> {
-  const { getActiveUsername } = await import('./user')
-  if (!getActiveUsername()) return
-  const { fetchCurrentProfile } = await import('./profile')
-  const { settings } = await fetchCurrentProfile()
-  if (settings.appLater) savePwaInstallLater()
+  /* Family-MVP: nur localStorage, kein Profil-Sync. */
 }
 
 export async function syncAppInstalledProfileIfStandalone(): Promise<void> {
   if (!isStandaloneDisplayMode()) return
-  const { getActiveUsername } = await import('./user')
-  if (!getActiveUsername()) return
-  const { updateCurrentProfileAppInstalled } = await import('./profile')
-  await updateCurrentProfileAppInstalled(true)
+  await recordPwaInstallSuccess()
 }
 
 export async function requestPwaInstall(): Promise<PwaInstallResult> {

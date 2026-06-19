@@ -7,8 +7,8 @@ import PwaInstallListener from "../components/PwaInstallListener";
 import PwaInstallOverlay from "../components/PwaInstallOverlay";
 import PwaSessionBootstrap from "../components/PwaSessionBootstrap";
 import SessionGate from "../components/SessionGate";
-import YesterdayModeBanner from "../components/YesterdayModeBanner";
-import { clientStorageBootstrapScript } from "../lib/clientStorageBootstrap";
+import { AuthProvider } from "../components/AuthProvider";
+import { FamilyProvider } from "../components/FamilyProvider";
 import { productionDomainFreshStartScript } from "../lib/productionDomainFreshStart";
 import {
   THEME_FALLBACK_BG_DARK,
@@ -27,12 +27,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LifeXP",
-  description: "XP, Level und Bereiche – dein Fortschritt im Überblick.",
-  applicationName: "LifeXP",
+  title: "LifeXP Family",
+  description: "Quests, XP und Belohnungen für die ganze Familie.",
+  applicationName: "LifeXP Family",
   appleWebApp: {
     capable: true,
-    title: "LifeXP",
+    title: "LifeXP Family",
     statusBarStyle: "black-translucent",
   },
   icons: {
@@ -84,58 +84,13 @@ const themeInitScript = `
 
 const productionFreshStartScript = productionDomainFreshStartScript();
 
-const storageBootstrapScript = clientStorageBootstrapScript();
-
 const appIconInitScript = `
 (function () {
   try {
-    var gender = "male";
-    var draftRaw = localStorage.getItem("lifexp_onboarding_draft");
-    if (!draftRaw) {
-      var odPrefix = "lifexp_od=";
-      var cookies = document.cookie.split(";");
-      for (var ci = 0; ci < cookies.length; ci++) {
-        var cp = cookies[ci].trim();
-        if (cp.indexOf(odPrefix) === 0) {
-          draftRaw = decodeURIComponent(cp.slice(odPrefix.length));
-          if (draftRaw) localStorage.setItem("lifexp_onboarding_draft", draftRaw);
-          break;
-        }
-      }
-    }
-    if (draftRaw) {
-      try {
-        var draft = JSON.parse(draftRaw);
-        if (draft.avatarGender === "female") gender = "female";
-        else if (draft.avatarGender === "male") gender = "male";
-      } catch (e) {}
-    }
-    if (gender === "male") {
-      var username = (localStorage.getItem("lifexp_username") || "").trim().toLowerCase();
-      if (!username) {
-        var uPrefix = "lifexp_u=";
-        var uCookies = document.cookie.split(";");
-        for (var ui = 0; ui < uCookies.length; ui++) {
-          var up = uCookies[ui].trim();
-          if (up.indexOf(uPrefix) === 0) {
-            username = decodeURIComponent(up.slice(uPrefix.length)).trim().toLowerCase();
-            if (username) localStorage.setItem("lifexp_username", username);
-            break;
-          }
-        }
-      }
-      if (username) {
-        var raw = localStorage.getItem("lifexp_avatar_display:" + username);
-        if (raw) {
-          var parsed = JSON.parse(raw);
-          if (parsed.avatarGender === "female") gender = "female";
-        }
-      }
-    }
-    var icon180 = gender === "female" ? "/icon-female-180.png" : "/icon-180.png";
-    var icon192 = gender === "female" ? "/icon-female-192.png" : "/icon-192.png";
-    var icon512 = gender === "female" ? "/icon-female-512.png" : "/icon-512.png";
-    var manifest = gender === "female" ? "/manifest-female.webmanifest" : "/manifest-male.webmanifest";
+    var icon180 = "/icon-180.png";
+    var icon192 = "/icon-192.png";
+    var icon512 = "/icon-512.png";
+    var manifest = "/manifest-male.webmanifest";
     function setLink(rel, href, sizes) {
       var sel = rel === "manifest" ? 'link[rel="manifest"]' : 'link[rel="' + rel + '"]';
       var link = document.querySelector(sel);
@@ -169,17 +124,19 @@ export default function RootLayout({
     >
       <body className="min-h-dvh text-slate-900 dark:text-slate-100">
         <script dangerouslySetInnerHTML={{ __html: productionFreshStartScript }} />
-        <script dangerouslySetInnerHTML={{ __html: storageBootstrapScript }} />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <script dangerouslySetInnerHTML={{ __html: appIconInitScript }} />
         <PwaSessionBootstrap />
         <PwaInstallListener />
         <PwaIconSync />
-        <SessionGate>
-          {children}
-          <PwaInstallOverlay />
-          <YesterdayModeBanner />
-        </SessionGate>
+        <AuthProvider>
+          <FamilyProvider>
+            <SessionGate>
+              {children}
+              <PwaInstallOverlay />
+            </SessionGate>
+          </FamilyProvider>
+        </AuthProvider>
       </body>
     </html>
   );
