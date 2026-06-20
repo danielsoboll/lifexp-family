@@ -20,7 +20,7 @@ import {
   taskDateToQuestDayChoice,
   type QuestDayChoice,
 } from '../lib/family/questRules'
-import { fetchMemberXpBudget } from '../lib/family/questXpBudget'
+import { assigneesForFamilyQuestXpBudget, fetchMemberXpBudget } from '../lib/family/questXpBudget'
 import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 type QuestEditSheetProps = {
@@ -77,18 +77,24 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
     [assigneeChoice, parents, children, excludeMember],
   )
 
+  const familyWide = assigneeChoice?.mode === 'all'
+  const budgetAssignees = useMemo(
+    () => assigneesForFamilyQuestXpBudget(selectedAssignees, familyWide, excludeMember),
+    [selectedAssignees, familyWide, excludeMember],
+  )
+
   const taskDate = questDayChoiceToDateKey(dayChoice)
   const maxSliderXp = remainingXp === null ? 10 : Math.min(10, Math.max(1, remainingXp))
 
   useEffect(() => {
-    if (!family || !quest || !open || !editable || selectedAssignees.length === 0) {
+    if (!family || !quest || !open || !editable || budgetAssignees.length === 0) {
       setRemainingXp(null)
       return
     }
     let cancelled = false
     void (async () => {
       let minRemaining = Number.POSITIVE_INFINITY
-      for (const assignee of selectedAssignees) {
+      for (const assignee of budgetAssignees) {
         const { budget, error: budgetError } = await fetchMemberXpBudget({
           familyId: family.id,
           memberType: assignee.type,
@@ -111,7 +117,7 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
     return () => {
       cancelled = true
     }
-  }, [family, quest, open, editable, selectedAssignees, taskDate])
+  }, [family, quest, open, editable, budgetAssignees, taskDate])
 
   if (!open || !quest || !family) return null
 
@@ -236,7 +242,7 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
                 value={xpReward}
                 onChange={setXpReward}
                 maxAllowed={maxSliderXp}
-                disabled={selectedAssignees.length > 0 && remainingXp === 0}
+                disabled={budgetAssignees.length > 0 && remainingXp === 0}
               />
               {error ? (
                 <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
@@ -245,7 +251,7 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
               ) : null}
               <button
                 type="submit"
-                disabled={loading || selectedAssignees.length === 0 || remainingXp === 0}
+                disabled={loading || selectedAssignees.length === 0 || (budgetAssignees.length > 0 && remainingXp === 0)}
                 className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 font-bold text-white disabled:opacity-60`}
               >
                 {loading ? 'Wird gespeichert …' : 'Änderungen speichern'}

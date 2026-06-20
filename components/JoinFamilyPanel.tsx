@@ -1,14 +1,29 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import OnboardingProfileFields from './OnboardingProfileFields'
 import OnboardingPwaStep from './OnboardingPwaStep'
 import OnboardingRecoveryStep from './OnboardingRecoveryStep'
+import OpenPwaHint from './OpenPwaHint'
 import QrCodeScanner from './QrCodeScanner'
 import { useFamily } from './FamilyProvider'
+import { useFamilyOnboardingBridge } from '../hooks/useFamilyOnboardingBridge'
 import { joinFamilyWithInviteCode } from '../lib/family/families'
+import { updateMemberAppInstalled, updateMemberAppLater } from '../lib/family/memberSettings'
+import {
+  bootstrapOnboardingBridge,
+  flushOnboardingBridge,
+  persistFamilyOnboardingDraft,
+} from '../lib/family/onboardingBridge'
+import {
+  clearFamilyOnboardingDraft,
+  loadFamilyOnboardingDraft,
+  mergeJoinStep,
+  type FamilyOnboardingDraft,
+  type JoinOnboardingStep,
+} from '../lib/family/onboardingDraft'
 import { parseAgeInput } from '../lib/family/memberGender'
 import {
   onboardingProfileFromForm,
@@ -16,79 +31,272 @@ import {
   type OnboardingMemberGender,
 } from '../lib/family/onboardingMember'
 import { normalizeInviteCodeInput, parseInviteCodeFromQr } from '../lib/parseInviteCode'
-import { PRESSABLE_3D_CLASS } from '../lib/appShell'
-
-type JoinStep = 'choice' | 'code' | 'scan' | 'confirm' | 'install' | 'recovery'
+import type { FamilySession } from '../lib/familySession'
+import { isStandaloneDisplayMode } from '../lib/pwaInstall'
+import { FORM_FIELD_INPUT_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
+import { oneLineTextInputProps } from '../lib/formInputAutofill'
 
 type JoinFamilyPanelProps = {
   onBack: () => void
 }
 
+type JoinState = {
+  step: JoinOnboardingStep
+  inviteCode: string
+  displayName: string
+  gender: OnboardingMemberGender
+  ageInput: string
+  recoveryCode: string
+  pendingSession: FamilySession | null
+  pwaInstallAcknowledged: boolean
+}
+
+function joinStateFromDraft(): JoinState {
+  const draft = loadFamilyOnboardingDraft()
+  if (draft?.mode !== 'join') {
+    return {
+      step: 'choice',
+      inviteCode: '',
+      displayName: '',
+      gender: 'male',
+      ageInput: '',
+      recoveryCode: '',
+      pendingSession: null,
+      pwaInstallAcknowledged: false,
+    }
+  }
+
+  return {
+    step: draft.step,
+    inviteCode: draft.inviteCode,
+    displayName: draft.displayName,
+    gender: draft.gender,
+    ageInput: draft.ageInput,
+    recoveryCode: draft.recoveryCode ?? '',
+    pendingSession: draft.pendingSession ?? null,
+    pwaInstallAcknowledged: draft.pwaInstallAcknowledged === true,
+  }
+}
+
 export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
   const router = useRouter()
-  const { setSession, session } = useFamily()
-  const [step, setStep] = useState<JoinStep>('choice')
+  const { setSession } = useFamily()
+  const draftHydratedRef = useRef(false)
+  const standaloneInstallResumeRef = useRef(false)
+  const [step, setStep] = useState<JoinOnboardingStep>('choice')
   const [inviteCode, setInviteCode] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [gender, setGender] = useState<OnboardingMemberGender>('male')
   const [ageInput, setAgeInput] = useState('')
   const [recoveryCode, setRecoveryCode] = useState('')
+  const [pendingSession, setPendingSession] = useState<FamilySession | null>(null)
+  const [pwaInstallAcknowledged, setPwaInstallAcknowledged] = useState(false)
+  const [showOpenPwaHint, setShowOpenPwaHint] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  const buildDraft = useCallback((): FamilyOnboardingDraft => {
+    return {
+      version: 1,
+      incomplete: true,
+      hasStarted: true,
+      mode: 'join',
+      step,
+      inviteCode,
+      displayName,
+      gender,
+      ageInput,
+      pwaInstallAcknowledged,
+      recoveryCode: recoveryCode || undefined,
+      pendingSession: pendingSession ?? undefined,
+    }
+  }, [step, inviteCode, displayName, gender, ageInput, pwaInstallAcknowledged, recoveryCode, pendingSession])
+
+  const persistDraft = useCallback(
+    (patch?: Partial<Extract<FamilyOnboardingDraft, { mode: 'join' }>>) => {
+      const draft = { ...buildDraft(), ...patch } as Extract<FamilyOnboardingDraft, { mode: 'join' }>
+      persistFamilyOnboardingDraft(draft)
+      flushOnboardingBridge()
+    },
+    [buildDraft],
+  )
+
+  const applyDraftSnapshot = useCallback((snapshot: JoinState) => {
+    setStep((current) => mergeJoinStep(current, snapshot.step))
+    setInviteCode(snapshot.inviteCode)
+    setDisplayName(snapshot.displayName)
+    setGender(snapshot.gender)
+    setAgeInput(snapshot.ageInput)
+    setRecoveryCode(snapshot.recoveryCode)
+    setPendingSession(snapshot.pendingSession)
+    setPwaInstallAcknowledged(snapshot.pwaInstallAcknowledged)
+    setShowOpenPwaHint(false)
+  }, [])
+
+  const resyncFromStorage = useCallback(() => {
+    bootstrapOnboardingBridge()
+    const draft = loadFamilyOnboardingDraft()
+    if (draft?.mode !== 'join') return
+    applyDraftSnapshot({
+      step: draft.step,
+      inviteCode: draft.inviteCode,
+      displayName: draft.displayName,
+      gender: draft.gender,
+      ageInput: draft.ageInput,
+      recoveryCode: draft.recoveryCode ?? '',
+      pendingSession: draft.pendingSession ?? null,
+      pwaInstallAcknowledged: draft.pwaInstallAcknowledged === true,
+    })
+  }, [applyDraftSnapshot])
+
+  useFamilyOnboardingBridge({ onResume: resyncFromStorage })
+
+  useEffect(() => {
+    if (draftHydratedRef.current) return
+    draftHydratedRef.current = true
+    bootstrapOnboardingBridge()
+    applyDraftSnapshot(joinStateFromDraft())
+  }, [applyDraftSnapshot])
+
+  useEffect(() => {
+    persistFamilyOnboardingDraft(buildDraft())
+  }, [buildDraft])
+
   const finishOnboarding = () => {
+    if (pendingSession) setSession(pendingSession)
+    clearFamilyOnboardingDraft()
+    flushOnboardingBridge()
     router.replace('/')
     router.refresh()
   }
 
-  const validateProfile = () => {
-    const age = parseAgeInput(ageInput)
-    return onboardingProfileFromForm({ displayName, gender, age })
+  const handleBackToWelcome = () => {
+    if (step === 'choice') {
+      clearFamilyOnboardingDraft()
+      flushOnboardingBridge()
+    }
+    onBack()
   }
 
-  const proceedToInstall = (code: string) => {
-    setError(null)
-    const { profile, error: profileError } = validateProfile()
+  const ensureJoined = async (code: string): Promise<{ session: FamilySession; recoveryCode: string } | null> => {
+    const normalized = normalizeInviteCodeInput(code)
+    if (!normalized) {
+      setError('Bitte einen Einladungscode eingeben.')
+      return null
+    }
+
+    if (pendingSession && recoveryCode) {
+      return { session: pendingSession, recoveryCode }
+    }
+
+    const age = parseAgeInput(ageInput)
+    const { profile, error: profileError } = onboardingProfileFromForm({ displayName, gender, age })
     if (profileError || !profile) {
       setError(profileError ?? 'Profil unvollständig.')
-      return
+      return null
     }
-    setInviteCode(normalizeInviteCodeInput(code))
-    setStep('install')
-  }
 
-  const submitJoin = async (code: string, devicePrefs: OnboardingDevicePrefs) => {
     setLoading(true)
     setError(null)
-
-    const { profile, error: profileError } = validateProfile()
-    if (profileError || !profile) {
-      setLoading(false)
-      setError(profileError ?? 'Profil unvollständig.')
-      setStep('code')
-      return
-    }
-
-    const { result, error: joinError } = await joinFamilyWithInviteCode(code, profile, devicePrefs)
-
+    const { result, error: joinError } = await joinFamilyWithInviteCode(normalized, profile, {
+      appInstalled: false,
+      appLater: false,
+    })
     setLoading(false)
+
     if (joinError) {
       setError(joinError.message)
-      return
+      return null
     }
     if (!result) {
       setError('Verbindung fehlgeschlagen.')
+      return null
+    }
+
+    setInviteCode(normalized)
+    setPendingSession(result.session)
+    setRecoveryCode(result.recoveryCode)
+    persistDraft({
+      inviteCode: normalized,
+      pendingSession: result.session,
+      recoveryCode: result.recoveryCode,
+      step: 'install',
+    })
+    return { session: result.session, recoveryCode: result.recoveryCode }
+  }
+
+  const syncDevicePrefs = async (session: FamilySession, prefs: OnboardingDevicePrefs) => {
+    await updateMemberAppInstalled(session.memberKind, session.memberId, prefs.appInstalled)
+    await updateMemberAppLater(session.memberKind, session.memberId, prefs.appLater)
+  }
+
+  const advanceToRecovery = async (code: string, prefs?: OnboardingDevicePrefs) => {
+    const joined = await ensureJoined(code)
+    if (!joined) return
+
+    if (prefs) await syncDevicePrefs(joined.session, prefs)
+
+    setShowOpenPwaHint(false)
+    setPwaInstallAcknowledged(true)
+    persistDraft({
+      step: 'recovery',
+      pwaInstallAcknowledged: true,
+      pendingSession: joined.session,
+      recoveryCode: joined.recoveryCode,
+    })
+    setStep('recovery')
+  }
+
+  useEffect(() => {
+    if (standaloneInstallResumeRef.current) return
+    if (step !== 'install' || !inviteCode.trim()) return
+    if (!isStandaloneDisplayMode()) return
+    if (!pendingSession || !recoveryCode) return
+
+    standaloneInstallResumeRef.current = true
+    setShowOpenPwaHint(false)
+    setPwaInstallAcknowledged(true)
+    void syncDevicePrefs(pendingSession, { appInstalled: true, appLater: false }).finally(() => {
+      persistDraft({ step: 'recovery', pwaInstallAcknowledged: true })
+      setStep('recovery')
+    })
+  }, [step, inviteCode, pendingSession, recoveryCode, persistDraft])
+
+  const proceedToInstall = async (code: string) => {
+    const joined = await ensureJoined(code)
+    if (!joined) return
+    persistDraft({ step: 'install' })
+    setStep('install')
+  }
+
+  const handleInstallDone = async () => {
+    const joined = await ensureJoined(inviteCode)
+    if (!joined) return
+
+    setPwaInstallAcknowledged(true)
+    persistDraft({ pwaInstallAcknowledged: true })
+
+    if (isStandaloneDisplayMode()) {
+      await advanceToRecovery(inviteCode, { appInstalled: true, appLater: false })
       return
     }
 
-    setSession(result.session)
-    setRecoveryCode(result.recoveryCode)
-    setStep('recovery')
+    setShowOpenPwaHint(true)
+  }
+
+  const handleContinueInBrowserFromPwaHint = () => {
+    void advanceToRecovery(inviteCode, { appInstalled: true, appLater: false })
+  }
+
+  const handleCloseTabFromPwaHint = () => {
+    persistDraft({ pwaInstallAcknowledged: true })
+    flushOnboardingBridge()
+    window.close()
   }
 
   const handleCodeSubmit = (event: React.FormEvent) => {
     event.preventDefault()
-    proceedToInstall(inviteCode)
+    void proceedToInstall(inviteCode)
   }
 
   const handleScannedCode = (raw: string) => {
@@ -115,32 +323,46 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
 
   if (step === 'install') {
     return (
-      <div className="space-y-4">
-        <button
-          type="button"
-          onClick={() => setStep(inviteCode ? 'confirm' : 'code')}
-          className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
-        >
-          ← Zurück
-        </button>
-        {error ? (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
-            {error}
-          </p>
+      <>
+        {showOpenPwaHint ? (
+          <OpenPwaHint
+            onContinueInBrowser={handleContinueInBrowserFromPwaHint}
+            onCloseTab={handleCloseTabFromPwaHint}
+          />
         ) : null}
-        <OnboardingPwaStep
-          onContinue={(prefs) => void submitJoin(inviteCode, prefs)}
-          disabled={loading}
-        />
-      </div>
+        <div className="space-y-4">
+          <button
+            type="button"
+            onClick={() => setStep(inviteCode ? 'confirm' : 'code')}
+            className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+          >
+            ← Zurück
+          </button>
+          {inviteCode ? (
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              Code: <span className="font-mono font-semibold text-slate-900 dark:text-slate-100">{inviteCode}</span>
+            </p>
+          ) : null}
+          {error ? (
+            <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+              {error}
+            </p>
+          ) : null}
+          <OnboardingPwaStep
+            onInstallDone={() => void handleInstallDone()}
+            onInstallLater={() => void advanceToRecovery(inviteCode, { appInstalled: false, appLater: true })}
+            disabled={loading}
+          />
+        </div>
+      </>
     )
   }
 
-  if (step === 'recovery' && session) {
+  if (step === 'recovery' && pendingSession && recoveryCode) {
     return (
       <OnboardingRecoveryStep
         recoveryCode={recoveryCode}
-        session={session}
+        session={pendingSession}
         onFinished={finishOnboarding}
       />
     )
@@ -151,7 +373,7 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
       <div className="space-y-4">
         <button
           type="button"
-          onClick={onBack}
+          onClick={handleBackToWelcome}
           className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
         >
           ← Zurück
@@ -228,9 +450,10 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
         ) : null}
         <button
           type="submit"
-          className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white`}
+          disabled={loading}
+          className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white disabled:opacity-45`}
         >
-          Weiter
+          {loading ? 'Wird verbunden …' : 'Weiter'}
         </button>
       </form>
     )
@@ -254,7 +477,6 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
         </label>
         <input
           id="join-invite-code"
-          type="text"
           required
           maxLength={40}
           autoComplete="off"
@@ -262,7 +484,8 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
           placeholder="z. B. ABCD-1234"
           value={inviteCode}
           onChange={(e) => setInviteCode(e.target.value)}
-          className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 font-mono text-slate-900 uppercase dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+          className={`${FORM_FIELD_INPUT_CLASS} font-mono uppercase`}
+          {...oneLineTextInputProps('lifexp-join-invite-code')}
         />
       </div>
       {profileFields}
@@ -273,9 +496,10 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
       ) : null}
       <button
         type="submit"
-        className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white`}
+        disabled={loading}
+        className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white disabled:opacity-45`}
       >
-        Weiter
+        {loading ? 'Wird verbunden …' : 'Weiter'}
       </button>
     </form>
   )

@@ -2,12 +2,12 @@
 
 import { useEffect } from 'react'
 
-import { applyAppIcons, resolveAppIconGender } from '../lib/appIcon'
+import { applyAppIcons } from '../lib/appIcon'
 
-/** Homescreen-Icon / Manifest (vereinfachtes Family-MVP). */
+/** Homescreen-Icon / Manifest — immer Happy_all-Familienportrait. */
 export default function PwaIconSync() {
   useEffect(() => {
-    applyAppIcons(resolveAppIconGender())
+    applyAppIcons()
   }, [])
 
   return null

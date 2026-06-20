@@ -17,6 +17,8 @@ import { clearFamilySession } from '../../lib/familySession'
 import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../../lib/appShell'
 import { formatParentDisplayName } from '../../lib/family/familyDisplayName'
 
+const ADMIN_ADD_LINK_CLASS = `${PRESSABLE_3D_CLASS} flex w-full items-center justify-center rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3.5 text-base font-bold text-white shadow-[0_4px_14px_-4px_rgba(5,150,105,0.55)] ring-1 ring-emerald-400/30 dark:border-emerald-500 dark:ring-emerald-600/40`
+
 export default function AdminPage() {
   const router = useRouter()
   const { family, parent, activeChild, parents, children, loading, error, canAdmin, refresh } = useFamily()
@@ -103,6 +105,52 @@ export default function AdminPage() {
             </p>
           </section>
 
+          <section className="mb-4 space-y-3">
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Erwachsene</h2>
+            <Link href="/admin/adults/new" className={ADMIN_ADD_LINK_CLASS}>
+              + Erwachsenen hinzufügen
+            </Link>
+            <div className="space-y-2">
+              {parents.map((p) => (
+                <ParentMemberEditor key={p.id} member={p} />
+              ))}
+            </div>
+          </section>
+
+          <section className="mb-4 space-y-3">
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+              Kinder <span className="text-sm font-normal text-slate-500">({children.length}/6)</span>
+            </h2>
+            <Link href="/children/new" className={ADMIN_ADD_LINK_CLASS}>
+              + Kind hinzufügen
+            </Link>
+
+            {childDeleteError ? (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+                {childDeleteError}
+              </p>
+            ) : null}
+
+            {children.length === 0 ? (
+              <p className="text-sm text-slate-600 dark:text-slate-400">Noch keine Kinder.</p>
+            ) : (
+              <div className="space-y-2">
+                {children.map((child) => (
+                  <div key={child.id} className="space-y-1.5">
+                    <ChildMemberEditor child={child} />
+                    <DangerConfirmAction
+                      triggerLabel="Familienmitglied entfernen"
+                      confirmTitle={`${child.display_name} wirklich entfernen?`}
+                      confirmDescription="Profil, Quest-Fortschritt und XP-Einträge dieses Kindes werden unwiderruflich gelöscht."
+                      onConfirm={() => handleDeleteChild(child.id)}
+                      busy={childDeleteBusy === child.id}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
           {family ? (
             <div className="mb-4">
               <FamilyQuestAccentEditor family={family} />
@@ -132,62 +180,6 @@ export default function AdminPage() {
               />
             </div>
           ) : null}
-
-          <section className="mb-4 space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Erwachsene</h2>
-              <Link
-                href="/admin/adults/new"
-                className={`${PRESSABLE_3D_CLASS} shrink-0 rounded-full border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-3 py-1.5 text-xs font-bold text-white`}
-              >
-                + Hinzufügen
-              </Link>
-            </div>
-            <div className="space-y-2">
-              {parents.map((p) => (
-                <ParentMemberEditor key={p.id} member={p} />
-              ))}
-            </div>
-          </section>
-
-          <section className="mb-4 space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Kinder <span className="text-sm font-normal text-slate-500">({children.length}/6)</span>
-              </h2>
-              <Link
-                href="/children/new"
-                className={`${PRESSABLE_3D_CLASS} shrink-0 rounded-full border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-3 py-1.5 text-xs font-bold text-white`}
-              >
-                + Hinzufügen
-              </Link>
-            </div>
-
-            {childDeleteError ? (
-              <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
-                {childDeleteError}
-              </p>
-            ) : null}
-
-            {children.length === 0 ? (
-              <p className="text-sm text-slate-600 dark:text-slate-400">Noch keine Kinder.</p>
-            ) : (
-              <div className="space-y-2">
-                {children.map((child) => (
-                  <div key={child.id} className="space-y-1.5">
-                    <ChildMemberEditor child={child} />
-                    <DangerConfirmAction
-                      triggerLabel="Familienmitglied entfernen"
-                      confirmTitle={`${child.display_name} wirklich entfernen?`}
-                      confirmDescription="Profil, Quest-Fortschritt und XP-Einträge dieses Kindes werden unwiderruflich gelöscht."
-                      onConfirm={() => handleDeleteChild(child.id)}
-                      busy={childDeleteBusy === child.id}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
 
           <section aria-label="Gefährliche Aktionen" className="pt-2">
             <DangerConfirmAction

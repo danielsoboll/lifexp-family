@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -15,6 +16,10 @@ import { fetchFamilyById, fetchParentById } from '../lib/family/families'
 import { sessionHasAdminAccess } from '../lib/family/memberAdmin'
 import { fetchMemberRoleForParent, fetchParentsForFamily, isAdminRole, type ParentMember } from '../lib/family/members'
 import { fetchTodayXpTotalsForFamily } from '../lib/family/xp'
+import {
+  bootstrapClientStorageFromCookies,
+  mirrorBridgedStorageToCookies,
+} from '../lib/clientStorageBootstrap'
 import {
   FAMILY_SESSION_CHANGED_EVENT,
   clearFamilySession,
@@ -57,12 +62,16 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [session, setSessionState] = useState<FamilySession | null>(null)
+  const loadedOnceRef = useRef(false)
 
   const refresh = useCallback(async () => {
+    bootstrapClientStorageFromCookies()
+    mirrorBridgedStorageToCookies()
     const stored = readFamilySession()
     setSessionState(stored)
 
     if (!stored) {
+      loadedOnceRef.current = false
       setFamily(null)
       setParent(null)
       setActiveChild(null)
@@ -75,7 +84,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    setLoading(true)
+    if (!loadedOnceRef.current) {
+      setLoading(true)
+    }
     setError(null)
     setMemberKind(stored.memberKind)
 
@@ -220,6 +231,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         : childRows.map((c) => ({ ...c, todayXp: childTotals[c.id] ?? 0 })),
     )
     if (xpError) setError(xpError.message)
+    loadedOnceRef.current = true
     setLoading(false)
   }, [])
 

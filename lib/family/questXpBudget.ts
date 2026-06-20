@@ -146,3 +146,16 @@ export async function fetchMemberXpBudget(input: {
 function emptyBudget(): MemberXpBudget {
   return { earnedXp: 0, scheduledXp: 0, remainingXp: MEMBER_DAILY_XP_MAX, maxXp: MEMBER_DAILY_XP_MAX }
 }
+
+/** Bei Familien-Quests zählt das Tages-XP-Limit des Erstellers nicht für Button/Validierung. */
+export function assigneesForFamilyQuestXpBudget(
+  assignees: QuestAssignee[],
+  familyWide: boolean,
+  sessionMember: QuestAssignee | null | undefined,
+): QuestAssignee[] {
+  if (!familyWide || !sessionMember || assignees.length <= 1) return assignees
+  const filtered = assignees.filter(
+    (assignee) => !(assignee.type === sessionMember.type && assignee.id === sessionMember.id),
+  )
+  return filtered.length > 0 ? filtered : assignees
+}

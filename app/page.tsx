@@ -1,24 +1,34 @@
 'use client'
 
+import { useEffect } from 'react'
+
 import FamilyDashboard from '../components/FamilyDashboard'
 import WelcomeStartScreen from '../components/WelcomeStartScreen'
 import { useFamily } from '../components/FamilyProvider'
-import { MAIN_SHELL_CLASS } from '../lib/appShell'
+import { bootstrapOnboardingBridge } from '../lib/family/onboardingBridge'
 
 export default function HomePage() {
-  const { hasSession, loading } = useFamily()
+  const { hasSession } = useFamily()
 
-  if (loading && !hasSession) {
-    return (
-      <main className={`${MAIN_SHELL_CLASS} flex min-h-dvh items-center justify-center text-sm text-slate-600 dark:text-slate-400`}>
-        <p>Wird geladen …</p>
-      </main>
-    )
+  useEffect(() => {
+    bootstrapOnboardingBridge()
+
+    const onResume = () => {
+      if (document.visibilityState === 'hidden') return
+      bootstrapOnboardingBridge()
+    }
+
+    window.addEventListener('pageshow', onResume)
+    document.addEventListener('visibilitychange', onResume)
+    return () => {
+      window.removeEventListener('pageshow', onResume)
+      document.removeEventListener('visibilitychange', onResume)
+    }
+  }, [])
+
+  if (hasSession) {
+    return <FamilyDashboard />
   }
 
-  if (!hasSession) {
-    return <WelcomeStartScreen />
-  }
-
-  return <FamilyDashboard />
+  return <WelcomeStartScreen />
 }

@@ -7,6 +7,28 @@ type AssignmentRow = {
   assignee_id: string
 }
 
+export function isQuestAssignmentsTableMissingError(error: { message?: string; code?: string }): boolean {
+  return Boolean(
+    error.message?.includes('quest_assignments') ||
+      error.message?.includes('schema cache') ||
+      error.code === 'PGRST205',
+  )
+}
+
+export async function questAssignmentsTableReady(): Promise<{ ready: boolean; error: Error | null }> {
+  const { error } = await supabase.from('quest_assignments').select('quest_id').limit(0)
+  if (!error) return { ready: true, error: null }
+  if (isQuestAssignmentsTableMissingError(error)) {
+    return {
+      ready: false,
+      error: new Error(
+        'Familien-Quests („Alle“) benötigen die SQL-Migration — Abschnitt 4 in supabase/pending_migrations.sql im Supabase SQL Editor ausführen.',
+      ),
+    }
+  }
+  return { ready: false, error: new Error(error.message) }
+}
+
 export async function fetchQuestAssignmentsForQuests(
   questIds: string[],
 ): Promise<{ assignmentsByQuest: Map<string, QuestAssignee[]>; error: Error | null }> {
@@ -19,7 +41,7 @@ export async function fetchQuestAssignmentsForQuests(
     .in('quest_id', questIds)
 
   if (error) {
-    if (error.message.includes('quest_assignments') || error.code === 'PGRST205') {
+    if (isQuestAssignmentsTableMissingError(error)) {
       return { assignmentsByQuest: map, error: null }
     }
     return { assignmentsByQuest: map, error: new Error(error.message) }
@@ -39,7 +61,7 @@ export async function replaceQuestAssignments(
   assignees: QuestAssignee[],
 ): Promise<{ error: Error | null }> {
   const { error: deleteError } = await supabase.from('quest_assignments').delete().eq('quest_id', questId)
-  if (deleteError && !deleteError.message.includes('quest_assignments')) {
+  if (deleteError && !isQuestAssignmentsTableMissingError(deleteError)) {
     return { error: new Error(deleteError.message) }
   }
 
@@ -53,8 +75,8 @@ export async function replaceQuestAssignments(
 
   const { error } = await supabase.from('quest_assignments').insert(rows)
   if (error) {
-    if (error.message.includes('quest_assignments') || error.code === 'PGRST205') {
-      return { error: new Error('Quest-Zuweisungen benötigen supabase/quest_assignments_migration.sql.') }
+    if (isQuestAssignmentsTableMissingError(error)) {
+      return { error: new Error('Quest-Zuweisungen benötigen supabase/pending_migrations.sql (Abschnitt 4).') }
     }
     return { error: new Error(error.message) }
   }

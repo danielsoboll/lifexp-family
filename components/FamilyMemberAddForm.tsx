@@ -24,16 +24,14 @@ import {
 } from '../lib/family/onboardingMember'
 import { CHILD_GENDER_OPTIONS, parseAgeInput, type ChildGender, type ParentGender } from '../lib/family/memberGender'
 import { createParentForFamily } from '../lib/family/parents'
-import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
+import { CARD_SURFACE_CLASS, FORM_FIELD_INPUT_COMPACT_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
+import { displayNameInputProps, integerInputProps } from '../lib/formInputAutofill'
 
 type FamilyMemberAddFormProps = {
   familyId: string
   memberKind: 'adult' | 'child'
   onCreated?: (memberName: string) => void | Promise<void>
 }
-
-const INPUT_CLASS =
-  'w-full scroll-my-24 rounded-lg border-2 border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100'
 
 export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }: FamilyMemberAddFormProps) {
   const { refresh, children } = useFamily()
@@ -192,12 +190,12 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
             </label>
             <input
               id="member-name"
-              type="text"
               required
               maxLength={80}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className={INPUT_CLASS}
+              className={FORM_FIELD_INPUT_COMPACT_CLASS}
+              {...displayNameInputProps()}
             />
           </div>
 
@@ -243,7 +241,6 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
               </label>
               <input
                 id="member-age"
-                type="number"
                 required
                 min={0}
                 max={99}
@@ -253,7 +250,8 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
                   syncPortrait('child', childGender, parseAgeInput(e.target.value), portraitId)
                 }}
                 placeholder="z. B. 8"
-                className={INPUT_CLASS}
+                className={FORM_FIELD_INPUT_COMPACT_CLASS}
+                {...integerInputProps('lifexp-member-age')}
               />
             </div>
           ) : null}

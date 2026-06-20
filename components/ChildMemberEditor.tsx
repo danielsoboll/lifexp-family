@@ -18,14 +18,12 @@ import {
 import { formatChildAge, parseAgeInput, type ChildGender } from '../lib/family/memberGender'
 import { normalizeMemberAccentKey, type MemberAccentKey } from '../lib/family/memberAccentColor'
 import type { ChildWithTodayXp } from '../lib/family/types'
-import { CARD_SURFACE_CLASS } from '../lib/appShell'
+import { CARD_SURFACE_CLASS, FORM_FIELD_INPUT_COMPACT_CLASS } from '../lib/appShell'
+import { displayNameInputProps, integerInputProps } from '../lib/formInputAutofill'
 
 type ChildMemberEditorProps = {
   child: ChildWithTodayXp
 }
-
-const INPUT_CLASS =
-  'w-full scroll-my-24 rounded-lg border-2 border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-slate-600 dark:bg-slate-900'
 
 export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
   const { refresh } = useFamily()
@@ -113,12 +111,12 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
             </label>
             <input
               id={`child-name-${child.id}`}
-              type="text"
               required
               maxLength={80}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className={INPUT_CLASS}
+              className={FORM_FIELD_INPUT_COMPACT_CLASS}
+              {...displayNameInputProps()}
             />
           </div>
           <div>
@@ -127,7 +125,6 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
             </label>
             <input
               id={`child-age-${child.id}`}
-              type="number"
               required
               min={0}
               max={99}
@@ -137,7 +134,8 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
                 applyProfileChange(gender, parseAgeInput(e.target.value), portraitId)
               }}
               placeholder="z. B. 8"
-              className={INPUT_CLASS}
+              className={FORM_FIELD_INPUT_COMPACT_CLASS}
+              {...integerInputProps('lifexp-child-age')}
             />
           </div>
           <GenderChoice

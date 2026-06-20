@@ -5,7 +5,8 @@ import {
   isParentOnboardingGender,
   type OnboardingMemberGender,
 } from '../lib/family/onboardingMember'
-import { PRESSABLE_3D_CLASS } from '../lib/appShell'
+import { PRESSABLE_3D_CLASS, FORM_FIELD_INPUT_CLASS } from '../lib/appShell'
+import { displayNameInputProps, integerInputProps } from '../lib/formInputAutofill'
 
 type OnboardingProfileFieldsProps = {
   displayName: string
@@ -36,12 +37,12 @@ export default function OnboardingProfileFields({
         </label>
         <input
           id="onboarding-name"
-          type="text"
           required
           maxLength={80}
           value={displayName}
           onChange={(e) => onDisplayNameChange(e.target.value)}
-          className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+          className={FORM_FIELD_INPUT_CLASS}
+          {...displayNameInputProps()}
         />
       </div>
 
@@ -76,14 +77,14 @@ export default function OnboardingProfileFields({
           </label>
           <input
             id="onboarding-age"
-            type="number"
             required
             min={0}
             max={99}
             value={ageInput}
             onChange={(e) => onAgeInputChange(e.target.value)}
             placeholder="z. B. 12"
-            className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+            className={FORM_FIELD_INPUT_CLASS}
+            {...integerInputProps('lifexp-onboarding-age')}
           />
         </div>
       ) : null}

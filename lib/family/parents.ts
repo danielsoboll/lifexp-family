@@ -10,6 +10,7 @@ import {
 } from './memberAvatar'
 import { nextAccentKeyForFamily } from './memberAccentAssign'
 import { supabase } from '../supabase'
+import { familyDbError } from './dbError'
 import type { MemberAccentKey } from './memberAccentColor'
 import type { ParentGender } from './memberGender'
 import type { ParentProfile } from './types'
@@ -60,7 +61,7 @@ export async function createParentForFamily(
   })
 
   if (parentError) {
-    return { parent: null, error: new Error(parentError.message) }
+    return { parent: null, error: familyDbError(parentError.message) }
   }
 
   const { error: memberError } = await supabase.from('family_members').insert({

@@ -54,6 +54,15 @@ html {
   scroll-padding-bottom: max(5rem, calc(3rem + env(safe-area-inset-bottom)));
 }
 
+/* iOS Safari: Inputs unter 16px zoomen beim Fokus hinein */
+@supports (-webkit-touch-callout: none) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
 body {
   position: relative;
   isolation: isolate;

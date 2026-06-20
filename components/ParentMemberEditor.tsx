@@ -19,14 +19,12 @@ import {
 import { parentRoleLabel, type ParentGender } from '../lib/family/memberGender'
 import { normalizeMemberAccentKey, type MemberAccentKey } from '../lib/family/memberAccentColor'
 import type { ParentMember } from '../lib/family/members'
-import { CARD_SURFACE_CLASS } from '../lib/appShell'
+import { CARD_SURFACE_CLASS, FORM_FIELD_INPUT_COMPACT_CLASS } from '../lib/appShell'
+import { displayNameInputProps } from '../lib/formInputAutofill'
 
 type ParentMemberEditorProps = {
   member: ParentMember
 }
-
-const INPUT_CLASS =
-  'w-full scroll-my-24 rounded-lg border-2 border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-slate-600 dark:bg-slate-900'
 
 export default function ParentMemberEditor({ member }: ParentMemberEditorProps) {
   const { refresh } = useFamily()
@@ -109,12 +107,12 @@ export default function ParentMemberEditor({ member }: ParentMemberEditorProps) 
             </label>
             <input
               id={`parent-name-${member.id}`}
-              type="text"
               required
               maxLength={80}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className={INPUT_CLASS}
+              className={FORM_FIELD_INPUT_COMPACT_CLASS}
+              {...displayNameInputProps()}
             />
           </div>
           <GenderChoice kind="parent" compact value={gender} onChange={handleGenderChange} />

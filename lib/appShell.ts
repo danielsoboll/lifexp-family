@@ -34,3 +34,14 @@ export const PRESSABLE_3D_CLASS = 'lifexp-pressable-3d'
 /** Pill „Zurück“ / sekundäre Navigation. */
 export const PILL_BACK_CLASS =
   'lifexp-pressable-3d inline-flex w-fit items-center gap-1 rounded-full border-2 border-stone-400 bg-gradient-to-b from-stone-100 via-stone-200/95 to-stone-400/80 px-4 py-2.5 text-sm font-semibold text-stone-800 hover:border-stone-500 hover:from-stone-50 hover:via-stone-100 hover:to-stone-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:border-stone-600 dark:from-stone-700 dark:via-stone-800 dark:to-stone-950 dark:text-stone-100 dark:hover:border-stone-500 dark:hover:from-stone-600 dark:hover:via-stone-700 dark:hover:to-stone-900'
+
+/**
+ * Formular-Inputs — mindestens text-base (16px), sonst zoomt iOS Safari beim Tippen hinein.
+ * @see https://css-tricks.com/16px-or-larger-text-prevents-ios-form-zoom/
+ */
+export const FORM_FIELD_INPUT_CLASS =
+  'w-full scroll-my-24 rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100'
+
+/** Kompakter Admin-Look, gleiche Mindest-Schriftgröße für iOS. */
+export const FORM_FIELD_INPUT_COMPACT_CLASS =
+  'w-full scroll-my-24 rounded-lg border-2 border-slate-300 bg-white px-2.5 py-2 text-base text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100'

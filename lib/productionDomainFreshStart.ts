@@ -1,3 +1,8 @@
+import { FAMILY_SESSION_COOKIE_KEY } from './familySession'
+import {
+  FAMILY_ONBOARDING_DRAFT_COOKIE_KEY,
+  FAMILY_ONBOARDING_DRAFT_LOCAL_KEY,
+} from './family/onboardingDraft'
 import { THEME_STORAGE_KEY } from './theme'
 
 /** Erster Besuch auf der Family-Produktions-Domain abgeschlossen. */
@@ -9,9 +14,15 @@ const PRODUCTION_HOSTS = new Set(['family.life-xp.de', 'www.family.life-xp.de'])
 const PRESERVED_LOCAL_STORAGE_KEYS = new Set([
   LIFEXP_FAMILY_DOMAIN_INITIALIZED_KEY,
   THEME_STORAGE_KEY,
+  FAMILY_ONBOARDING_DRAFT_LOCAL_KEY,
 ])
 
-const PRESERVED_COOKIE_KEYS = new Set(['lifexp_t', FAMILY_INITIALIZED_COOKIE])
+const PRESERVED_COOKIE_KEYS = new Set([
+  'lifexp_t',
+  FAMILY_INITIALIZED_COOKIE,
+  FAMILY_ONBOARDING_DRAFT_COOKIE_KEY,
+  FAMILY_SESSION_COOKIE_KEY,
+])
 
 function isProductionHost(hostname: string): boolean {
   return PRODUCTION_HOSTS.has(hostname.trim().toLowerCase())
@@ -115,6 +126,13 @@ export function runProductionDomainFreshStartIfNeeded(): boolean {
     return false
   }
 
+  const draftCookie = getLifeexpCookie(FAMILY_ONBOARDING_DRAFT_COOKIE_KEY)
+  const sessionCookie = getLifeexpCookie(FAMILY_SESSION_COOKIE_KEY)
+  if (draftCookie || sessionCookie) {
+    markProductionFreshStartComplete()
+    return false
+  }
+
   clearLegacyLifeXpClientStorage()
   markProductionFreshStartComplete()
   return true
@@ -127,7 +145,7 @@ export function productionDomainFreshStartScript(): string {
   const markerCookie = JSON.stringify(FAMILY_INITIALIZED_COOKIE)
   const themeKey = JSON.stringify(THEME_STORAGE_KEY)
 
-  return `(function(){try{var hosts=new Set(${hostsJson});var host=location.hostname.toLowerCase();if(!hosts.has(host))return;var markerKey=${markerKey};var markerCookie=${markerCookie};var themeKey=${themeKey};function gc(n){var p=n+"=";var c=document.cookie.split(";");for(var i=0;i<c.length;i++){var t=c[i].trim();if(t.indexOf(p)===0)return decodeURIComponent(t.slice(p.length));}return null;}function cc(n){document.cookie=n+"=; path=/; max-age=0"+(location.protocol==="https:"?"; Secure":"");}if(localStorage.getItem(markerKey)==="1"||gc(markerCookie)==="1"){localStorage.setItem(markerKey,"1");document.cookie=markerCookie+"=1; path=/; max-age="+(60*60*24*400)+"; SameSite=Lax"+(location.protocol==="https:"?"; Secure":"");return;}var lk=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(!k||k===markerKey||k===themeKey)continue;if(k.indexOf("lifexp")===0||k==="points")lk.push(k);}for(var j=0;j<lk.length;j++)localStorage.removeItem(lk[j]);var sk=[];for(var s=0;s<sessionStorage.length;s++){var skk=sessionStorage.key(s);if(skk&&skk.indexOf("lifexp")===0)sk.push(skk);}for(var t=0;t<sk.length;t++)sessionStorage.removeItem(sk[t]);var parts=document.cookie.split(";");for(var v=0;v<parts.length;v++){var part=parts[v].trim();var eq=part.indexOf("=");if(eq<=0)continue;var name=part.slice(0,eq);if(name.indexOf("lifexp_")!==0||name==="lifexp_t")continue;cc(name);}localStorage.setItem(markerKey,"1");document.cookie=markerCookie+"=1; path=/; max-age="+(60*60*24*400)+"; SameSite=Lax"+(location.protocol==="https:"?"; Secure":"");}catch(e){}})();`
+  return `(function(){try{var hosts=new Set(${hostsJson});var host=location.hostname.toLowerCase();if(!hosts.has(host))return;var markerKey=${markerKey};var markerCookie=${markerCookie};var themeKey=${themeKey};var draftKey=${JSON.stringify(FAMILY_ONBOARDING_DRAFT_LOCAL_KEY)};var draftCookie=${JSON.stringify(FAMILY_ONBOARDING_DRAFT_COOKIE_KEY)};var sessionCookie=${JSON.stringify(FAMILY_SESSION_COOKIE_KEY)};function gc(n){var p=n+"=";var c=document.cookie.split(";");for(var i=0;i<c.length;i++){var t=c[i].trim();if(t.indexOf(p)===0)return decodeURIComponent(t.slice(p.length));}return null;}function cc(n){document.cookie=n+"=; path=/; max-age=0"+(location.protocol==="https:"?"; Secure":"");}function markDone(){localStorage.setItem(markerKey,"1");document.cookie=markerCookie+"=1; path=/; max-age="+(60*60*24*400)+"; SameSite=Lax"+(location.protocol==="https:"?"; Secure":"");}if(localStorage.getItem(markerKey)==="1"||gc(markerCookie)==="1"){markDone();return;}if(gc(draftCookie)||gc(sessionCookie)){markDone();return;}var lk=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(!k||k===markerKey||k===themeKey||k===draftKey)continue;if(k.indexOf("lifexp")===0||k==="points")lk.push(k);}for(var j=0;j<lk.length;j++)localStorage.removeItem(lk[j]);var sk=[];for(var s=0;s<sessionStorage.length;s++){var skk=sessionStorage.key(s);if(skk&&skk.indexOf("lifexp")===0)sk.push(skk);}for(var t=0;t<sk.length;t++)sessionStorage.removeItem(sk[t]);var parts=document.cookie.split(";");for(var v=0;v<parts.length;v++){var part=parts[v].trim();var eq=part.indexOf("=");if(eq<=0)continue;var name=part.slice(0,eq);if(name.indexOf("lifexp_")!==0||name==="lifexp_t"||name===draftCookie||name===sessionCookie)continue;cc(name);}markDone();}catch(e){}})();`
 }
 
 export function isLifeXpProductionHost(hostname: string): boolean {

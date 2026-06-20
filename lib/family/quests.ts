@@ -2,7 +2,7 @@ import { cetAddDays, cetToday, normalizeDateKey } from '../cetDate'
 import { readFamilySession } from '../familySession'
 import { supabase } from '../supabase'
 import { fetchQuestAssignmentsForQuests, replaceQuestAssignments } from './questAssignments'
-import { fetchMemberXpBudget } from './questXpBudget'
+import { assigneesForFamilyQuestXpBudget, fetchMemberXpBudget } from './questXpBudget'
 import { clampQuestXp, isAllowedQuestTaskDate } from './questRules'
 import { aggregateQuestFulfillmentStatus, sessionIsQuestCreator } from './questConfirmation'
 import type { Quest, QuestAssignee, QuestRecurrence, QuestWithCompletion, QuestAssigneeCompletion, QuestCompletionOnDate } from './types'
@@ -313,8 +313,12 @@ export async function updateQuestForAssignees(input: UpdateQuestInput): Promise<
   }
 
   const xpReward = clampQuestXp(input.xpReward)
+  const session = readFamilySession()
+  const sessionMember = session ? ({ type: session.memberKind, id: session.memberId } satisfies QuestAssignee) : null
+  const familyWide = input.assignees.length > 1
+  const budgetAssignees = assigneesForFamilyQuestXpBudget(input.assignees, familyWide, sessionMember)
 
-  for (const assignee of input.assignees) {
+  for (const assignee of budgetAssignees) {
     const { budget, error: budgetError } = await fetchMemberXpBudget({
       familyId: input.familyId,
       memberType: assignee.type,
@@ -332,7 +336,7 @@ export async function updateQuestForAssignees(input: UpdateQuestInput): Promise<
     }
   }
 
-  const category = input.assignees.length > 1 ? 'familie' : 'allgemein'
+  const category = familyWide ? 'familie' : 'allgemein'
 
   const { error: updateError } = await supabase
     .from('quests')
@@ -398,8 +402,10 @@ async function createQuestWithMultipleAssignees(
   const xpReward = clampQuestXp(input.xpReward)
   const createdByParentId = session.memberKind === 'parent' ? session.memberId : null
   const createdByChildId = session.memberKind === 'child' ? session.memberId : null
+  const sessionMember = { type: session.memberKind, id: session.memberId } satisfies QuestAssignee
+  const budgetAssignees = assigneesForFamilyQuestXpBudget(input.assignees, true, sessionMember)
 
-  for (const assignee of input.assignees) {
+  for (const assignee of budgetAssignees) {
     const { budget, error: budgetError } = await fetchMemberXpBudget({
       familyId: input.familyId,
       memberType: assignee.type,
@@ -437,7 +443,10 @@ async function createQuestWithMultipleAssignees(
 
   const quest = data as Quest
   const { error: assignError } = await replaceQuestAssignments(quest.id, input.assignees)
-  if (assignError) return { error: assignError }
+  if (assignError) {
+    await supabase.from('quests').update({ is_active: false, updated_at: new Date().toISOString() }).eq('id', quest.id)
+    return { error: assignError }
+  }
 
   return { error: null }
 }

@@ -15,10 +15,12 @@ import { createQuestsForAssignees } from '../../../lib/family/quests'
 import type { QuestAssignee } from '../../../lib/family/types'
 import {
   QUEST_XP_HIGH_CONFIRM_THRESHOLD,
+  QUEST_XP_MIN,
   questDayChoiceToDateKey,
   type QuestDayChoice,
 } from '../../../lib/family/questRules'
-import { fetchMemberXpBudget } from '../../../lib/family/questXpBudget'
+import { assigneesForFamilyQuestXpBudget, fetchMemberXpBudget } from '../../../lib/family/questXpBudget'
+import { questAssignmentsTableReady } from '../../../lib/family/questAssignments'
 import { CARD_SURFACE_CLASS, MAIN_PAGE_INSET_CLASS, MAIN_SHELL_CLASS, PRESSABLE_3D_CLASS } from '../../../lib/appShell'
 
 export default function NewQuestPage() {
@@ -32,6 +34,8 @@ export default function NewQuestPage() {
   const [remainingXp, setRemainingXp] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [budgetLoading, setBudgetLoading] = useState(false)
+  const [familyQuestsReady, setFamilyQuestsReady] = useState<boolean | null>(null)
 
   const excludeMember = useMemo((): QuestAssignee | null => {
     if (memberKind === 'parent' && parent) return { type: 'parent', id: parent.id }
@@ -44,18 +48,37 @@ export default function NewQuestPage() {
     [assigneeChoice, parents, children, excludeMember],
   )
 
+  const familyWide = assigneeChoice?.mode === 'all'
+  const budgetAssignees = useMemo(
+    () => assigneesForFamilyQuestXpBudget(selectedAssignees, familyWide, excludeMember),
+    [selectedAssignees, familyWide, excludeMember],
+  )
+
   const taskDate = questDayChoiceToDateKey(dayChoice)
   const maxSliderXp = remainingXp === null ? 10 : Math.min(10, Math.max(1, remainingXp))
 
   useEffect(() => {
-    if (!family || selectedAssignees.length === 0) {
+    let cancelled = false
+    void (async () => {
+      const { ready } = await questAssignmentsTableReady()
+      if (!cancelled) setFamilyQuestsReady(ready)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!family || budgetAssignees.length === 0) {
       setRemainingXp(null)
+      setBudgetLoading(false)
       return
     }
     let cancelled = false
+    setBudgetLoading(true)
     void (async () => {
       let minRemaining = Number.POSITIVE_INFINITY
-      for (const assignee of selectedAssignees) {
+      for (const assignee of budgetAssignees) {
         const { budget, error: budgetError } = await fetchMemberXpBudget({
           familyId: family.id,
           memberType: assignee.type,
@@ -65,6 +88,7 @@ export default function NewQuestPage() {
         if (cancelled) return
         if (budgetError) {
           setRemainingXp(null)
+          setBudgetLoading(false)
           return
         }
         minRemaining = Math.min(minRemaining, budget.remainingXp)
@@ -73,18 +97,47 @@ export default function NewQuestPage() {
       const nextRemaining = Number.isFinite(minRemaining) ? minRemaining : 0
       setRemainingXp(nextRemaining)
       setXpReward((prev) => Math.min(prev, Math.max(1, Math.min(10, nextRemaining))))
+      setBudgetLoading(false)
     })()
     return () => {
       cancelled = true
     }
-  }, [family, selectedAssignees, taskDate])
+  }, [family, budgetAssignees, taskDate])
 
   if (!family) return null
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
+    setError(null)
+
+    if (!assigneeChoice) {
+      setError('Bitte wähle aus, für wen die Quest ist — eine Person oder „Alle“.')
+      return
+    }
+
+    if (familyWide && familyQuestsReady === false) {
+      setError(
+        'Familien-Quests („Alle“) sind in der Datenbank noch nicht eingerichtet. Bitte Abschnitt 4 in supabase/pending_migrations.sql im Supabase SQL Editor ausführen.',
+      )
+      return
+    }
+
     if (selectedAssignees.length === 0) {
-      setError('Bitte ein Familienmitglied auswählen — nicht dich selbst.')
+      setError('Bitte ein Familienmitglied auswählen.')
+      return
+    }
+
+    if (budgetLoading) {
+      setError('XP-Budget wird noch geprüft — bitte einen Moment warten.')
+      return
+    }
+
+    if (budgetAssignees.length > 0 && remainingXp !== null && remainingXp < xpReward) {
+      setError(
+        familyWide
+          ? `Für mindestens ein Familienmitglied sind an dem Tag nur noch ${remainingXp} XP frei — wähle weniger XP oder „Morgen“.`
+          : `An dem Tag sind nur noch ${remainingXp} XP frei — wähle weniger XP oder „Morgen“.`,
+      )
       return
     }
 
@@ -94,31 +147,32 @@ export default function NewQuestPage() {
     }
 
     setLoading(true)
-    setError(null)
 
-    const { error: createError } = await createQuestsForAssignees({
-      familyId: family.id,
-      title,
-      description,
-      xpReward,
-      taskDate,
-      assignees: selectedAssignees,
-    })
+    try {
+      const { error: createError } = await createQuestsForAssignees({
+        familyId: family.id,
+        title,
+        description,
+        xpReward,
+        taskDate,
+        assignees: selectedAssignees,
+      })
 
-    setLoading(false)
-    if (createError) {
-      setError(createError.message)
-      return
+      if (createError) {
+        setError(createError.message)
+        return
+      }
+
+      notifyFamilyDataChanged()
+      router.push('/quests')
+    } finally {
+      setLoading(false)
     }
-
-    notifyFamilyDataChanged()
-    router.push('/quests')
   }
 
-  const submitLabel =
-    assigneeChoice?.mode === 'all' && selectedAssignees.length > 1
-      ? `Quest für ${selectedAssignees.length} eintragen`
-      : 'Quest eintragen'
+  const submitLabel = assigneeChoice?.mode === 'all' ? 'Quest für alle eintragen' : 'Quest eintragen'
+  const submitBlockedByXp = budgetAssignees.length > 0 && !budgetLoading && remainingXp !== null && remainingXp < xpReward
+  const canSubmit = Boolean(assigneeChoice) && !loading && !(familyWide && familyQuestsReady === false)
 
   return (
     <main className={`${MAIN_SHELL_CLASS} ${MAIN_PAGE_INSET_CLASS} mx-auto w-full max-w-lg px-4`}>
@@ -166,20 +220,35 @@ export default function NewQuestPage() {
           value={xpReward}
           onChange={setXpReward}
           maxAllowed={maxSliderXp}
-          disabled={selectedAssignees.length > 0 && remainingXp === 0}
+          disabled={budgetAssignees.length > 0 && remainingXp !== null && remainingXp < QUEST_XP_MIN}
         />
-        {selectedAssignees.length > 0 && remainingXp !== null ? (
+        {familyWide && familyQuestsReady === false ? (
+          <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+            Familien-Quests („Alle“) brauchen noch eine Datenbank-Migration: Abschnitt 4 in{' '}
+            <code className="text-xs">supabase/pending_migrations.sql</code> im Supabase SQL Editor ausführen.
+          </p>
+        ) : null}
+        {budgetAssignees.length > 0 && budgetLoading ? (
+          <p className="text-xs text-slate-600 dark:text-slate-400">XP-Budget wird geprüft …</p>
+        ) : null}
+        {budgetAssignees.length > 0 && remainingXp !== null ? (
           <p className="text-xs text-slate-600 dark:text-slate-400">
-            {assigneeChoice?.mode === 'all' ? (
+            {familyWide ? (
               <>
-                An dem Tag sind für <strong>alle</strong> noch mindestens <strong>{remainingXp} XP</strong> frei (max. 30
-                pro Person).
+                Für die anderen Familienmitglieder sind an dem Tag noch mindestens <strong>{remainingXp} XP</strong> frei
+                (max. 30 pro Person).
               </>
             ) : (
               <>
                 An dem Tag sind für diese Person noch <strong>{remainingXp} XP</strong> frei (max. 30 pro Tag).
               </>
             )}
+          </p>
+        ) : null}
+        {submitBlockedByXp ? (
+          <p className="text-xs text-amber-800 dark:text-amber-200">
+            Für mindestens ein Familienmitglied reicht das Tages-XP-Limit nicht — wähle weniger XP oder „Morgen“, dann
+            erneut tippen.
           </p>
         ) : null}
         {error ? (
@@ -189,10 +258,10 @@ export default function NewQuestPage() {
         ) : null}
         <button
           type="submit"
-          disabled={loading || selectedAssignees.length === 0 || remainingXp === 0}
-          className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 font-bold text-white disabled:opacity-60`}
+          disabled={!canSubmit}
+          className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60`}
         >
-          {loading ? 'Wird gespeichert …' : submitLabel}
+          {loading ? 'Wird gespeichert …' : budgetLoading && familyWide ? 'XP wird geprüft …' : submitLabel}
         </button>
       </form>
     </main>

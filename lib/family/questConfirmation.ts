@@ -41,8 +41,8 @@ export function isCompletionForSessionMember(
   return parentId === session.memberId
 }
 
-export function isFamilyWideQuest(quest: Pick<QuestWithCompletion, 'assignees'>): boolean {
-  return quest.assignees.length > 1
+export function isFamilyWideQuest(quest: Pick<QuestWithCompletion, 'assignees' | 'category'>): boolean {
+  return quest.assignees.length > 1 || quest.category === 'familie'
 }
 
 export function fulfillmentForMemberOnQuest(

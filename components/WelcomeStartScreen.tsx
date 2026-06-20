@@ -1,28 +1,70 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import CreateFamilyPanel from './CreateFamilyPanel'
 import FamilyDashboard from './FamilyDashboard'
 import JoinFamilyPanel from './JoinFamilyPanel'
 import SheetPortal from './SheetPortal'
+import { useFamilyOnboardingBridge } from '../hooks/useFamilyOnboardingBridge'
+import { bootstrapOnboardingBridge, persistFamilyOnboardingDraft } from '../lib/family/onboardingBridge'
+import { loadFamilyOnboardingDraft } from '../lib/family/onboardingDraft'
 import { CARD_SURFACE_CLASS, ONBOARDING_BACKDROP_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 type SheetView = 'welcome' | 'join' | 'create'
 
+function readResumeState(): { open: boolean; view: SheetView; panelKey: number } {
+  bootstrapOnboardingBridge()
+  const draft = loadFamilyOnboardingDraft()
+  if (draft?.incomplete) {
+    return { open: true, view: draft.mode, panelKey: 1 }
+  }
+  return { open: false, view: 'welcome', panelKey: 0 }
+}
+
 export default function WelcomeStartScreen() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetView, setSheetView] = useState<SheetView>('welcome')
+  const [panelKey, setPanelKey] = useState(0)
+  const [resumeChecked, setResumeChecked] = useState(false)
+
+  const applyResumeFromBridge = useCallback(() => {
+    const next = readResumeState()
+    if (next.open) {
+      setSheetView(next.view)
+      setSheetOpen(true)
+      setPanelKey((key) => key + 1)
+    }
+  }, [])
+
+  useFamilyOnboardingBridge({ onResume: applyResumeFromBridge })
+
+  useEffect(() => {
+    const next = readResumeState()
+    if (next.open) {
+      setSheetView(next.view)
+      setSheetOpen(true)
+      setPanelKey(1)
+    }
+    setResumeChecked(true)
+  }, [])
 
   const openSheet = useCallback(() => {
-    setSheetView('welcome')
+    const draft = loadFamilyOnboardingDraft()
+    if (draft?.incomplete) {
+      setSheetView(draft.mode)
+      setPanelKey((key) => key + 1)
+    } else {
+      setSheetView('welcome')
+    }
     setSheetOpen(true)
   }, [])
 
   const closeSheet = useCallback(() => {
     setSheetOpen(false)
-    setSheetView('welcome')
   }, [])
+
+  const showBackdropHint = resumeChecked && !sheetOpen && loadFamilyOnboardingDraft()?.incomplete
 
   return (
     <>
@@ -44,6 +86,11 @@ export default function WelcomeStartScreen() {
         <div className="pointer-events-none select-none">
           <FamilyDashboard preview />
         </div>
+        {showBackdropHint ? (
+          <p className="pointer-events-none fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-0 right-0 text-center text-xs font-medium text-emerald-800/90 dark:text-emerald-200/90">
+            Tippen zum Fortsetzen
+          </p>
+        ) : null}
       </div>
 
       {sheetOpen ? (
@@ -54,9 +101,9 @@ export default function WelcomeStartScreen() {
             role="presentation"
           >
             <div
-                className={`lifexp-bottom-sheet ${CARD_SURFACE_CLASS} flex ${
-                  sheetView === 'welcome' ? 'max-h-[50dvh] min-h-[50dvh]' : 'max-h-[85dvh] min-h-[70dvh]'
-                } flex-col rounded-t-3xl px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl`}
+              className={`lifexp-bottom-sheet ${CARD_SURFACE_CLASS} flex ${
+                sheetView === 'welcome' ? 'max-h-[50dvh] min-h-[50dvh]' : 'max-h-[85dvh] min-h-[70dvh]'
+              } flex-col rounded-t-3xl px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl`}
               onClick={(event) => event.stopPropagation()}
               role="dialog"
               aria-modal="true"
@@ -81,14 +128,54 @@ export default function WelcomeStartScreen() {
                   <div className="mt-auto space-y-3">
                     <button
                       type="button"
-                      onClick={() => setSheetView('join')}
+                      onClick={() => {
+                        const draft = loadFamilyOnboardingDraft()
+                        if (draft?.mode === 'join' && draft.hasStarted) {
+                          setSheetView('join')
+                          setPanelKey((key) => key + 1)
+                          return
+                        }
+                        persistFamilyOnboardingDraft({
+                          version: 1,
+                          incomplete: true,
+                          hasStarted: true,
+                          mode: 'join',
+                          step: 'choice',
+                          inviteCode: '',
+                          displayName: '',
+                          gender: 'male',
+                          ageInput: '',
+                        })
+                        setSheetView('join')
+                        setPanelKey((key) => key + 1)
+                      }}
                       className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3.5 text-base font-bold text-white`}
                     >
                       Mit meiner Familie verbinden
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSheetView('create')}
+                      onClick={() => {
+                        const draft = loadFamilyOnboardingDraft()
+                        if (draft?.mode === 'create' && draft.hasStarted) {
+                          setSheetView('create')
+                          setPanelKey((key) => key + 1)
+                          return
+                        }
+                        persistFamilyOnboardingDraft({
+                          version: 1,
+                          incomplete: true,
+                          hasStarted: true,
+                          mode: 'create',
+                          step: 'form',
+                          familyName: '',
+                          displayName: '',
+                          gender: 'male',
+                          ageInput: '',
+                        })
+                        setSheetView('create')
+                        setPanelKey((key) => key + 1)
+                      }}
                       className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-stone-400 bg-gradient-to-b from-stone-100 via-stone-200 to-stone-400/80 px-4 py-3.5 text-base font-bold text-stone-900 dark:border-stone-600 dark:from-stone-700 dark:via-stone-800 dark:to-stone-950 dark:text-stone-100`}
                     >
                       Neue Familie anlegen
@@ -97,11 +184,11 @@ export default function WelcomeStartScreen() {
                 </div>
               ) : sheetView === 'join' ? (
                 <div className="min-h-0 flex-1 overflow-y-auto">
-                  <JoinFamilyPanel onBack={() => setSheetView('welcome')} />
+                  <JoinFamilyPanel key={`join-${panelKey}`} onBack={() => setSheetView('welcome')} />
                 </div>
               ) : (
                 <div className="min-h-0 flex-1 overflow-y-auto">
-                  <CreateFamilyPanel onBack={() => setSheetView('welcome')} />
+                  <CreateFamilyPanel key={`create-${panelKey}`} onBack={() => setSheetView('welcome')} />
                 </div>
               )}
             </div>

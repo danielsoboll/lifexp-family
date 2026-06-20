@@ -2,6 +2,11 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+import {
+  APP_ICON_PATHS,
+  APP_ICON_VERSION,
+  APP_MANIFEST_PATH,
+} from "../lib/appIcon";
 import PwaIconSync from "../components/PwaIconSync";
 import PwaInstallListener from "../components/PwaInstallListener";
 import PwaInstallOverlay from "../components/PwaInstallOverlay";
@@ -10,6 +15,7 @@ import PwaSessionBootstrap from "../components/PwaSessionBootstrap";
 import SessionGate from "../components/SessionGate";
 import { FamilyProvider } from "../components/FamilyProvider";
 import { productionDomainFreshStartScript } from "../lib/productionDomainFreshStart";
+import { clientStorageBootstrapScript } from "../lib/clientStorageBootstrap";
 import {
   THEME_FALLBACK_BG_DARK,
   THEME_FALLBACK_BG_LIGHT,
@@ -37,11 +43,13 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
-      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: APP_ICON_PATHS[192], sizes: "192x192", type: "image/png" },
+      { url: APP_ICON_PATHS[512], sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/icon-180.png", sizes: "180x180", type: "image/png" }],
+    apple: [
+      { url: APP_ICON_PATHS[180], sizes: "180x180", type: "image/png" },
+      { url: `/apple-touch-icon.png?v=${APP_ICON_VERSION}`, sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 
@@ -84,14 +92,16 @@ const themeInitScript = `
 `;
 
 const productionFreshStartScript = productionDomainFreshStartScript();
+const storageBootstrapScript = clientStorageBootstrapScript();
 
 const appIconInitScript = `
 (function () {
   try {
-    var icon180 = "/icon-180.png";
-    var icon192 = "/icon-192.png";
-    var icon512 = "/icon-512.png";
-    var manifest = "/manifest-male.webmanifest";
+    var v = ${JSON.stringify(APP_ICON_VERSION)};
+    var icon180 = "/icon-180.png?v=" + v;
+    var icon192 = "/icon-192.png?v=" + v;
+    var icon512 = "/icon-512.png?v=" + v;
+    var manifest = ${JSON.stringify(APP_MANIFEST_PATH)};
     function setLink(rel, href, sizes) {
       var sel = rel === "manifest" ? 'link[rel="manifest"]' : 'link[rel="' + rel + '"]';
       var link = document.querySelector(sel);
@@ -106,6 +116,7 @@ const appIconInitScript = `
     setLink("manifest", manifest);
     setLink("icon", icon192, "192x192");
     setLink("apple-touch-icon", icon180, "180x180");
+    setLink("apple-touch-icon-precomposed", icon180, "180x180");
     setLink("icon", icon512, "512x512");
   } catch (e) {}
 })();
@@ -125,6 +136,7 @@ export default function RootLayout({
     >
       <body className="min-h-dvh text-slate-900 dark:text-slate-100">
         <script dangerouslySetInnerHTML={{ __html: productionFreshStartScript }} />
+        <script dangerouslySetInnerHTML={{ __html: storageBootstrapScript }} />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <script dangerouslySetInnerHTML={{ __html: appIconInitScript }} />
         <PwaSessionBootstrap />

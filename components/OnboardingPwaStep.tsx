@@ -1,31 +1,30 @@
 'use client'
 
+import { useEffect } from 'react'
+
 import PwaInstallPanel from './PwaInstallPanel'
 import {
-  isStandaloneDisplayMode,
   recordPwaInstallLaterChoice,
   savePwaInstallLater,
 } from '../lib/pwaInstall'
+import { applyAppIcons } from '../lib/appIcon'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
-import type { OnboardingDevicePrefs } from '../lib/family/onboardingMember'
 
 type OnboardingPwaStepProps = {
-  onContinue: (prefs: OnboardingDevicePrefs) => void
+  onInstallDone: () => void
+  onInstallLater: () => void
   disabled?: boolean
 }
 
-export default function OnboardingPwaStep({ onContinue, disabled = false }: OnboardingPwaStepProps) {
+export default function OnboardingPwaStep({ onInstallDone, onInstallLater, disabled = false }: OnboardingPwaStepProps) {
+  useEffect(() => {
+    applyAppIcons()
+  }, [])
+
   const handleLater = () => {
     savePwaInstallLater()
     void recordPwaInstallLaterChoice({ persistToProfile: false })
-    onContinue({ appInstalled: false, appLater: true })
-  }
-
-  const handleDone = () => {
-    onContinue({
-      appInstalled: isStandaloneDisplayMode(),
-      appLater: false,
-    })
+    onInstallLater()
   }
 
   return (
@@ -52,7 +51,7 @@ export default function OnboardingPwaStep({ onContinue, disabled = false }: Onbo
         </button>
         <button
           type="button"
-          onClick={handleDone}
+          onClick={onInstallDone}
           disabled={disabled}
           className={`${PRESSABLE_3D_CLASS} flex-1 rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white disabled:opacity-45`}
         >

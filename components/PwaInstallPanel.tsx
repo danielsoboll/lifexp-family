@@ -6,14 +6,13 @@ import { useEffect, useState, type ReactNode } from 'react'
 import {
   canShowNativeInstallPrompt,
   getPwaInstallPlatform,
-  isIpadDevice,
   isStandaloneDisplayMode,
   LIFEXP_PWA_INSTALL_PROMPT_READY_EVENT,
   requestPwaInstall,
   type PwaInstallResult,
 } from '../lib/pwaInstall'
-import { getAppIconPath, applyAppIcons, resolveAppIconGender } from '../lib/appIcon'
-import type { AvatarGender } from '../lib/avatarLibrary'
+import { APP_ICON_SOURCE, applyAppIcons } from '../lib/appIcon'
+import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 type PwaInstallPanelProps = {
   /** „Später“ / „Vielleicht später“ — nur Overlay. */
@@ -22,8 +21,6 @@ type PwaInstallPanelProps = {
   onInstalled?: () => void
   /** Kompakter Text für Onboarding-Einstellungen. */
   compact?: boolean
-  /** Onboarding: Geschlecht vor Profil-Speicherung. */
-  avatarGender?: AvatarGender
   /** iOS Einstellungen: „Erledigt!“ unter den Schritten. */
   showIosDoneButton?: boolean
   iosInstallConfirmed?: boolean
@@ -112,12 +109,35 @@ function IosInstallSteps() {
   return <IphoneInstallSteps />
 }
 
+function FamilyAppIconPreview({ compact = false }: { compact?: boolean }) {
+  return (
+    <div
+      className={`flex items-center gap-3 rounded-2xl border-2 border-slate-400/90 bg-slate-100/95 dark:border-slate-600 dark:bg-slate-900/80 ${
+        compact ? 'px-3 py-2' : 'px-3 py-2.5'
+      }`}
+    >
+      <Image
+        src={APP_ICON_SOURCE}
+        alt=""
+        width={compact ? 40 : 48}
+        height={compact ? 40 : 48}
+        className={`${compact ? 'h-10 w-10' : 'h-12 w-12'} shrink-0 rounded-xl object-cover shadow-md ring-2 ring-emerald-500/30`}
+        priority
+      />
+      <p className="text-sm leading-snug text-slate-600 dark:text-slate-400">
+        {compact
+          ? 'So erscheint LifeXP Family auf deinem Home-Bildschirm.'
+          : 'LifeXP Family auf dem Home-Bildschirm — schneller Zugriff wie bei einer installierten App.'}
+      </p>
+    </div>
+  )
+}
+
 export default function PwaInstallPanel({
   showLaterButton = false,
   onLater,
   onInstalled,
   compact = false,
-  avatarGender,
   showIosDoneButton = false,
   iosInstallConfirmed = false,
   onIosDone,
@@ -126,10 +146,13 @@ export default function PwaInstallPanel({
   const [canInstall, setCanInstall] = useState(false)
   const [installing, setInstalling] = useState(false)
   const [hint, setHint] = useState<string | null>(null)
-  const iconSrc = getAppIconPath(resolveAppIconGender(avatarGender), 192)
 
   const platform = getPwaInstallPlatform()
   const iosInstallConfirmedVisual = iosInstallConfirmed
+
+  useEffect(() => {
+    applyAppIcons()
+  }, [])
 
   useEffect(() => {
     const refresh = () => setCanInstall(canShowNativeInstallPrompt())
@@ -137,10 +160,6 @@ export default function PwaInstallPanel({
     window.addEventListener(LIFEXP_PWA_INSTALL_PROMPT_READY_EVENT, refresh)
     return () => window.removeEventListener(LIFEXP_PWA_INSTALL_PROMPT_READY_EVENT, refresh)
   }, [])
-
-  useEffect(() => {
-    applyAppIcons(resolveAppIconGender(avatarGender))
-  }, [avatarGender])
 
   const handleInstall = async () => {
     if (installing) return
@@ -178,21 +197,7 @@ export default function PwaInstallPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      {!compact ? (
-        <div className="flex items-center gap-3 rounded-2xl border-2 border-slate-400/90 bg-slate-100/95 px-3 py-2.5 dark:border-slate-600 dark:bg-slate-900/80">
-          <Image
-            src={iconSrc}
-            alt=""
-            width={48}
-            height={48}
-            className="h-12 w-12 shrink-0 rounded-xl object-cover shadow-md ring-2 ring-emerald-500/30"
-            priority
-          />
-          <p className="text-sm leading-snug text-slate-600 dark:text-slate-400">
-            LifeXP Family auf dem Home-Bildschirm — schneller Zugriff wie bei einer installierten App.
-          </p>
-        </div>
-      ) : null}
+      <FamilyAppIconPreview compact={compact} />
 
       {platform === 'iphone' ? (
         <div className={iosInstallConfirmedVisual ? 'opacity-80' : undefined}>
@@ -228,7 +233,7 @@ export default function PwaInstallPanel({
           type="button"
           disabled={installing}
           onClick={() => void handleInstall()}
-          className="lifexp-pressable-3d w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white hover:from-emerald-400 hover:to-emerald-600 disabled:opacity-60 dark:border-emerald-500"
+          className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white hover:from-emerald-400 hover:to-emerald-600 disabled:opacity-60 dark:border-emerald-500`}
         >
           {installing ? 'Wird geöffnet …' : 'LifeXP Family installieren'}
         </button>
@@ -244,7 +249,7 @@ export default function PwaInstallPanel({
         <button
           type="button"
           onClick={onLater}
-          className="lifexp-pressable-3d rounded-2xl border-2 border-stone-400 bg-gradient-to-b from-stone-100 via-stone-200/95 to-stone-400/75 px-4 py-2.5 text-sm font-bold text-stone-800 dark:border-stone-600 dark:from-stone-700 dark:via-stone-800 dark:to-stone-950 dark:text-stone-100"
+          className={`${PRESSABLE_3D_CLASS} rounded-2xl border-2 border-stone-400 bg-gradient-to-b from-stone-100 via-stone-200/95 to-stone-400/75 px-4 py-2.5 text-sm font-bold text-stone-800 dark:border-stone-600 dark:from-stone-700 dark:via-stone-800 dark:to-stone-950 dark:text-stone-100`}
         >
           Später
         </button>
