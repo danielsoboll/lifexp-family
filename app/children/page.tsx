@@ -19,7 +19,7 @@ export default function ChildrenPage() {
           href="/children/new"
           className={`${PRESSABLE_3D_CLASS} rounded-full border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-2 text-sm font-bold text-white`}
         >
-          + Neu
+          + Familienmitglied hinzufügen
         </Link>
       </div>
 

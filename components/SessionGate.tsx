@@ -3,25 +3,15 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-import { useAuth } from './AuthProvider'
 import { useFamily } from './FamilyProvider'
-import {
-  FAMILY_SETUP_PATH,
-  isFamilySetupPath,
-  isPublicAuthPath,
-  isPublicLegalPath,
-  isPublicPath,
-} from '../lib/legalRoutes'
+import { HOME_PATH, isPublicLegalPath } from '../lib/legalRoutes'
 import { runProductionDomainFreshStartIfNeeded } from '../lib/productionDomainFreshStart'
 import { MAIN_SHELL_CLASS } from '../lib/appShell'
-
-const HOME_PATH = '/'
 
 export default function SessionGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, loading: authLoading } = useAuth()
-  const { hasFamily, loading: familyLoading } = useFamily()
+  const { hasSession, loading: familyLoading } = useFamily()
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -36,39 +26,12 @@ export default function SessionGate({ children }: { children: React.ReactNode })
       return
     }
 
-    if (authLoading || familyLoading) {
+    if (familyLoading) {
       return
     }
 
-    const onSetup = isFamilySetupPath(pathname)
-    const onAuthPage = isPublicAuthPath(pathname)
-    const onHome = pathname === HOME_PATH
-
-    if (!user) {
-      if (!onAuthPage) {
-        router.replace('/login')
-        return
-      }
-      if (!cancelled) setReady(true)
-      return
-    }
-
-    if (!hasFamily) {
-      if (!onSetup) {
-        router.replace(FAMILY_SETUP_PATH)
-        return
-      }
-      if (!cancelled) setReady(true)
-      return
-    }
-
-    if (onSetup || onAuthPage) {
+    if (!hasSession && pathname !== HOME_PATH) {
       router.replace(HOME_PATH)
-      return
-    }
-
-    if (!onHome && !isPublicPath(pathname) && pathname.startsWith('/')) {
-      if (!cancelled) setReady(true)
       return
     }
 
@@ -77,9 +40,9 @@ export default function SessionGate({ children }: { children: React.ReactNode })
     return () => {
       cancelled = true
     }
-  }, [pathname, router, user, authLoading, familyLoading, hasFamily])
+  }, [pathname, router, familyLoading, hasSession])
 
-  if (!ready || authLoading || (user && familyLoading && !isPublicLegalPath(pathname))) {
+  if (!ready || (familyLoading && !isPublicLegalPath(pathname))) {
     return (
       <main
         className={`${MAIN_SHELL_CLASS} flex min-h-dvh items-center justify-center text-sm text-slate-600 dark:text-slate-400`}

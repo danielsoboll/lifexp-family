@@ -18,8 +18,8 @@ const CENTER_FRACTION = 0.6
 const CENTER_OFFSET = (1 - CENTER_FRACTION) / 2
 
 const SOURCES = {
-  male: 'Avatar_1_level1_1_Park.webp',
-  female: 'Avatar_2_level1_4_park.webp',
+  male: 'Mann_1_1.webp',
+  female: 'Frau_1_1.webp',
 }
 
 const SIZES = [180, 192, 512]

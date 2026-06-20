@@ -4,8 +4,8 @@ import { loadCachedAvatarGender } from './avatarDisplayCache'
 export const APP_ICON_CROP_CENTER_FRACTION = 0.6
 
 export const APP_ICON_SOURCES: Record<AvatarGender, string> = {
-  male: '/avatars/Avatar_1_level1_1_Park.webp',
-  female: '/avatars/Avatar_2_level1_4_park.webp',
+  male: '/avatars/Mann_1_1.webp',
+  female: '/avatars/Frau_1_1.webp',
 }
 
 export function getAppIconPath(gender: AvatarGender, size: 180 | 192 | 512 = 192): string {

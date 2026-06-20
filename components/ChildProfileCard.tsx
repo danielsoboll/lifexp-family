@@ -1,14 +1,11 @@
 import Link from 'next/link'
 
 import { getLevel, getProgressPercent, getXpRemainingToNextLevel } from '../lib/level'
+import { resolveChildAvatar } from '../lib/family/memberAvatar'
+import { childGenderForAvatar, formatChildAge } from '../lib/family/memberGender'
 import type { ChildWithTodayXp } from '../lib/family/types'
 import { CARD_SURFACE_CLASS } from '../lib/appShell'
 import ProgressBar from './ProgressBar'
-
-function avatarGenderForChild(child: ChildWithTodayXp): 'male' | 'female' {
-  if (child.avatar_key === 'girl' || child.avatar_key === 'female') return 'female'
-  return 'male'
-}
 
 type ChildProfileCardProps = {
   child: ChildWithTodayXp
@@ -19,23 +16,28 @@ export default function ChildProfileCard({ child, href }: ChildProfileCardProps)
   const level = getLevel(child.total_xp)
   const progress = getProgressPercent(child.total_xp)
   const remaining = getXpRemainingToNextLevel(child.total_xp)
-  const gender = avatarGenderForChild(child)
+  const ageLabel = formatChildAge(child.age)
+  const avatar = resolveChildAvatar(child.gender, child.age, child.portrait_id)
 
   const content = (
     <article className={`${CARD_SURFACE_CLASS} rounded-2xl p-4 transition hover:border-emerald-400/80`}>
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0 flex-1">
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{child.display_name}</h3>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-            Level {level} · {child.total_xp} XP gesamt
+            {ageLabel ? `${ageLabel} · ` : ''}Level {level} · {child.total_xp} XP gesamt
           </p>
         </div>
-        <span
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-200 to-slate-100 text-2xl dark:from-emerald-900/60 dark:to-emerald-950/40"
-          aria-hidden
-        >
-          {gender === 'female' ? '👧' : '👦'}
-        </span>
+        {avatar.src ? (
+          <div className="h-16 w-12 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={avatar.src} alt="" className="h-full w-full object-cover object-top" />
+          </div>
+        ) : (
+          <div className="flex h-16 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 px-1 text-center text-[10px] leading-tight text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            {avatar.error ?? '—'}
+          </div>
+        )}
       </div>
       <div className="mt-4 space-y-2">
         <div className="flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-300">
@@ -57,3 +59,5 @@ export default function ChildProfileCard({ child, href }: ChildProfileCardProps)
 
   return content
 }
+
+export { childGenderForAvatar }

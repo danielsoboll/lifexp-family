@@ -1,4 +1,7 @@
 import type { ChildProfile } from './types'
+import { canAdminForChildProfile } from './memberAdmin'
+import { defaultPortraitForCategory, isPortraitId, memberAvatarCategoryForChild, portraitIdFromStored, portraitOptionsForCategory } from './memberAvatar'
+import { normalizeChildGender } from './memberGender'
 
 type ChildProfileRow = Record<string, unknown>
 
@@ -19,26 +22,51 @@ function boolValue(value: unknown, fallback = false): boolean {
   return typeof value === 'boolean' ? value : fallback
 }
 
+function resolveAge(row: ChildProfileRow): number | null {
+  if (row.age !== null && row.age !== undefined) {
+    const age = numberValue(row.age, NaN)
+    return Number.isFinite(age) ? age : null
+  }
+
+  const birthYearRaw = row.birth_year
+  if (birthYearRaw === null || birthYearRaw === undefined) return null
+  const birthYear = numberValue(birthYearRaw, NaN)
+  if (!Number.isFinite(birthYear)) return null
+  return Math.max(0, new Date().getFullYear() - birthYear)
+}
+
+function resolvePortraitId(
+  gender: ReturnType<typeof normalizeChildGender>,
+  age: number | null,
+  rawKey: string,
+): string | null {
+  const category = memberAvatarCategoryForChild(gender, age)
+  const stored = portraitIdFromStored(rawKey)
+  if (stored && isPortraitId(stored) && portraitOptionsForCategory(category).includes(stored)) {
+    return stored
+  }
+  return defaultPortraitForCategory(category)
+}
+
 export function mapChildProfileRow(row: ChildProfileRow): ChildProfile | null {
   const id = textValue(row.id)
   const familyId = textValue(row.family_id)
   const displayName = textValue(row.display_name).trim()
   if (!id || !familyId || !displayName) return null
 
-  const birthYearRaw = row.birth_year
-  const birthYear =
-    birthYearRaw === null || birthYearRaw === undefined
-      ? null
-      : numberValue(birthYearRaw, NaN)
-  const normalizedBirthYear =
-    birthYear !== null && Number.isFinite(birthYear) ? birthYear : null
+  const rawAvatarKey = textValue(row.avatar_key, '') || ''
+  const gender = normalizeChildGender(row.gender, rawAvatarKey === 'boy' || rawAvatarKey === 'girl' ? rawAvatarKey : null)
+  const age = resolveAge(row)
+  const portrait_id = resolvePortraitId(gender, age, rawAvatarKey)
 
   return {
     id,
     family_id: familyId,
     display_name: displayName,
-    birth_year: normalizedBirthYear,
-    avatar_key: textValue(row.avatar_key, 'default') || 'default',
+    gender,
+    age,
+    can_admin: canAdminForChildProfile(gender, age, row.can_admin),
+    portrait_id,
     total_xp: Math.max(0, numberValue(row.total_xp)),
     level: Math.max(1, numberValue(row.level, 1)),
     is_active: boolValue(row.is_active, true),

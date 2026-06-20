@@ -1,12 +1,24 @@
-import { requireSupabaseUserId, supabase } from '../supabase'
+import { getStoredFamilyId } from '../familySession'
+import { supabase } from '../supabase'
 import { mapChildProfileRow, mapChildProfileRows } from './mapChildProfile'
+import { defaultCanAdminForChild } from './memberAdmin'
+import { isChildLimitReached } from './memberLimits'
+import {
+  coercePortraitForCategory,
+  defaultPortraitForCategory,
+  memberAvatarCategoryForChild,
+  portraitOptionsForCategory,
+  type AvatarPortraitId,
+} from './memberAvatar'
+import type { ChildGender } from './memberGender'
 import type { ChildProfile } from './types'
 
 export type CreateChildInput = {
   familyId: string
   displayName: string
-  birthYear?: number | null
-  avatarKey?: string
+  age?: number | null
+  gender: ChildGender
+  portraitId?: AvatarPortraitId | null
 }
 
 async function nextChildSortOrder(familyId: string): Promise<number> {
@@ -24,9 +36,6 @@ async function nextChildSortOrder(familyId: string): Promise<number> {
 export async function fetchChildrenForFamily(
   familyId: string,
 ): Promise<{ children: ChildProfile[]; error: Error | null }> {
-  const { error: authError } = await requireSupabaseUserId()
-  if (authError) return { children: [], error: authError }
-
   const { data, error } = await supabase
     .from('child_profiles')
     .select('*')
@@ -42,9 +51,6 @@ export async function fetchChildrenForFamily(
 export async function fetchChildById(
   childId: string,
 ): Promise<{ child: ChildProfile | null; error: Error | null }> {
-  const { error: authError } = await requireSupabaseUserId()
-  if (authError) return { child: null, error: authError }
-
   const { data, error } = await supabase.from('child_profiles').select('*').eq('id', childId).maybeSingle()
   if (error) return { child: null, error: new Error(error.message) }
   if (!data) return { child: null, error: null }
@@ -52,23 +58,37 @@ export async function fetchChildById(
 }
 
 export async function createChild(input: CreateChildInput): Promise<{ child: ChildProfile | null; error: Error | null }> {
-  const { error: authError } = await requireSupabaseUserId()
-  if (authError) return { child: null, error: authError }
+  const storedFamilyId = getStoredFamilyId()
+  if (!storedFamilyId || storedFamilyId !== input.familyId) {
+    return { child: null, error: new Error('Keine gültige Familien-Session.') }
+  }
 
   const displayName = input.displayName.trim()
   if (!displayName) {
     return { child: null, error: new Error('Bitte einen Namen eingeben.') }
   }
 
+  const { children: existingChildren, error: countError } = await fetchChildrenForFamily(input.familyId)
+  if (countError) {
+    return { child: null, error: countError }
+  }
+  if (isChildLimitReached(existingChildren.length)) {
+    return { child: null, error: new Error('Maximal 6 Kinder pro Familie.') }
+  }
+
   const sortOrder = await nextChildSortOrder(input.familyId)
+  const category = memberAvatarCategoryForChild(input.gender, input.age ?? null)
+  const portraitId = coercePortraitForCategory(category, input.portraitId ?? null)
 
   const { data, error } = await supabase
     .from('child_profiles')
     .insert({
       family_id: input.familyId,
       display_name: displayName,
-      birth_year: input.birthYear ?? null,
-      avatar_key: input.avatarKey ?? 'default',
+      gender: input.gender,
+      age: input.age ?? null,
+      can_admin: defaultCanAdminForChild(input.age ?? null),
+      avatar_key: portraitId ?? input.gender,
       sort_order: sortOrder,
       is_active: true,
       total_xp: 0,
@@ -78,9 +98,6 @@ export async function createChild(input: CreateChildInput): Promise<{ child: Chi
     .single()
 
   if (error) {
-    if (error.code === '42501') {
-      return { child: null, error: new Error('Keine Berechtigung — bist du Mitglied dieser Familie?') }
-    }
     return { child: null, error: new Error(error.message) }
   }
 
@@ -94,12 +111,22 @@ export async function createChild(input: CreateChildInput): Promise<{ child: Chi
 
 export async function updateChild(
   childId: string,
-  patch: Partial<Pick<ChildProfile, 'display_name' | 'birth_year' | 'avatar_key' | 'notes' | 'is_active'>>,
+  patch: Partial<
+    Pick<ChildProfile, 'display_name' | 'gender' | 'age' | 'can_admin' | 'portrait_id' | 'notes' | 'is_active'>
+  >,
 ): Promise<{ error: Error | null }> {
-  const { error: authError } = await requireSupabaseUserId()
-  if (authError) return { error: authError }
+  const dbPatch: Record<string, unknown> = { ...patch }
 
-  const { error } = await supabase.from('child_profiles').update(patch).eq('id', childId)
+  if (patch.portrait_id !== undefined) {
+    dbPatch.avatar_key = patch.portrait_id
+    delete dbPatch.portrait_id
+  }
+
+  if (patch.gender !== undefined || patch.age !== undefined) {
+    // Portrait bei Rollen-/Alterswechsel anpassen, wenn nötig — erfolgt beim Save im Editor
+  }
+
+  const { error } = await supabase.from('child_profiles').update(dbPatch).eq('id', childId)
   if (error) return { error: new Error(error.message) }
   return { error: null }
 }

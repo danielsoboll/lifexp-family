@@ -7,7 +7,6 @@ import PwaInstallListener from "../components/PwaInstallListener";
 import PwaInstallOverlay from "../components/PwaInstallOverlay";
 import PwaSessionBootstrap from "../components/PwaSessionBootstrap";
 import SessionGate from "../components/SessionGate";
-import { AuthProvider } from "../components/AuthProvider";
 import { FamilyProvider } from "../components/FamilyProvider";
 import { productionDomainFreshStartScript } from "../lib/productionDomainFreshStart";
 import {
@@ -46,6 +45,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  viewportFit: 'cover',
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#7b8fa3" },
     { media: "(prefers-color-scheme: dark)", color: "#273449" },
@@ -129,14 +129,12 @@ export default function RootLayout({
         <PwaSessionBootstrap />
         <PwaInstallListener />
         <PwaIconSync />
-        <AuthProvider>
-          <FamilyProvider>
-            <SessionGate>
-              {children}
-              <PwaInstallOverlay />
-            </SessionGate>
-          </FamilyProvider>
-        </AuthProvider>
+        <FamilyProvider>
+          <SessionGate>
+            {children}
+            <PwaInstallOverlay />
+          </SessionGate>
+        </FamilyProvider>
       </body>
     </html>
   );

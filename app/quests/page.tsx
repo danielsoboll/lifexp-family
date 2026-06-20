@@ -14,12 +14,17 @@ export default function QuestsPage() {
     <main className={`${MAIN_SHELL_CLASS} ${MAIN_PAGE_INSET_CLASS} mx-auto w-full max-w-lg px-4`}>
       <PageHeaderBar backHref="/" backLabel="Dashboard" />
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Quests</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Quests</h1>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            Von der Familie eingetragen — heute und morgen, sortiert.
+          </p>
+        </div>
         <Link
           href="/quests/new"
           className={`${PRESSABLE_3D_CLASS} rounded-full border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-2 text-sm font-bold text-white`}
         >
-          + Neu
+          + Eintragen
         </Link>
       </div>
       {family ? <QuestList /> : null}

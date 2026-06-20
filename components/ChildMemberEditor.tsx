@@ -1,0 +1,159 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+
+import GenderChoice from './GenderChoice'
+import AdminAccessToggle from './AdminAccessToggle'
+import MemberEditorSaveBar from './MemberEditorSaveBar'
+import MemberPortraitThumb from './MemberPortraitThumb'
+import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
+import { updateChild } from '../lib/family/children'
+import {
+  coercePortraitForCategory,
+  memberAvatarCategoryForChild,
+  resolveChildAvatar,
+  type AvatarPortraitId,
+} from '../lib/family/memberAvatar'
+import { formatChildAge, parseAgeInput, type ChildGender } from '../lib/family/memberGender'
+import type { ChildWithTodayXp } from '../lib/family/types'
+import { CARD_SURFACE_CLASS } from '../lib/appShell'
+
+type ChildMemberEditorProps = {
+  child: ChildWithTodayXp
+}
+
+const INPUT_CLASS =
+  'w-full scroll-my-24 rounded-lg border-2 border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-slate-600 dark:bg-slate-900'
+
+export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
+  const { refresh } = useFamily()
+  const [displayName, setDisplayName] = useState(child.display_name)
+  const [ageInput, setAgeInput] = useState(child.age !== null ? String(child.age) : '')
+  const [gender, setGender] = useState<ChildGender>(child.gender)
+  const [canAdmin, setCanAdmin] = useState(child.can_admin)
+  const [portraitId, setPortraitId] = useState<AvatarPortraitId | null>(child.portrait_id)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+
+  const parsedAge = parseAgeInput(ageInput)
+
+  const isDirty =
+    displayName.trim() !== child.display_name ||
+    gender !== child.gender ||
+    canAdmin !== child.can_admin ||
+    portraitId !== child.portrait_id ||
+    (parsedAge ?? null) !== child.age
+
+  const resolved = useMemo(
+    () => resolveChildAvatar(gender, parsedAge, portraitId),
+    [gender, parsedAge, portraitId],
+  )
+
+  const applyProfileChange = (nextGender: ChildGender, nextAge: number | null, currentPortrait: AvatarPortraitId | null) => {
+    const category = memberAvatarCategoryForChild(nextGender, nextAge)
+    setPortraitId(coercePortraitForCategory(category, currentPortrait))
+  }
+
+  const handleSave = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!isDirty) return
+
+    setLoading(true)
+    setError(null)
+    setSuccess(false)
+
+    const age = parseAgeInput(ageInput)
+    if (ageInput.trim() && age === null) {
+      setLoading(false)
+      setError('Bitte ein gültiges Alter (0–99) eingeben.')
+      return
+    }
+
+    const category = memberAvatarCategoryForChild(gender, age)
+    const nextPortrait = coercePortraitForCategory(category, portraitId)
+
+    const { error: saveError } = await updateChild(child.id, {
+      display_name: displayName.trim(),
+      gender,
+      age,
+      can_admin: canAdmin,
+      portrait_id: nextPortrait,
+    })
+
+    setLoading(false)
+    if (saveError) {
+      setError(saveError.message)
+      return
+    }
+
+    setPortraitId(nextPortrait)
+    setSuccess(true)
+    notifyFamilyDataChanged()
+    await refresh()
+  }
+
+  const ageLabel = formatChildAge(parsedAge ?? child.age)
+  const subtitle = ageLabel ? `Kind · ${ageLabel}` : 'Kind · Alter nicht angegeben'
+
+  return (
+    <form onSubmit={(e) => void handleSave(e)} className={`${CARD_SURFACE_CLASS} space-y-2 rounded-xl p-3`}>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{subtitle}</p>
+      <div className="flex gap-3">
+        <MemberPortraitThumb src={resolved.src} error={resolved.error} />
+        <div className="min-w-0 flex-1 space-y-2">
+          <div>
+            <label htmlFor={`child-name-${child.id}`} className="mb-0.5 block text-xs font-semibold">
+              Name
+            </label>
+            <input
+              id={`child-name-${child.id}`}
+              type="text"
+              required
+              maxLength={80}
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className={INPUT_CLASS}
+            />
+          </div>
+          <div>
+            <label htmlFor={`child-age-${child.id}`} className="mb-0.5 block text-xs font-semibold">
+              Alter
+            </label>
+            <input
+              id={`child-age-${child.id}`}
+              type="number"
+              required
+              min={0}
+              max={99}
+              value={ageInput}
+              onChange={(e) => {
+                setAgeInput(e.target.value)
+                applyProfileChange(gender, parseAgeInput(e.target.value), portraitId)
+              }}
+              placeholder="z. B. 8"
+              className={INPUT_CLASS}
+            />
+          </div>
+          <GenderChoice
+            kind="child"
+            compact
+            value={gender}
+            onChange={(next) => {
+              setGender(next)
+              applyProfileChange(next, parsedAge, portraitId)
+            }}
+          />
+        </div>
+      </div>
+      <AdminAccessToggle checked={canAdmin} onChange={setCanAdmin} />
+      {error ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+          {error}
+        </p>
+      ) : null}
+      {success ? <p className="text-xs text-emerald-700 dark:text-emerald-300">Gespeichert.</p> : null}
+      {isDirty ? <MemberEditorSaveBar loading={loading} /> : null}
+    </form>
+  )
+}

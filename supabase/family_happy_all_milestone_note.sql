@@ -1,0 +1,9 @@
+-- Happy_all (60+ Familien-XP pro Tag)
+-- Keine Schema-Änderung nötig.
+--
+-- Die Startseite summiert Tages-XP live aus:
+--   • daily_xp_entries (Kinder)
+--   • quest_completions.xp_awarded WHERE parent_id IS NOT NULL (Erwachsene)
+-- beide gefiltert auf entry_date / completed_on = heute (Europe/Berlin).
+--
+-- Ab 60 XP Summe zeigt die App /avatars/Happy_all.webp oben auf dem Dashboard.

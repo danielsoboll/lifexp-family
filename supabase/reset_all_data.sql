@@ -1,0 +1,14 @@
+-- Alle Family-MVP-Daten löschen (Supabase SQL Editor)
+-- Reihenfolge wegen Foreign Keys
+
+TRUNCATE TABLE public.family_challenge_progress RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.reward_redemptions RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.daily_xp_entries RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.quest_completions RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.family_challenges RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.rewards RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.quests RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.child_profiles RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.family_members RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.families RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public.parent_profiles RESTART IDENTITY CASCADE;

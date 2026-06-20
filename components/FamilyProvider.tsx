@@ -10,48 +10,65 @@ import {
   type ReactNode,
 } from 'react'
 
-import { AUTH_STATE_CHANGED_EVENT, useAuth } from './AuthProvider'
-import { fetchFamiliesForUser } from '../lib/family/families'
-import { fetchChildrenForFamily } from '../lib/family/children'
-import { attachTodayXpToChildren } from '../lib/family/xp'
-import type { ChildWithTodayXp, Family } from '../lib/family/types'
-
-const ACTIVE_FAMILY_KEY = 'lifexp_family_active_id'
+import { fetchChildById, fetchChildrenForFamily } from '../lib/family/children'
+import { fetchFamilyById, fetchParentById } from '../lib/family/families'
+import { sessionHasAdminAccess } from '../lib/family/memberAdmin'
+import { fetchMemberRoleForParent, fetchParentsForFamily, isAdminRole, type ParentMember } from '../lib/family/members'
+import { fetchTodayXpTotalsForFamily } from '../lib/family/xp'
+import {
+  FAMILY_SESSION_CHANGED_EVENT,
+  clearFamilySession,
+  readFamilySession,
+  storeFamilySession,
+  type FamilySession,
+  type FamilySessionMemberKind,
+} from '../lib/familySession'
+import type { ChildProfile, ChildWithTodayXp, Family, ParentProfile } from '../lib/family/types'
 
 export const FAMILY_DATA_CHANGED_EVENT = 'lifexp-family-data-changed'
 
 type FamilyContextValue = {
   family: Family | null
+  parent: ParentProfile | null
+  activeChild: ChildProfile | null
+  memberKind: FamilySessionMemberKind | null
+  parents: ParentMember[]
   children: ChildWithTodayXp[]
   loading: boolean
+  hasSession: boolean
   hasFamily: boolean
+  canAdmin: boolean
   error: string | null
+  session: FamilySession | null
   refresh: () => Promise<void>
-  setActiveFamilyId: (familyId: string) => void
+  setSession: (session: FamilySession) => void
 }
 
 const FamilyContext = createContext<FamilyContextValue | null>(null)
 
-function readStoredFamilyId(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem(ACTIVE_FAMILY_KEY)
-}
-
-function storeFamilyId(familyId: string) {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(ACTIVE_FAMILY_KEY, familyId)
-}
-
 export function FamilyProvider({ children }: { children: ReactNode }) {
-  const { user, loading: authLoading } = useAuth()
   const [family, setFamily] = useState<Family | null>(null)
+  const [parent, setParent] = useState<ParentProfile | null>(null)
+  const [activeChild, setActiveChild] = useState<ChildProfile | null>(null)
+  const [memberKind, setMemberKind] = useState<FamilySessionMemberKind | null>(null)
+  const [parents, setParents] = useState<ParentMember[]>([])
+  const [canAdmin, setCanAdmin] = useState(false)
   const [childrenWithXp, setChildrenWithXp] = useState<ChildWithTodayXp[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [session, setSessionState] = useState<FamilySession | null>(null)
 
   const refresh = useCallback(async () => {
-    if (!user) {
+    const stored = readFamilySession()
+    setSessionState(stored)
+
+    if (!stored) {
       setFamily(null)
+      setParent(null)
+      setActiveChild(null)
+      setMemberKind(null)
+      setParents([])
+      setCanAdmin(false)
       setChildrenWithXp([])
       setError(null)
       setLoading(false)
@@ -60,70 +77,169 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
     setLoading(true)
     setError(null)
+    setMemberKind(stored.memberKind)
 
-    const { families, error: familiesError } = await fetchFamiliesForUser()
-    if (familiesError) {
+    const { family: familyRow, error: familyError } = await fetchFamilyById(stored.familyId)
+
+    if (familyError) {
       setFamily(null)
+      setParent(null)
+      setActiveChild(null)
+      setParents([])
+      setCanAdmin(false)
       setChildrenWithXp([])
-      setError(familiesError.message)
+      setError(familyError.message)
       setLoading(false)
       return
     }
 
-    if (families.length === 0) {
+    if (!familyRow) {
+      clearFamilySession()
+      setSessionState(null)
       setFamily(null)
+      setParent(null)
+      setActiveChild(null)
+      setMemberKind(null)
+      setParents([])
+      setCanAdmin(false)
       setChildrenWithXp([])
+      setError('Gespeicherte Familie nicht gefunden. Bitte neu verbinden.')
       setLoading(false)
       return
     }
 
-    const storedId = readStoredFamilyId()
-    const active = families.find((f) => f.id === storedId) ?? families[0] ?? null
+    setFamily(familyRow)
 
-    if (!active) {
-      setFamily(null)
-      setChildrenWithXp([])
-      setLoading(false)
-      return
+    let nextParent: ParentProfile | null = null
+    let nextActiveChild: ChildProfile | null = null
+    let nextParents: ParentMember[] = []
+    let nextCanAdmin = false
+
+    if (stored.memberKind === 'parent') {
+      const [{ parent: parentRow, error: parentError }, { role, error: roleError }] = await Promise.all([
+        fetchParentById(stored.memberId),
+        fetchMemberRoleForParent(stored.familyId, stored.memberId),
+      ])
+
+      if (parentError || roleError) {
+        setParent(null)
+        setActiveChild(null)
+        setParents([])
+        setCanAdmin(false)
+        setChildrenWithXp([])
+        setError(parentError?.message ?? roleError?.message ?? 'Daten konnten nicht geladen werden.')
+        setLoading(false)
+        return
+      }
+
+      if (!parentRow) {
+        clearFamilySession()
+        setSessionState(null)
+        setFamily(null)
+        setParent(null)
+        setActiveChild(null)
+        setMemberKind(null)
+        setParents([])
+        setCanAdmin(false)
+        setChildrenWithXp([])
+        setError('Gespeichertes Profil nicht gefunden. Bitte neu verbinden.')
+        setLoading(false)
+        return
+      }
+
+      nextParent = parentRow
+      nextCanAdmin = sessionHasAdminAccess('parent', parentRow.can_admin, isAdminRole(role))
+
+      const { parents: parentRows, error: parentsError } = await fetchParentsForFamily(familyRow.id)
+      if (parentsError) {
+        nextParents = [{ ...parentRow, role: role ?? 'parent', todayXp: 0 }]
+      } else {
+        nextParents =
+          parentRows.length > 0
+            ? parentRows
+            : [{ ...parentRow, role: role ?? 'parent', gender: parentRow.gender, todayXp: 0 }]
+      }
+    } else {
+      const { child: childRow, error: childSessionError } = await fetchChildById(stored.memberId)
+
+      if (childSessionError) {
+        setParent(null)
+        setActiveChild(null)
+        setParents([])
+        setCanAdmin(false)
+        setChildrenWithXp([])
+        setError(childSessionError.message)
+        setLoading(false)
+        return
+      }
+
+      if (!childRow || childRow.family_id !== familyRow.id) {
+        clearFamilySession()
+        setSessionState(null)
+        setFamily(null)
+        setParent(null)
+        setActiveChild(null)
+        setMemberKind(null)
+        setParents([])
+        setCanAdmin(false)
+        setChildrenWithXp([])
+        setError('Gespeichertes Profil nicht gefunden. Bitte neu verbinden.')
+        setLoading(false)
+        return
+      }
+
+      nextActiveChild = childRow
+      nextCanAdmin = sessionHasAdminAccess('child', childRow.can_admin)
+
+      const { parents: parentRows, error: parentsError } = await fetchParentsForFamily(familyRow.id)
+      nextParents = parentsError ? [] : parentRows
     }
 
-    storeFamilyId(active.id)
-    setFamily(active)
+    const { children: childRows, error: childError } = await fetchChildrenForFamily(familyRow.id)
 
-    const { children: childRows, error: childError } = await fetchChildrenForFamily(active.id)
     if (childError) {
+      setParent(nextParent)
+      setActiveChild(nextActiveChild)
+      setParents(nextParents)
+      setCanAdmin(nextCanAdmin)
       setChildrenWithXp([])
       setError(childError.message)
       setLoading(false)
       return
     }
 
-    const { children: enriched, error: xpError } = await attachTodayXpToChildren(childRows, active.id)
+    const { childTotals, parentTotals, error: xpError } = await fetchTodayXpTotalsForFamily(familyRow.id)
+
+    setParent(nextParent)
+    setActiveChild(nextActiveChild)
+    setCanAdmin(nextCanAdmin)
+    setParents(nextParents.map((p) => ({ ...p, todayXp: parentTotals[p.id] ?? 0 })))
     setChildrenWithXp(
-      xpError ? childRows.map((c) => ({ ...c, todayXp: 0 })) : enriched,
+      xpError
+        ? childRows.map((c) => ({ ...c, todayXp: 0 }))
+        : childRows.map((c) => ({ ...c, todayXp: childTotals[c.id] ?? 0 })),
     )
     if (xpError) setError(xpError.message)
     setLoading(false)
-  }, [user])
+  }, [])
 
   useEffect(() => {
-    if (authLoading) return
     void refresh()
-  }, [authLoading, refresh, user?.id])
+  }, [refresh])
 
   useEffect(() => {
     const onChange = () => void refresh()
     window.addEventListener(FAMILY_DATA_CHANGED_EVENT, onChange)
-    window.addEventListener(AUTH_STATE_CHANGED_EVENT, onChange)
+    window.addEventListener(FAMILY_SESSION_CHANGED_EVENT, onChange)
     return () => {
       window.removeEventListener(FAMILY_DATA_CHANGED_EVENT, onChange)
-      window.removeEventListener(AUTH_STATE_CHANGED_EVENT, onChange)
+      window.removeEventListener(FAMILY_SESSION_CHANGED_EVENT, onChange)
     }
   }, [refresh])
 
-  const setActiveFamilyId = useCallback(
-    (familyId: string) => {
-      storeFamilyId(familyId)
+  const setSession = useCallback(
+    (next: FamilySession) => {
+      storeFamilySession(next)
       void refresh()
     },
     [refresh],
@@ -132,14 +248,21 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const value = useMemo<FamilyContextValue>(
     () => ({
       family,
+      parent,
+      activeChild,
+      memberKind,
+      parents,
       children: childrenWithXp,
-      loading: authLoading || loading,
-      hasFamily: Boolean(family),
+      loading,
+      hasSession: Boolean(session),
+      hasFamily: Boolean(family && (parent || activeChild)),
+      canAdmin,
       error,
+      session,
       refresh,
-      setActiveFamilyId,
+      setSession,
     }),
-    [family, childrenWithXp, authLoading, loading, error, refresh, setActiveFamilyId],
+    [family, parent, activeChild, memberKind, parents, childrenWithXp, loading, canAdmin, error, session, refresh, setSession],
   )
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>

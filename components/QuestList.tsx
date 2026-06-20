@@ -3,15 +3,22 @@
 import { useEffect, useState } from 'react'
 
 import { notifyFamilyDataChanged, useFamily, FAMILY_DATA_CHANGED_EVENT } from './FamilyProvider'
-import { fetchQuestsWithCompletions } from '../lib/family/quests'
+import { fetchTodayAndTomorrowQuests } from '../lib/family/quests'
 import type { QuestWithCompletion } from '../lib/family/types'
 import QuestCard from './QuestCard'
 
 export default function QuestList() {
-  const { family, children } = useFamily()
+  const { family, children, parents, memberKind, parent, activeChild } = useFamily()
   const [quests, setQuests] = useState<QuestWithCompletion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const sessionMember =
+    memberKind === 'child' && activeChild
+      ? ({ type: 'child' as const, id: activeChild.id })
+      : memberKind === 'parent' && parent
+        ? ({ type: 'parent' as const, id: parent.id })
+        : null
 
   useEffect(() => {
     if (!family) return
@@ -19,7 +26,7 @@ export default function QuestList() {
 
     const load = async () => {
       setLoading(true)
-      const { quests: rows, error: fetchError } = await fetchQuestsWithCompletions(family.id)
+      const { quests: rows, error: fetchError } = await fetchTodayAndTomorrowQuests(family.id)
       if (cancelled) return
       setLoading(false)
       if (fetchError) {
@@ -57,7 +64,7 @@ export default function QuestList() {
   if (quests.length === 0) {
     return (
       <p className="text-sm text-slate-600 dark:text-slate-400">
-        Noch keine Quests — lege die erste an.
+        Noch keine Quests — trage die erste für jemand anderen ein.
       </p>
     )
   }
@@ -69,7 +76,9 @@ export default function QuestList() {
           key={quest.id}
           quest={quest}
           children={children}
+          parents={parents}
           familyId={family.id}
+          sessionMember={sessionMember}
           onCompleted={() => {
             notifyFamilyDataChanged()
           }}

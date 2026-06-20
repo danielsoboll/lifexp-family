@@ -22,6 +22,8 @@ type DashboardButtonProps = {
   status?: AreaButtonStatus
   /** Lesbare Karten auf grauem Seitenverlauf (Was jetzt tun). */
   tone?: 'default' | 'wjt-primary' | 'wjt-secondary'
+  /** Vorschau ohne Navigation (Startbildschirm). */
+  preview?: boolean
 }
 
 const TONE_SURFACE_CLASS = {
@@ -60,6 +62,7 @@ export default function DashboardButton({
   featured = false,
   status,
   tone = 'default',
+  preview = false,
 }: DashboardButtonProps) {
   const statusClasses =
     tone !== 'default'
@@ -89,11 +92,10 @@ export default function DashboardButton({
       ? TONE_ARROW_CLASS[tone]
       : 'text-slate-300 transition group-hover:text-emerald-600 dark:text-slate-600 dark:group-hover:text-emerald-400'
 
-  return (
-    <Link
-      href={href}
-      className={`${PRESSABLE_3D_CLASS} group relative flex w-full items-start gap-4 overflow-hidden rounded-2xl border-2 p-4 text-left ring-1 hover:border-emerald-400/90 hover:ring-emerald-900/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:hover:border-emerald-500/80 ${statusClasses}`}
-    >
+  const className = `${PRESSABLE_3D_CLASS} group relative flex w-full items-start gap-4 overflow-hidden rounded-2xl border-2 p-4 text-left ring-1 hover:border-emerald-400/90 hover:ring-emerald-900/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:hover:border-emerald-500/80 ${statusClasses}`
+
+  const inner = (
+    <>
       <span
         className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-200 to-slate-100 text-2xl shadow-inner ring-2 ring-slate-300/90 ring-inset dark:from-emerald-900/60 dark:to-emerald-950/40 dark:ring-slate-700/80"
         aria-hidden
@@ -122,6 +124,16 @@ export default function DashboardButton({
       <span className={`mt-2 shrink-0 ${arrowClass}`} aria-hidden>
         →
       </span>
+    </>
+  )
+
+  if (preview) {
+    return <div className={className}>{inner}</div>
+  }
+
+  return (
+    <Link href={href} className={className}>
+      {inner}
     </Link>
   )
 }

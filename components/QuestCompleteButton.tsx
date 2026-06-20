@@ -4,7 +4,6 @@ import { useState } from 'react'
 
 import { notifyFamilyDataChanged } from './FamilyProvider'
 import { completeQuestForChild } from '../lib/family/questCompletions'
-import { questAppliesToChild } from '../lib/family/quests'
 import type { Quest } from '../lib/family/types'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 
@@ -28,8 +27,6 @@ export default function QuestCompleteButton({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(disabled)
-
-  if (!questAppliesToChild(quest, childId)) return null
 
   const handleClick = async () => {
     if (loading || done) return

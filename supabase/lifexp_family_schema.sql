@@ -80,7 +80,7 @@ CREATE TRIGGER families_set_updated_at
   EXECUTE FUNCTION public.set_updated_at();
 
 CREATE TABLE IF NOT EXISTS public.parent_profiles (
-  id uuid PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   display_name text NOT NULL DEFAULT '',
   avatar_url text,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -93,41 +93,18 @@ CREATE TRIGGER parent_profiles_set_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.set_updated_at();
 
-CREATE OR REPLACE FUNCTION public.handle_new_parent_user()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  INSERT INTO public.parent_profiles (id, display_name)
-  VALUES (
-    NEW.id,
-    COALESCE(NULLIF(trim(NEW.raw_user_meta_data ->> 'display_name'), ''), split_part(NEW.email, '@', 1), 'Elternteil')
-  )
-  ON CONFLICT (id) DO NOTHING;
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS on_auth_user_created_parent_profile ON auth.users;
-CREATE TRIGGER on_auth_user_created_parent_profile
-  AFTER INSERT ON auth.users
-  FOR EACH ROW
-  EXECUTE FUNCTION public.handle_new_parent_user();
-
 CREATE TABLE IF NOT EXISTS public.family_members (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   family_id uuid NOT NULL REFERENCES public.families (id) ON DELETE CASCADE,
-  user_id uuid NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  parent_id uuid NOT NULL REFERENCES public.parent_profiles (id) ON DELETE CASCADE,
   role public.family_member_role NOT NULL DEFAULT 'parent',
   joined_at timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (family_id, user_id)
+  UNIQUE (family_id, parent_id)
 );
 
-CREATE INDEX IF NOT EXISTS family_members_user_id_idx
-  ON public.family_members (user_id);
+CREATE INDEX IF NOT EXISTS family_members_parent_id_idx
+  ON public.family_members (parent_id);
 
 CREATE INDEX IF NOT EXISTS family_members_family_id_idx
   ON public.family_members (family_id);
@@ -170,7 +147,7 @@ CREATE TABLE IF NOT EXISTS public.quests (
   recurrence public.quest_recurrence NOT NULL DEFAULT 'daily',
   is_active boolean NOT NULL DEFAULT true,
   sort_order smallint NOT NULL DEFAULT 0,
-  created_by uuid REFERENCES auth.users (id) ON DELETE SET NULL,
+  created_by uuid REFERENCES public.parent_profiles (id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -195,7 +172,7 @@ CREATE TABLE IF NOT EXISTS public.quest_completions (
   completed_on date NOT NULL,
   xp_awarded integer NOT NULL DEFAULT 0 CHECK (xp_awarded >= 0),
   completed_at timestamptz NOT NULL DEFAULT now(),
-  completed_by uuid REFERENCES auth.users (id) ON DELETE SET NULL,
+  completed_by uuid REFERENCES public.parent_profiles (id) ON DELETE SET NULL,
   note text,
   UNIQUE (quest_id, child_id, completed_on)
 );
@@ -236,7 +213,7 @@ CREATE TABLE IF NOT EXISTS public.rewards (
   stock integer CHECK (stock IS NULL OR stock >= 0),
   is_active boolean NOT NULL DEFAULT true,
   sort_order smallint NOT NULL DEFAULT 0,
-  created_by uuid REFERENCES auth.users (id) ON DELETE SET NULL,
+  created_by uuid REFERENCES public.parent_profiles (id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -258,7 +235,7 @@ CREATE TABLE IF NOT EXISTS public.reward_redemptions (
   xp_spent integer NOT NULL CHECK (xp_spent > 0),
   status public.reward_redemption_status NOT NULL DEFAULT 'pending',
   redeemed_at timestamptz NOT NULL DEFAULT now(),
-  approved_by uuid REFERENCES auth.users (id) ON DELETE SET NULL,
+  approved_by uuid REFERENCES public.parent_profiles (id) ON DELETE SET NULL,
   note text
 );
 
@@ -279,7 +256,7 @@ CREATE TABLE IF NOT EXISTS public.family_challenges (
   ends_on date NOT NULL,
   xp_bonus integer NOT NULL DEFAULT 0 CHECK (xp_bonus >= 0),
   status public.family_challenge_status NOT NULL DEFAULT 'draft',
-  created_by uuid REFERENCES auth.users (id) ON DELETE SET NULL,
+  created_by uuid REFERENCES public.parent_profiles (id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CHECK (ends_on >= starts_on)
@@ -389,74 +366,87 @@ CREATE TRIGGER daily_xp_entries_apply_child_total
   FOR EACH ROW
   EXECUTE FUNCTION public.apply_daily_xp_entry_to_child();
 
-CREATE OR REPLACE FUNCTION public.auth_user_family_ids()
-RETURNS SETOF uuid
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT fm.family_id
-  FROM public.family_members fm
-  WHERE fm.user_id = auth.uid();
-$$;
+-- MVP ohne Supabase Auth: Familie + Elternprofil per RPC, Zugriff über anon-RLS.
 
-CREATE OR REPLACE FUNCTION public.is_family_member(p_family_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.family_members fm
-    WHERE fm.family_id = p_family_id
-      AND fm.user_id = auth.uid()
-  );
-$$;
-
-CREATE OR REPLACE FUNCTION public.is_family_owner(p_family_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.family_members fm
-    WHERE fm.family_id = p_family_id
-      AND fm.user_id = auth.uid()
-      AND fm.role = 'owner'
-  );
-$$;
-
-CREATE OR REPLACE FUNCTION public.create_family_with_owner(p_name text, p_invite_code text DEFAULT NULL)
-RETURNS uuid
+CREATE OR REPLACE FUNCTION public.create_family_with_parent(
+  p_family_name text,
+  p_parent_name text,
+  p_invite_code text DEFAULT NULL
+)
+RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
+  v_parent_id uuid;
   v_family_id uuid;
 BEGIN
-  IF auth.uid() IS NULL THEN
-    RAISE EXCEPTION 'Nicht angemeldet';
+  IF char_length(trim(p_family_name)) < 1 THEN
+    RAISE EXCEPTION 'Familienname fehlt';
+  END IF;
+  IF char_length(trim(p_parent_name)) < 1 THEN
+    RAISE EXCEPTION 'Elternname fehlt';
   END IF;
 
+  INSERT INTO public.parent_profiles (display_name)
+  VALUES (trim(p_parent_name))
+  RETURNING id INTO v_parent_id;
+
   INSERT INTO public.families (name, invite_code)
-  VALUES (trim(p_name), NULLIF(trim(p_invite_code), ''))
+  VALUES (trim(p_family_name), NULLIF(trim(p_invite_code), ''))
   RETURNING id INTO v_family_id;
 
-  INSERT INTO public.family_members (family_id, user_id, role)
-  VALUES (v_family_id, auth.uid(), 'owner');
+  INSERT INTO public.family_members (family_id, parent_id, role)
+  VALUES (v_family_id, v_parent_id, 'owner');
 
-  RETURN v_family_id;
+  RETURN json_build_object('family_id', v_family_id, 'parent_id', v_parent_id);
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.create_family_with_owner(text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_family_with_parent(text, text, text) TO anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.join_family_with_invite_code(
+  p_invite_code text,
+  p_parent_name text
+)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_parent_id uuid;
+  v_family_id uuid;
+BEGIN
+  IF char_length(trim(p_invite_code)) < 1 THEN
+    RAISE EXCEPTION 'Einladungscode fehlt';
+  END IF;
+  IF char_length(trim(p_parent_name)) < 1 THEN
+    RAISE EXCEPTION 'Elternname fehlt';
+  END IF;
+
+  SELECT id INTO v_family_id
+  FROM public.families
+  WHERE lower(trim(invite_code)) = lower(trim(p_invite_code))
+  LIMIT 1;
+
+  IF v_family_id IS NULL THEN
+    RAISE EXCEPTION 'Einladungscode ungültig';
+  END IF;
+
+  INSERT INTO public.parent_profiles (display_name)
+  VALUES (trim(p_parent_name))
+  RETURNING id INTO v_parent_id;
+
+  INSERT INTO public.family_members (family_id, parent_id, role)
+  VALUES (v_family_id, v_parent_id, 'parent');
+
+  RETURN json_build_object('family_id', v_family_id, 'parent_id', v_parent_id);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.join_family_with_invite_code(text, text) TO anon, authenticated;
 
 ALTER TABLE public.families ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.parent_profiles ENABLE ROW LEVEL SECURITY;
@@ -470,230 +460,36 @@ ALTER TABLE public.reward_redemptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.family_challenges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.family_challenge_progress ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS parent_profiles_select_own ON public.parent_profiles;
-CREATE POLICY parent_profiles_select_own
-  ON public.parent_profiles FOR SELECT TO authenticated
-  USING (id = auth.uid());
+DROP POLICY IF EXISTS families_anon_all ON public.families;
+CREATE POLICY families_anon_all ON public.families FOR ALL TO anon USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS parent_profiles_update_own ON public.parent_profiles;
-CREATE POLICY parent_profiles_update_own
-  ON public.parent_profiles FOR UPDATE TO authenticated
-  USING (id = auth.uid())
-  WITH CHECK (id = auth.uid());
+DROP POLICY IF EXISTS parent_profiles_anon_all ON public.parent_profiles;
+CREATE POLICY parent_profiles_anon_all ON public.parent_profiles FOR ALL TO anon USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS families_select_member ON public.families;
-CREATE POLICY families_select_member
-  ON public.families FOR SELECT TO authenticated
-  USING (id IN (SELECT public.auth_user_family_ids()));
+DROP POLICY IF EXISTS family_members_anon_all ON public.family_members;
+CREATE POLICY family_members_anon_all ON public.family_members FOR ALL TO anon USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS families_insert_authenticated ON public.families;
-CREATE POLICY families_insert_authenticated
-  ON public.families FOR INSERT TO authenticated
-  WITH CHECK (true);
+DROP POLICY IF EXISTS child_profiles_anon_all ON public.child_profiles;
+CREATE POLICY child_profiles_anon_all ON public.child_profiles FOR ALL TO anon USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS families_update_owner ON public.families;
-CREATE POLICY families_update_owner
-  ON public.families FOR UPDATE TO authenticated
-  USING (public.is_family_owner(id))
-  WITH CHECK (public.is_family_owner(id));
+DROP POLICY IF EXISTS quests_anon_all ON public.quests;
+CREATE POLICY quests_anon_all ON public.quests FOR ALL TO anon USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS families_delete_owner ON public.families;
-CREATE POLICY families_delete_owner
-  ON public.families FOR DELETE TO authenticated
-  USING (public.is_family_owner(id));
+DROP POLICY IF EXISTS quest_completions_anon_all ON public.quest_completions;
+CREATE POLICY quest_completions_anon_all ON public.quest_completions FOR ALL TO anon USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS family_members_select_member ON public.family_members;
-CREATE POLICY family_members_select_member
-  ON public.family_members FOR SELECT TO authenticated
-  USING (family_id IN (SELECT public.auth_user_family_ids()));
+DROP POLICY IF EXISTS daily_xp_entries_anon_all ON public.daily_xp_entries;
+CREATE POLICY daily_xp_entries_anon_all ON public.daily_xp_entries FOR ALL TO anon USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS family_members_insert_owner ON public.family_members;
-CREATE POLICY family_members_insert_owner
-  ON public.family_members FOR INSERT TO authenticated
-  WITH CHECK (
-    public.is_family_owner(family_id)
-    OR (
-      user_id = auth.uid()
-      AND role = 'owner'
-      AND NOT EXISTS (SELECT 1 FROM public.family_members fm WHERE fm.family_id = family_members.family_id)
-    )
-  );
+DROP POLICY IF EXISTS rewards_anon_all ON public.rewards;
+CREATE POLICY rewards_anon_all ON public.rewards FOR ALL TO anon USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS family_members_update_owner ON public.family_members;
-CREATE POLICY family_members_update_owner
-  ON public.family_members FOR UPDATE TO authenticated
-  USING (public.is_family_owner(family_id))
-  WITH CHECK (public.is_family_owner(family_id));
+DROP POLICY IF EXISTS reward_redemptions_anon_all ON public.reward_redemptions;
+CREATE POLICY reward_redemptions_anon_all ON public.reward_redemptions FOR ALL TO anon USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS family_members_delete_owner_or_self ON public.family_members;
-CREATE POLICY family_members_delete_owner_or_self
-  ON public.family_members FOR DELETE TO authenticated
-  USING (public.is_family_owner(family_id) OR user_id = auth.uid());
+DROP POLICY IF EXISTS family_challenges_anon_all ON public.family_challenges;
+CREATE POLICY family_challenges_anon_all ON public.family_challenges FOR ALL TO anon USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS child_profiles_select_member ON public.child_profiles;
-CREATE POLICY child_profiles_select_member
-  ON public.child_profiles FOR SELECT TO authenticated
-  USING (family_id IN (SELECT public.auth_user_family_ids()));
+DROP POLICY IF EXISTS family_challenge_progress_anon_all ON public.family_challenge_progress;
+CREATE POLICY family_challenge_progress_anon_all ON public.family_challenge_progress FOR ALL TO anon USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS child_profiles_insert_member ON public.child_profiles;
-CREATE POLICY child_profiles_insert_member
-  ON public.child_profiles FOR INSERT TO authenticated
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS child_profiles_update_member ON public.child_profiles;
-CREATE POLICY child_profiles_update_member
-  ON public.child_profiles FOR UPDATE TO authenticated
-  USING (public.is_family_member(family_id))
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS child_profiles_delete_member ON public.child_profiles;
-CREATE POLICY child_profiles_delete_member
-  ON public.child_profiles FOR DELETE TO authenticated
-  USING (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS quests_select_member ON public.quests;
-CREATE POLICY quests_select_member
-  ON public.quests FOR SELECT TO authenticated
-  USING (family_id IN (SELECT public.auth_user_family_ids()));
-
-DROP POLICY IF EXISTS quests_insert_member ON public.quests;
-CREATE POLICY quests_insert_member
-  ON public.quests FOR INSERT TO authenticated
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS quests_update_member ON public.quests;
-CREATE POLICY quests_update_member
-  ON public.quests FOR UPDATE TO authenticated
-  USING (public.is_family_member(family_id))
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS quests_delete_member ON public.quests;
-CREATE POLICY quests_delete_member
-  ON public.quests FOR DELETE TO authenticated
-  USING (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS quest_completions_select_member ON public.quest_completions;
-CREATE POLICY quest_completions_select_member
-  ON public.quest_completions FOR SELECT TO authenticated
-  USING (family_id IN (SELECT public.auth_user_family_ids()));
-
-DROP POLICY IF EXISTS quest_completions_insert_member ON public.quest_completions;
-CREATE POLICY quest_completions_insert_member
-  ON public.quest_completions FOR INSERT TO authenticated
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS quest_completions_update_member ON public.quest_completions;
-CREATE POLICY quest_completions_update_member
-  ON public.quest_completions FOR UPDATE TO authenticated
-  USING (public.is_family_member(family_id))
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS quest_completions_delete_member ON public.quest_completions;
-CREATE POLICY quest_completions_delete_member
-  ON public.quest_completions FOR DELETE TO authenticated
-  USING (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS daily_xp_entries_select_member ON public.daily_xp_entries;
-CREATE POLICY daily_xp_entries_select_member
-  ON public.daily_xp_entries FOR SELECT TO authenticated
-  USING (family_id IN (SELECT public.auth_user_family_ids()));
-
-DROP POLICY IF EXISTS daily_xp_entries_insert_member ON public.daily_xp_entries;
-CREATE POLICY daily_xp_entries_insert_member
-  ON public.daily_xp_entries FOR INSERT TO authenticated
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS daily_xp_entries_update_member ON public.daily_xp_entries;
-CREATE POLICY daily_xp_entries_update_member
-  ON public.daily_xp_entries FOR UPDATE TO authenticated
-  USING (public.is_family_member(family_id))
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS daily_xp_entries_delete_member ON public.daily_xp_entries;
-CREATE POLICY daily_xp_entries_delete_member
-  ON public.daily_xp_entries FOR DELETE TO authenticated
-  USING (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS rewards_select_member ON public.rewards;
-CREATE POLICY rewards_select_member
-  ON public.rewards FOR SELECT TO authenticated
-  USING (family_id IN (SELECT public.auth_user_family_ids()));
-
-DROP POLICY IF EXISTS rewards_insert_member ON public.rewards;
-CREATE POLICY rewards_insert_member
-  ON public.rewards FOR INSERT TO authenticated
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS rewards_update_member ON public.rewards;
-CREATE POLICY rewards_update_member
-  ON public.rewards FOR UPDATE TO authenticated
-  USING (public.is_family_member(family_id))
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS rewards_delete_member ON public.rewards;
-CREATE POLICY rewards_delete_member
-  ON public.rewards FOR DELETE TO authenticated
-  USING (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS reward_redemptions_select_member ON public.reward_redemptions;
-CREATE POLICY reward_redemptions_select_member
-  ON public.reward_redemptions FOR SELECT TO authenticated
-  USING (family_id IN (SELECT public.auth_user_family_ids()));
-
-DROP POLICY IF EXISTS reward_redemptions_insert_member ON public.reward_redemptions;
-CREATE POLICY reward_redemptions_insert_member
-  ON public.reward_redemptions FOR INSERT TO authenticated
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS reward_redemptions_update_member ON public.reward_redemptions;
-CREATE POLICY reward_redemptions_update_member
-  ON public.reward_redemptions FOR UPDATE TO authenticated
-  USING (public.is_family_member(family_id))
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS reward_redemptions_delete_member ON public.reward_redemptions;
-CREATE POLICY reward_redemptions_delete_member
-  ON public.reward_redemptions FOR DELETE TO authenticated
-  USING (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS family_challenges_select_member ON public.family_challenges;
-CREATE POLICY family_challenges_select_member
-  ON public.family_challenges FOR SELECT TO authenticated
-  USING (family_id IN (SELECT public.auth_user_family_ids()));
-
-DROP POLICY IF EXISTS family_challenges_insert_member ON public.family_challenges;
-CREATE POLICY family_challenges_insert_member
-  ON public.family_challenges FOR INSERT TO authenticated
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS family_challenges_update_member ON public.family_challenges;
-CREATE POLICY family_challenges_update_member
-  ON public.family_challenges FOR UPDATE TO authenticated
-  USING (public.is_family_member(family_id))
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS family_challenges_delete_member ON public.family_challenges;
-CREATE POLICY family_challenges_delete_member
-  ON public.family_challenges FOR DELETE TO authenticated
-  USING (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS family_challenge_progress_select_member ON public.family_challenge_progress;
-CREATE POLICY family_challenge_progress_select_member
-  ON public.family_challenge_progress FOR SELECT TO authenticated
-  USING (family_id IN (SELECT public.auth_user_family_ids()));
-
-DROP POLICY IF EXISTS family_challenge_progress_insert_member ON public.family_challenge_progress;
-CREATE POLICY family_challenge_progress_insert_member
-  ON public.family_challenge_progress FOR INSERT TO authenticated
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS family_challenge_progress_update_member ON public.family_challenge_progress;
-CREATE POLICY family_challenge_progress_update_member
-  ON public.family_challenge_progress FOR UPDATE TO authenticated
-  USING (public.is_family_member(family_id))
-  WITH CHECK (public.is_family_member(family_id));
-
-DROP POLICY IF EXISTS family_challenge_progress_delete_member ON public.family_challenge_progress;
-CREATE POLICY family_challenge_progress_delete_member
-  ON public.family_challenge_progress FOR DELETE TO authenticated
-  USING (public.is_family_member(family_id));
