@@ -1,24 +1,51 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
-import { notifyFamilyDataChanged, useFamily, FAMILY_DATA_CHANGED_EVENT } from './FamilyProvider'
+import FamilyGroupPortrait from './FamilyGroupPortrait'
+import QuestEditSheet from './QuestEditSheet'
+import { useFamily, FAMILY_DATA_CHANGED_EVENT } from './FamilyProvider'
 import { fetchTodayAndTomorrowQuests } from '../lib/family/quests'
+import { canSessionModifyQuest } from '../lib/family/questConfirmation'
 import type { QuestWithCompletion } from '../lib/family/types'
+import { groupQuestsForDisplay } from '../lib/family/questMemberGroups'
+import { memberAccentStyle, normalizeMemberAccentKey, type MemberAccentKey } from '../lib/family/memberAccentColor'
 import QuestCard from './QuestCard'
 
+function renderQuestCard(
+  quest: QuestWithCompletion,
+  props: {
+    children: ReturnType<typeof useFamily>['children']
+    parents: ReturnType<typeof useFamily>['parents']
+    session: ReturnType<typeof useFamily>['session']
+    grouped?: boolean
+    familyWide?: boolean
+    familyAccentKey?: MemberAccentKey
+    onManage: (quest: QuestWithCompletion) => void
+  },
+) {
+  const manageable = props.session ? canSessionModifyQuest(quest, props.session) : false
+  return (
+    <QuestCard
+      key={quest.id}
+      quest={quest}
+      children={props.children}
+      parents={props.parents}
+      grouped={props.grouped}
+      familyWide={props.familyWide}
+      familyAccentKey={props.familyAccentKey}
+      manageable={manageable}
+      onManage={manageable ? () => props.onManage(quest) : undefined}
+    />
+  )
+}
+
 export default function QuestList() {
-  const { family, children, parents, memberKind, parent, activeChild } = useFamily()
+  const { family, children, parents, session } = useFamily()
   const [quests, setQuests] = useState<QuestWithCompletion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const sessionMember =
-    memberKind === 'child' && activeChild
-      ? ({ type: 'child' as const, id: activeChild.id })
-      : memberKind === 'parent' && parent
-        ? ({ type: 'parent' as const, id: parent.id })
-        : null
+  const [editQuest, setEditQuest] = useState<QuestWithCompletion | null>(null)
 
   useEffect(() => {
     if (!family) return
@@ -47,6 +74,21 @@ export default function QuestList() {
     }
   }, [family])
 
+  const groups = useMemo(
+    () => groupQuestsForDisplay(quests, parents, children, family?.name),
+    [quests, parents, children, family?.name],
+  )
+
+  const cardProps = useMemo(
+    () => ({
+      children,
+      parents,
+      session,
+      onManage: setEditQuest,
+    }),
+    [children, parents, session],
+  )
+
   if (!family) return null
 
   if (loading) {
@@ -69,21 +111,47 @@ export default function QuestList() {
     )
   }
 
+  const familyAccentKey = normalizeMemberAccentKey(family.accent_key)
+
   return (
-    <div className="space-y-4">
-      {quests.map((quest) => (
-        <QuestCard
-          key={quest.id}
-          quest={quest}
-          children={children}
-          parents={parents}
-          familyId={family.id}
-          sessionMember={sessionMember}
-          onCompleted={() => {
-            notifyFamilyDataChanged()
-          }}
-        />
-      ))}
-    </div>
+    <>
+      <div className="space-y-5">
+        {groups.map((group) => {
+          if (group.kind === 'family') {
+            const accent = memberAccentStyle(familyAccentKey)
+            return (
+              <section key="family">
+                <div className="flex items-center gap-3">
+                  <FamilyGroupPortrait className="w-16 shrink-0" />
+                  <h2 className={`text-lg font-bold tracking-tight ${accent.nameClass}`}>{group.label}</h2>
+                </div>
+                <div className="mt-2 space-y-2.5">
+                  {group.quests.map((quest) =>
+                    renderQuestCard(quest, {
+                      ...cardProps,
+                      grouped: true,
+                      familyWide: true,
+                      familyAccentKey,
+                    }),
+                  )}
+                </div>
+              </section>
+            )
+          }
+
+          const accent = memberAccentStyle(group.accentKey)
+          return (
+            <section key={`${group.assignee.type}:${group.assignee.id}`}>
+              <h2 className={`text-lg font-bold tracking-tight ${accent.nameClass}`}>{group.label}</h2>
+              <div className="mt-2 space-y-2.5">
+                {group.quests.map((quest) => renderQuestCard(quest, { ...cardProps, grouped: true }))}
+              </div>
+            </section>
+          )
+        })}
+      </div>
+
+      <QuestEditSheet quest={editQuest} open={editQuest !== null} onClose={() => setEditQuest(null)} />
+    </>
   )
 }

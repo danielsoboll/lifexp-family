@@ -1,25 +1,39 @@
 'use client'
 
-import { useState } from 'react'
-
 import { memberLabelForAssignee } from './MemberSingleSelect'
 import type { ParentMember } from '../lib/family/members'
-import type { ChildWithTodayXp, QuestAssignee, QuestWithCompletion } from '../lib/family/types'
-import { isQuestCompletedForAssignee, questPrimaryAssignee } from '../lib/family/quests'
+import type { ChildWithTodayXp, QuestWithCompletion } from '../lib/family/types'
+import { questPrimaryAssignee } from '../lib/family/quests'
+import { isFamilyWideQuest } from '../lib/family/questConfirmation'
 import { formatQuestDayLabel } from '../lib/family/questRules'
+import { accentKeyForAssignee, memberAccentStyle, type MemberAccentKey } from '../lib/family/memberAccentColor'
 import { formatParentDisplayName } from '../lib/family/familyDisplayName'
-import { cetToday, normalizeDateKey } from '../lib/cetDate'
-import { completeQuestForChild, completeQuestForParent } from '../lib/family/questCompletions'
-import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 type QuestCardProps = {
   quest: QuestWithCompletion
   children: ChildWithTodayXp[]
   parents?: ParentMember[]
-  familyId: string
-  sessionMember: QuestAssignee | null
-  onCompleted?: () => void
+  /** Name steht in der Gruppenüberschrift — nicht nochmal auf der Karte. */
+  grouped?: boolean
+  /** Familien-Quest (Alle) — neutrale Kartenfarbe. */
+  familyWide?: boolean
+  familyAccentKey?: MemberAccentKey
+  /** Nur Ersteller: Klick öffnet Bearbeiten/Löschen. */
+  manageable?: boolean
+  onManage?: () => void
 }
+
+const STATUS_LABEL = {
+  open: { text: 'Offen', className: 'bg-white/70 text-slate-800 dark:bg-slate-800/70 dark:text-slate-200' },
+  awaiting_creator: {
+    text: 'Wartet auf Bestätigung',
+    className: 'bg-white/75 text-sky-900 dark:bg-sky-950/50 dark:text-sky-100',
+  },
+  done: {
+    text: 'Erledigt',
+    className: 'bg-white/75 text-emerald-900 dark:bg-emerald-950/45 dark:text-emerald-100',
+  },
+} as const
 
 function creatorLabel(
   quest: QuestWithCompletion,
@@ -41,108 +55,75 @@ export default function QuestCard({
   quest,
   children,
   parents = [],
-  familyId,
-  sessionMember,
-  onCompleted,
+  grouped = false,
+  familyWide = false,
+  familyAccentKey,
+  manageable = false,
+  onManage,
 }: QuestCardProps) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
   const assignee = questPrimaryAssignee(quest)
   const assigneeName = assignee ? memberLabelForAssignee(assignee, parents, children) : '—'
-  const done = isQuestCompletedForAssignee(quest)
   const dayLabel = formatQuestDayLabel(quest.task_date)
-  const isToday = normalizeDateKey(quest.task_date) === cetToday()
-  const canComplete =
-    !done &&
-    isToday &&
-    assignee &&
-    sessionMember &&
-    sessionMember.type === assignee.type &&
-    sessionMember.id === assignee.id
+  const status = STATUS_LABEL[quest.fulfillmentStatus]
+  const accent =
+    familyWide || isFamilyWideQuest(quest)
+      ? memberAccentStyle(familyAccentKey ?? 'lavender')
+      : memberAccentStyle(accentKeyForAssignee(assignee, parents, children))
 
-  const complete = async () => {
-    if (!assignee || !canComplete) return
-    setBusy(true)
-    setError(null)
-
-    const completeError =
-      assignee.type === 'parent'
-        ? (
-            await completeQuestForParent({
-              quest,
-              parentId: assignee.id,
-              familyId,
-            })
-          ).error
-        : (
-            await completeQuestForChild({
-              quest,
-              childId: assignee.id,
-              familyId,
-            })
-          ).error
-
-    setBusy(false)
-    if (completeError) {
-      setError(completeError.message)
-      return
-    }
-    onCompleted?.()
-  }
-
-  return (
-    <article className={`${CARD_SURFACE_CLASS} rounded-2xl p-4`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-              {dayLabel}
-            </span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
-                done
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200'
-                  : 'bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
-              }`}
-            >
-              {done ? 'Erledigt' : 'Offen'}
-            </span>
-          </div>
-          <h3 className="mt-2 text-lg font-bold text-slate-900 dark:text-slate-100">{quest.title}</h3>
-          {quest.description ? (
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{quest.description}</p>
-          ) : null}
+  const content = (
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="rounded-full bg-white/65 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-700 dark:bg-slate-900/55 dark:text-slate-200">
+            {dayLabel}
+          </span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${status.className}`}
+          >
+            {status.text}
+          </span>
         </div>
-        <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-sm font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
+        <span className="shrink-0 rounded-full bg-white/80 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:bg-slate-900/60 dark:text-emerald-300">
           +{quest.xp_reward} XP
         </span>
       </div>
-      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-        Für <strong className="text-slate-700 dark:text-slate-200">{assigneeName}</strong> · eingetragen von{' '}
-        <strong className="text-slate-700 dark:text-slate-200">{creatorLabel(quest, parents, children)}</strong>
+
+      {grouped ? (
+        <h3 className="mt-2 text-base font-bold leading-snug text-slate-900 dark:text-slate-100">{quest.title}</h3>
+      ) : (
+        <div className="mt-2 flex min-w-0 items-baseline gap-1.5">
+          <p className={`shrink-0 text-sm font-bold leading-snug ${accent.nameClass}`}>{assigneeName}</p>
+          <span className="text-slate-400 dark:text-slate-500" aria-hidden>
+            ·
+          </span>
+          <h3 className="min-w-0 truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{quest.title}</h3>
+        </div>
+      )}
+
+      {quest.description ? (
+        <p className="mt-1 line-clamp-2 text-sm text-slate-700/90 dark:text-slate-300/90">{quest.description}</p>
+      ) : null}
+
+      <p className="mt-1.5 text-[11px] text-slate-600/90 dark:text-slate-400/90">
+        von {creatorLabel(quest, parents, children)}
       </p>
-
-      {canComplete ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void complete()}
-          className={`${PRESSABLE_3D_CLASS} mt-4 w-full rounded-xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-60`}
-        >
-          {busy ? 'Speichern …' : 'Als erledigt markieren'}
-        </button>
+      {manageable ? (
+        <p className="mt-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400">Tippen zum Bearbeiten</p>
       ) : null}
-
-      {!done && !isToday ? (
-        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Erst am geplanten Tag erledigbar.</p>
-      ) : null}
-
-      {error ? (
-        <p className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
-          {error}
-        </p>
-      ) : null}
-    </article>
+    </>
   )
+
+  if (manageable && onManage) {
+    return (
+      <button
+        type="button"
+        onClick={onManage}
+        className={`w-full rounded-xl border-2 p-3 text-left shadow-sm ring-1 transition hover:brightness-[1.02] active:scale-[0.99] ${accent.cardClass}`}
+      >
+        {content}
+      </button>
+    )
+  }
+
+  return <article className={`rounded-xl border-2 p-3 shadow-sm ring-1 ${accent.cardClass}`}>{content}</article>
 }

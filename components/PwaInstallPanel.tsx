@@ -5,8 +5,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 
 import {
   canShowNativeInstallPrompt,
-  isAndroidDevice,
-  isIosDevice,
+  getPwaInstallPlatform,
+  isIpadDevice,
   isStandaloneDisplayMode,
   LIFEXP_PWA_INSTALL_PROMPT_READY_EVENT,
   requestPwaInstall,
@@ -76,15 +76,40 @@ function IosInstallStep({ text, icon }: { text: string; icon?: ReactNode }) {
   )
 }
 
-function IosInstallSteps() {
+function IphoneInstallSteps() {
   return (
     <ol className="list-decimal space-y-2 rounded-xl border border-sky-200 bg-sky-50/90 px-4 py-3 text-sm leading-relaxed text-sky-950 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100">
-      <IosInstallStep text="Unten rechts auf die 3 Punkte klicken" icon={<IosSafariMoreIcon />} />
+      <IosInstallStep text="Unten rechts auf die 3 Punkte tippen" icon={<IosSafariMoreIcon />} />
       <IosInstallStep text="Auf „Teilen“ tippen" icon={<IosSafariShareIcon />} />
       <IosInstallStep text="„Zum Home-Bildschirm“ auswählen" icon={<IosSafariAddToHomeIcon />} />
       <IosInstallStep text="„Hinzufügen“ tippen" />
     </ol>
   )
+}
+
+function IpadInstallSteps() {
+  return (
+    <ol className="list-decimal space-y-2 rounded-xl border border-sky-200 bg-sky-50/90 px-4 py-3 text-sm leading-relaxed text-sky-950 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100">
+      <IosInstallStep text="Oben in Safari auf „Teilen“ tippen" icon={<IosSafariShareIcon />} />
+      <IosInstallStep text="„Zum Home-Bildschirm“ auswählen" icon={<IosSafariAddToHomeIcon />} />
+      <IosInstallStep text="„Hinzufügen“ tippen" />
+    </ol>
+  )
+}
+
+function AndroidInstallHint() {
+  return (
+    <p className="rounded-xl border border-sky-200 bg-sky-50/90 px-4 py-3 text-sm leading-relaxed text-sky-950 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100">
+      Öffne LifeXP Family in Chrome. Wenn der Button unten erscheint, tippe auf „LifeXP Family
+      installieren“. Alternativ: Browser-Menü → „App installieren“ oder „Zum Startbildschirm
+      hinzufügen“.
+    </p>
+  )
+}
+
+/** @deprecated Alias — iPhone-Schritte */
+function IosInstallSteps() {
+  return <IphoneInstallSteps />
 }
 
 export default function PwaInstallPanel({
@@ -103,8 +128,8 @@ export default function PwaInstallPanel({
   const [hint, setHint] = useState<string | null>(null)
   const iconSrc = getAppIconPath(resolveAppIconGender(avatarGender), 192)
 
-  const ios = isIosDevice()
-  const android = isAndroidDevice()
+  const platform = getPwaInstallPlatform()
+  const iosInstallConfirmedVisual = iosInstallConfirmed
 
   useEffect(() => {
     const refresh = () => setCanInstall(canShowNativeInstallPrompt())
@@ -135,7 +160,7 @@ export default function PwaInstallPanel({
         setHint('Installation abgebrochen.')
         return
       }
-      if (android && !canShowNativeInstallPrompt()) {
+      if (platform === 'android' && !canShowNativeInstallPrompt()) {
         setHint('Öffne LifeXP Family in Chrome und warte kurz — dann erscheint „Installieren“.')
       }
     } finally {
@@ -169,13 +194,21 @@ export default function PwaInstallPanel({
         </div>
       ) : null}
 
-      {ios ? (
-        <div className={iosInstallConfirmed ? 'opacity-80' : undefined}>
-          <IosInstallSteps />
+      {platform === 'iphone' ? (
+        <div className={iosInstallConfirmedVisual ? 'opacity-80' : undefined}>
+          <IphoneInstallSteps />
         </div>
       ) : null}
 
-      {showIosDoneButton && ios ? (
+      {platform === 'ipad' ? (
+        <div className={iosInstallConfirmedVisual ? 'opacity-80' : undefined}>
+          <IpadInstallSteps />
+        </div>
+      ) : null}
+
+      {platform === 'android' && !canInstall ? <AndroidInstallHint /> : null}
+
+      {showIosDoneButton && (platform === 'iphone' || platform === 'ipad') ? (
         <button
           type="button"
           disabled={iosInstallConfirmed || iosDoneSaving}
@@ -190,7 +223,7 @@ export default function PwaInstallPanel({
         </button>
       ) : null}
 
-      {canInstall && !ios ? (
+      {canInstall && platform === 'android' ? (
         <button
           type="button"
           disabled={installing}
@@ -220,4 +253,4 @@ export default function PwaInstallPanel({
   )
 }
 
-export { IosInstallSteps }
+export { IosInstallSteps, IphoneInstallSteps, IpadInstallSteps }

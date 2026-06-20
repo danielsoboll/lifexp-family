@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { joinFamilyWithInviteCodeDirect } from '@/lib/family/joinFamilyDirect'
-import type { OnboardingMemberProfile } from '@/lib/family/onboardingMember'
+import type { OnboardingDevicePrefs, OnboardingMemberProfile } from '@/lib/family/onboardingMember'
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
 export async function POST(request: Request) {
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     )
   }
 
-  let body: { inviteCode?: string; profile?: OnboardingMemberProfile }
+  let body: { inviteCode?: string; profile?: OnboardingMemberProfile; devicePrefs?: OnboardingDevicePrefs }
   try {
     body = (await request.json()) as typeof body
   } catch {
@@ -31,11 +31,12 @@ export async function POST(request: Request) {
     admin,
     body.inviteCode ?? '',
     body.profile,
+    body.devicePrefs,
   )
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
-  return NextResponse.json({ result })
+  return NextResponse.json({ result: result?.session, recoveryCode: result?.recoveryCode })
 }

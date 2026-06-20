@@ -204,6 +204,13 @@ export function cetFormatLongDateDe(date: string): string {
   return LONG_DATE_FORMAT.format(new Date(noon))
 }
 
+/** Wanduhr (`HH:MM`) in Europe/Berlin für ISO-Zeitstempel. */
+export function cetFormatTimeFromIso(iso: string): string {
+  const instant = Date.parse(iso)
+  if (!Number.isFinite(instant)) return ''
+  return LOCAL_TIME_FORMAT.format(new Date(instant))
+}
+
 /** Wanduhr (`HH:MM`) in Europe/Berlin, auf Viertelstunden abgerundet. */
 export function cetQuarterHourTime(instant: number = Date.now()): string {
   const parts = LOCAL_TIME_FORMAT.formatToParts(new Date(instant))

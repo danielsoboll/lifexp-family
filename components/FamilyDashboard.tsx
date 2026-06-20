@@ -39,8 +39,8 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
   const familyHeading = preview ? formatFamilyHeading('Sonnenschein') : formatFamilyHeading(family?.name)
 
   const previewParents = [
-    { id: 'p1', display_name: 'Daniel', gender: 'male' as const, role: 'parent' as const, can_admin: true, todayXp: 22, avatar_url: '/avatars/Mann_1_1.webp', created_at: '', updated_at: '' },
-    { id: 'p2', display_name: 'Anna', gender: 'female' as const, role: 'parent' as const, can_admin: true, todayXp: 16, avatar_url: '/avatars/Frau_1_1.webp', created_at: '', updated_at: '' },
+    { id: 'p1', display_name: 'Daniel', gender: 'male' as const, role: 'parent' as const, can_admin: true, todayXp: 22, avatar_url: '/avatars/Mann_1_1.webp', accent_key: 'rose', rec_code: null, rec_code_ok: false, app_installed: false, app_later: false, created_at: '', updated_at: '' },
+    { id: 'p2', display_name: 'Anna', gender: 'female' as const, role: 'parent' as const, can_admin: true, todayXp: 16, avatar_url: '/avatars/Frau_1_1.webp', accent_key: 'amber', rec_code: null, rec_code_ok: false, app_installed: false, app_later: false, created_at: '', updated_at: '' },
   ]
   const previewChildren = [
     {
@@ -57,6 +57,11 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
       is_active: true,
       sort_order: 0,
       notes: null,
+      accent_key: 'sky',
+      rec_code: null,
+      rec_code_ok: false,
+      app_installed: false,
+      app_later: false,
       created_at: '',
       updated_at: '',
     },
@@ -74,6 +79,11 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
       is_active: true,
       sort_order: 0,
       notes: null,
+      accent_key: 'sky',
+      rec_code: null,
+      rec_code_ok: false,
+      app_installed: false,
+      app_later: false,
       created_at: '',
       updated_at: '',
     },
@@ -110,7 +120,9 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Familienmitglieder</h2>
           <div className="grid grid-cols-2 gap-3">
             {parentRows.map((parent) => {
-              const avatar = resolveParentAvatar(parent.gender, parent.avatar_url)
+              const avatar = resolveParentAvatar(parent.gender, parent.avatar_url, {
+                todayXp: parent.todayXp ?? 0,
+              })
               return (
                 <MemberSlot
                   key={parent.id}
@@ -127,7 +139,9 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
           {childRows.length > 0 ? (
             <div className="grid grid-cols-2 gap-3">
               {childRows.map((child) => {
-                const avatar = resolveChildAvatar(child.gender, child.age, child.portrait_id)
+                const avatar = resolveChildAvatar(child.gender, child.age, child.portrait_id, {
+                  todayXp: child.todayXp,
+                })
                 return (
                   <MemberSlot
                     key={child.id}
@@ -154,7 +168,7 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
         <DashboardButton
           href="/quests"
           emoji="🎯"
-          title="Quests"
+          title="Family-Quests"
           subtitle="Alle Quests der Familie — heute und morgen"
           preview={preview}
         />

@@ -289,6 +289,10 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  IF NEW.child_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1
     FROM public.child_profiles cp
@@ -318,6 +322,7 @@ DROP TRIGGER IF EXISTS quest_completions_child_family ON public.quest_completion
 CREATE TRIGGER quest_completions_child_family
   BEFORE INSERT OR UPDATE ON public.quest_completions
   FOR EACH ROW
+  WHEN (NEW.child_id IS NOT NULL)
   EXECUTE FUNCTION public.enforce_child_in_family();
 
 DROP TRIGGER IF EXISTS reward_redemptions_child_family ON public.reward_redemptions;

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 
 import GenderChoice from './GenderChoice'
 import AdminAccessToggle from './AdminAccessToggle'
+import MemberAccentPicker from './MemberAccentPicker'
 import MemberEditorSaveBar from './MemberEditorSaveBar'
 import MemberPortraitThumb from './MemberPortraitThumb'
 import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
@@ -16,6 +17,7 @@ import {
   type AvatarPortraitId,
 } from '../lib/family/memberAvatar'
 import { parentRoleLabel, type ParentGender } from '../lib/family/memberGender'
+import { normalizeMemberAccentKey, type MemberAccentKey } from '../lib/family/memberAccentColor'
 import type { ParentMember } from '../lib/family/members'
 import { CARD_SURFACE_CLASS } from '../lib/appShell'
 
@@ -31,6 +33,7 @@ export default function ParentMemberEditor({ member }: ParentMemberEditorProps) 
   const [displayName, setDisplayName] = useState(member.display_name)
   const [gender, setGender] = useState<ParentGender>(member.gender)
   const [canAdmin, setCanAdmin] = useState(member.can_admin)
+  const [accentKey, setAccentKey] = useState<MemberAccentKey>(normalizeMemberAccentKey(member.accent_key))
   const [portraitId, setPortraitId] = useState<AvatarPortraitId | null>(
     resolveParentAvatar(member.gender, member.avatar_url).portraitId,
   )
@@ -47,6 +50,7 @@ export default function ParentMemberEditor({ member }: ParentMemberEditorProps) 
     displayName.trim() !== member.display_name ||
     gender !== member.gender ||
     canAdmin !== member.can_admin ||
+    accentKey !== normalizeMemberAccentKey(member.accent_key) ||
     portraitId !== savedPortraitId
 
   const resolved = useMemo(
@@ -76,6 +80,7 @@ export default function ParentMemberEditor({ member }: ParentMemberEditorProps) 
       gender,
       canAdmin,
       avatarUrl: nextPortrait ? portraitSrc(nextPortrait) : null,
+      accentKey,
     })
 
     setLoading(false)
@@ -116,6 +121,7 @@ export default function ParentMemberEditor({ member }: ParentMemberEditorProps) 
         </div>
       </div>
       <AdminAccessToggle checked={canAdmin} onChange={setCanAdmin} />
+      <MemberAccentPicker value={accentKey} onChange={setAccentKey} />
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
           {error}

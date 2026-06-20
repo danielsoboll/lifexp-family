@@ -16,7 +16,7 @@ export async function fetchParentsForFamily(
 ): Promise<{ parents: ParentMember[]; error: Error | null }> {
   const { data, error } = await supabase
     .from('family_members')
-    .select('role, parent_profiles(id, display_name, gender, can_admin, avatar_url, created_at, updated_at)')
+    .select('role, parent_profiles(id, display_name, gender, can_admin, avatar_url, accent_key, rec_code, rec_code_ok, app_installed, app_later, created_at, updated_at)')
     .eq('family_id', familyId)
     .in('role', ['owner', 'parent'])
 

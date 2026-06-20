@@ -9,6 +9,7 @@ export type Family = {
   name: string
   invite_code: string | null
   timezone: string
+  accent_key: string
   created_at: string
   updated_at: string
 }
@@ -19,6 +20,11 @@ export type ParentProfile = {
   gender: ParentGender
   can_admin: boolean
   avatar_url: string | null
+  accent_key: string
+  rec_code: string | null
+  rec_code_ok: boolean
+  app_installed: boolean
+  app_later: boolean
   created_at: string
   updated_at: string
 }
@@ -46,6 +52,11 @@ export type ChildProfile = {
   is_active: boolean
   sort_order: number
   notes: string | null
+  accent_key: string
+  rec_code: string | null
+  rec_code_ok: boolean
+  app_installed: boolean
+  app_later: boolean
   created_at: string
   updated_at: string
 }
@@ -76,13 +87,61 @@ export type Quest = {
 export type QuestCompletion = {
   id: string
   quest_id: string
-  child_id: string
+  child_id: string | null
+  parent_id: string | null
   family_id: string
   completed_on: string
   xp_awarded: number
   completed_at: string
   completed_by: string | null
   note: string | null
+  assignee_confirmed_at: string | null
+  creator_confirmed_at: string | null
+  creator_confirmed_by_parent_id: string | null
+  creator_confirmed_by_child_id: string | null
+}
+
+export type QuestFulfillmentStatus = 'open' | 'awaiting_creator' | 'done'
+
+export type QuestAssigneeCompletion = {
+  completionId: string
+  assigneeConfirmedAt: string | null
+  creatorConfirmedAt: string | null
+}
+
+export type QuestCompletionOnDate = {
+  id: string
+  childId: string | null
+  parentId: string | null
+  assigneeConfirmedAt: string | null
+  creatorConfirmedAt: string | null
+}
+
+export type ChildWithTodayXp = ChildProfile & {
+  todayXp: number
+}
+
+export type QuestWithCompletion = Quest & {
+  assignees: QuestAssignee[]
+  /** @deprecated Nutze fulfillmentStatus / assigneeCompletion */
+  completedToday: boolean
+  /** Nur vollständig bestätigt (Stufe 2) */
+  completionChildIds: string[]
+  completionParentIds: string[]
+  assigneeCompletion: QuestAssigneeCompletion | null
+  fulfillmentStatus: QuestFulfillmentStatus
+  /** Abschlüsse am Quest-Tag (pro zugewiesenem Mitglied). */
+  completionsOnDate: QuestCompletionOnDate[]
+}
+
+export type PendingCreatorConfirmation = {
+  completionId: string
+  questId: string
+  questTitle: string
+  xpReward: number
+  taskDate: string
+  assigneeName: string
+  assigneeConfirmedAt: string
 }
 
 export type DailyXpEntry = {
@@ -95,15 +154,4 @@ export type DailyXpEntry = {
   xp_amount: number
   metadata: Record<string, unknown>
   created_at: string
-}
-
-export type ChildWithTodayXp = ChildProfile & {
-  todayXp: number
-}
-
-export type QuestWithCompletion = Quest & {
-  assignees: QuestAssignee[]
-  completedToday: boolean
-  completionChildIds: string[]
-  completionParentIds: string[]
 }

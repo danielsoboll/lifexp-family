@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { createFamilyWithMemberDirect } from '@/lib/family/createFamilyDirect'
-import type { OnboardingMemberProfile } from '@/lib/family/onboardingMember'
+import type { OnboardingDevicePrefs, OnboardingMemberProfile } from '@/lib/family/onboardingMember'
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
 export async function POST(request: Request) {
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     )
   }
 
-  let body: { familyName?: string; profile?: OnboardingMemberProfile }
+  let body: { familyName?: string; profile?: OnboardingMemberProfile; devicePrefs?: OnboardingDevicePrefs }
   try {
     body = (await request.json()) as typeof body
   } catch {
@@ -27,11 +27,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Profil fehlt.' }, { status: 400 })
   }
 
-  const { result, error } = await createFamilyWithMemberDirect(admin, body.familyName ?? '', body.profile)
+  const { result, error } = await createFamilyWithMemberDirect(
+    admin,
+    body.familyName ?? '',
+    body.profile,
+    body.devicePrefs,
+  )
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
-  return NextResponse.json({ result })
+  return NextResponse.json({ result: result?.session, recoveryCode: result?.recoveryCode })
 }

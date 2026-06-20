@@ -8,7 +8,9 @@ import {
   portraitSrc,
   type AvatarPortraitId,
 } from './memberAvatar'
+import { nextAccentKeyForFamily } from './memberAccentAssign'
 import { supabase } from '../supabase'
+import type { MemberAccentKey } from './memberAccentColor'
 import type { ParentGender } from './memberGender'
 import type { ParentProfile } from './types'
 
@@ -25,6 +27,7 @@ export type UpdateParentInput = {
   gender?: ParentGender
   canAdmin?: boolean
   avatarUrl?: string | null
+  accentKey?: MemberAccentKey
 }
 
 export async function createParentForFamily(
@@ -44,6 +47,8 @@ export async function createParentForFamily(
   const category = memberAvatarCategoryForParent(input.gender)
   const portraitId = coercePortraitForCategory(category, input.portraitId ?? null)
   const canAdmin = input.canAdmin ?? defaultCanAdminForParent(input.gender)
+  const { accentKey, error: accentError } = await nextAccentKeyForFamily(input.familyId)
+  if (accentError) return { parent: null, error: accentError }
 
   const { error: parentError } = await supabase.from('parent_profiles').insert({
     id: parentId,
@@ -51,6 +56,7 @@ export async function createParentForFamily(
     gender: input.gender,
     can_admin: canAdmin,
     avatar_url: portraitId ? portraitSrc(portraitId) : null,
+    accent_key: accentKey,
   })
 
   if (parentError) {
@@ -95,6 +101,10 @@ export async function updateParent(
 
   if (input.avatarUrl !== undefined) {
     patch.avatar_url = input.avatarUrl
+  }
+
+  if (input.accentKey !== undefined) {
+    patch.accent_key = input.accentKey
   }
 
   if (Object.keys(patch).length === 0) {

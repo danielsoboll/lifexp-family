@@ -19,7 +19,7 @@ async function fetchCompletionsOnDate(
 ): Promise<{ byQuestChild: Map<string, Set<string>>; byQuestParent: Map<string, Set<string>>; error: Error | null }> {
   const { data, error } = await supabase
     .from('quest_completions')
-    .select('quest_id, child_id, parent_id')
+    .select('quest_id, child_id, parent_id, creator_confirmed_at')
     .eq('family_id', familyId)
     .eq('completed_on', taskDate)
 
@@ -30,6 +30,7 @@ async function fetchCompletionsOnDate(
   const byQuestChild = new Map<string, Set<string>>()
   const byQuestParent = new Map<string, Set<string>>()
   for (const row of data ?? []) {
+    if (!row.creator_confirmed_at) continue
     const questId = row.quest_id as string
     const childId = row.child_id as string | null
     const parentId = row.parent_id as string | null

@@ -10,6 +10,7 @@ import {
   portraitOptionsForCategory,
   type AvatarPortraitId,
 } from './memberAvatar'
+import { nextAccentKeyForFamily } from './memberAccentAssign'
 import type { ChildGender } from './memberGender'
 import type { ChildProfile } from './types'
 
@@ -79,6 +80,10 @@ export async function createChild(input: CreateChildInput): Promise<{ child: Chi
   const sortOrder = await nextChildSortOrder(input.familyId)
   const category = memberAvatarCategoryForChild(input.gender, input.age ?? null)
   const portraitId = coercePortraitForCategory(category, input.portraitId ?? null)
+  const { accentKey, error: accentError } = await nextAccentKeyForFamily(input.familyId)
+  if (accentError) {
+    return { child: null, error: accentError }
+  }
 
   const { data, error } = await supabase
     .from('child_profiles')
@@ -93,6 +98,7 @@ export async function createChild(input: CreateChildInput): Promise<{ child: Chi
       is_active: true,
       total_xp: 0,
       level: 1,
+      accent_key: accentKey,
     })
     .select('*')
     .single()
@@ -112,7 +118,7 @@ export async function createChild(input: CreateChildInput): Promise<{ child: Chi
 export async function updateChild(
   childId: string,
   patch: Partial<
-    Pick<ChildProfile, 'display_name' | 'gender' | 'age' | 'can_admin' | 'portrait_id' | 'notes' | 'is_active'>
+    Pick<ChildProfile, 'display_name' | 'gender' | 'age' | 'can_admin' | 'portrait_id' | 'notes' | 'is_active' | 'accent_key'>
   >,
 ): Promise<{ error: Error | null }> {
   const dbPatch: Record<string, unknown> = { ...patch }

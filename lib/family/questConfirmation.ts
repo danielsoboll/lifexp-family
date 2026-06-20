@@ -1,0 +1,126 @@
+import type { ParentGender } from './memberGender'
+import type { FamilySession } from '../familySession'
+import { readFamilySession } from '../familySession'
+import type { ParentMember } from './members'
+import type { ChildWithTodayXp, Quest, QuestAssignee, QuestFulfillmentStatus, QuestWithCompletion, PendingCreatorConfirmation, QuestCompletionOnDate } from './types'
+
+export function sessionIsQuestCreator(quest: Quest, session: FamilySession): boolean {
+  if (session.memberKind === 'parent') {
+    return quest.created_by === session.memberId
+  }
+  return quest.created_by_child_id === session.memberId
+}
+
+export function fulfillmentStatusFromRow(row: {
+  assignee_confirmed_at: string | null
+  creator_confirmed_at: string | null
+} | null): QuestFulfillmentStatus {
+  if (!row?.assignee_confirmed_at) return 'open'
+  if (!row.creator_confirmed_at) return 'awaiting_creator'
+  return 'done'
+}
+
+export function canSessionModifyQuest(
+  quest: Quest,
+  session: FamilySession | null = readFamilySession(),
+): boolean {
+  if (!session) return false
+  return sessionIsQuestCreator(quest, session)
+}
+
+export function questIsOpenForEditing(quest: Pick<QuestWithCompletion, 'fulfillmentStatus'>): boolean {
+  return quest.fulfillmentStatus === 'open'
+}
+
+export function isCompletionForSessionMember(
+  session: FamilySession,
+  childId: string | null,
+  parentId: string | null,
+): boolean {
+  if (session.memberKind === 'child') return childId === session.memberId
+  return parentId === session.memberId
+}
+
+export function isFamilyWideQuest(quest: Pick<QuestWithCompletion, 'assignees'>): boolean {
+  return quest.assignees.length > 1
+}
+
+export function fulfillmentForMemberOnQuest(
+  quest: Pick<QuestWithCompletion, 'completionsOnDate'>,
+  memberType: 'parent' | 'child',
+  memberId: string,
+): QuestFulfillmentStatus {
+  const row = quest.completionsOnDate.find((completion) =>
+    memberType === 'child' ? completion.childId === memberId : completion.parentId === memberId,
+  )
+  return fulfillmentStatusFromRow(
+    row
+      ? {
+          assignee_confirmed_at: row.assigneeConfirmedAt,
+          creator_confirmed_at: row.creatorConfirmedAt,
+        }
+      : null,
+  )
+}
+
+export function aggregateQuestFulfillmentStatus(
+  assignees: QuestAssignee[],
+  completionsOnDate: QuestCompletionOnDate[],
+): QuestFulfillmentStatus {
+  if (assignees.length === 0) {
+    return fulfillmentStatusFromRow(
+      completionsOnDate[0]
+        ? {
+            assignee_confirmed_at: completionsOnDate[0].assigneeConfirmedAt,
+            creator_confirmed_at: completionsOnDate[0].creatorConfirmedAt,
+          }
+        : null,
+    )
+  }
+
+  const statuses = assignees.map((assignee) =>
+    fulfillmentForMemberOnQuest({ completionsOnDate }, assignee.type, assignee.id),
+  )
+  if (statuses.every((status) => status === 'done')) return 'done'
+  if (statuses.some((status) => status === 'awaiting_creator')) return 'awaiting_creator'
+  return 'open'
+}
+
+export function resolveAssigneeCompletionForQuest(
+  quest: QuestWithCompletion,
+): QuestWithCompletion['assigneeCompletion'] {
+  return quest.assigneeCompletion
+}
+
+export function isQuestFullyDone(quest: QuestWithCompletion): boolean {
+  return quest.fulfillmentStatus === 'done'
+}
+
+export function isQuestAwaitingCreator(quest: QuestWithCompletion): boolean {
+  return quest.fulfillmentStatus === 'awaiting_creator'
+}
+
+export function canSessionConfirmAsCreator(quest: Quest): boolean {
+  const session = readFamilySession()
+  if (!session) return false
+  return sessionIsQuestCreator(quest, session)
+}
+
+export function assigneeDisplayNameFromCompletion(
+  childId: string | null,
+  parentId: string | null,
+  parents: ReadonlyArray<ParentMember>,
+  children: ReadonlyArray<ChildWithTodayXp>,
+  formatParent: (name: string, gender: ParentGender) => string,
+): string {
+  if (childId) {
+    return children.find((c) => c.id === childId)?.display_name ?? 'Kind'
+  }
+  if (parentId) {
+    const parent = parents.find((p) => p.id === parentId)
+    return parent ? formatParent(parent.display_name, parent.gender) : 'Erwachsene'
+  }
+  return 'Familienmitglied'
+}
+
+export type { PendingCreatorConfirmation, QuestAssignee }

@@ -5,6 +5,7 @@ import "./globals.css";
 import PwaIconSync from "../components/PwaIconSync";
 import PwaInstallListener from "../components/PwaInstallListener";
 import PwaInstallOverlay from "../components/PwaInstallOverlay";
+import QuestCreatorConfirmSheet from "../components/QuestCreatorConfirmSheet";
 import PwaSessionBootstrap from "../components/PwaSessionBootstrap";
 import SessionGate from "../components/SessionGate";
 import { FamilyProvider } from "../components/FamilyProvider";
@@ -132,6 +133,7 @@ export default function RootLayout({
         <FamilyProvider>
           <SessionGate>
             {children}
+            <QuestCreatorConfirmSheet />
             <PwaInstallOverlay />
           </SessionGate>
         </FamilyProvider>

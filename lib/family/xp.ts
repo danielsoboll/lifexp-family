@@ -77,10 +77,11 @@ export async function fetchTodayXpByParent(
 ): Promise<{ totals: Record<string, number>; error: Error | null }> {
   const { data, error } = await supabase
     .from('quest_completions')
-    .select('parent_id, xp_awarded')
+    .select('parent_id, xp_awarded, creator_confirmed_at')
     .eq('family_id', familyId)
     .eq('completed_on', entryDate)
     .not('parent_id', 'is', null)
+    .not('creator_confirmed_at', 'is', null)
 
   if (error) return { totals: {}, error: new Error(error.message) }
 

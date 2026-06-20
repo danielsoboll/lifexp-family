@@ -11,7 +11,18 @@ import {
   portraitSrc,
 } from './memberAvatar'
 import { mapParentProfileRow } from './mapParentProfile'
-import type { OnboardingMemberProfile } from './onboardingMember'
+import { nextAccentKeyForFamily } from './memberAccentAssign'
+import { mapFamilyRow } from './mapFamily'
+import { pickAccentKeyByIndex, type MemberAccentKey } from './memberAccentColor'
+import {
+  generateUniqueMemberRecoveryCode,
+  memberRecoveryInsertFields,
+} from './memberRecoveryCode'
+import type {
+  FamilyOnboardingResult,
+  OnboardingDevicePrefs,
+  OnboardingMemberProfile,
+} from './onboardingMember'
 import type { Family, ParentProfile } from './types'
 
 const RLS_SETUP_HINT =
@@ -24,7 +35,21 @@ function isRlsError(error: Error): boolean {
 export async function fetchFamilyById(familyId: string): Promise<{ family: Family | null; error: Error | null }> {
   const { data, error } = await supabase.from('families').select('*').eq('id', familyId).maybeSingle()
   if (error) return { family: null, error: new Error(error.message) }
-  return { family: (data as Family | null) ?? null, error: null }
+  if (!data) return { family: null, error: null }
+  return { family: mapFamilyRow(data as Record<string, unknown>), error: null }
+}
+
+export async function updateFamilyAccentKey(
+  familyId: string,
+  accentKey: MemberAccentKey,
+): Promise<{ error: Error | null }> {
+  const { error } = await supabase
+    .from('families')
+    .update({ accent_key: accentKey, updated_at: new Date().toISOString() })
+    .eq('id', familyId)
+
+  if (error) return { error: new Error(error.message) }
+  return { error: null }
 }
 
 export async function fetchParentById(parentId: string): Promise<{ parent: ParentProfile | null; error: Error | null }> {
@@ -57,10 +82,19 @@ async function joinFamilyAsParent(
   familyId: string,
   inviteCode: string,
   profile: Extract<OnboardingMemberProfile, { memberKind: 'parent' }>,
-): Promise<{ result: FamilySession | null; error: Error | null }> {
+  devicePrefs?: OnboardingDevicePrefs,
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
   const parentId = newId()
+  let recoveryCode: string
+  try {
+    recoveryCode = await generateUniqueMemberRecoveryCode(supabase)
+  } catch (error) {
+    return { result: null, error: error instanceof Error ? error : new Error('Recovery-Code fehlgeschlagen.') }
+  }
 
   const parentPortrait = defaultPortraitForCategory(memberAvatarCategoryForParent(profile.gender))
+  const { accentKey, error: accentError } = await nextAccentKeyForFamily(familyId)
+  if (accentError) return { result: null, error: accentError }
 
   const { error: parentError } = await supabase.from('parent_profiles').insert({
     id: parentId,
@@ -68,11 +102,13 @@ async function joinFamilyAsParent(
     gender: profile.gender,
     can_admin: defaultCanAdminForParent(profile.gender),
     avatar_url: parentPortrait ? portraitSrc(parentPortrait) : null,
+    accent_key: accentKey,
+    ...memberRecoveryInsertFields(recoveryCode, devicePrefs),
   })
 
   if (parentError) {
     if (isRlsError(new Error(parentError.message))) {
-      return familyApiFallback(profile, 'join', { inviteCode })
+      return familyApiFallback(profile, 'join', { inviteCode, devicePrefs })
     }
     return { result: null, error: familyDbError(parentError.message) }
   }
@@ -86,7 +122,13 @@ async function joinFamilyAsParent(
 
   if (memberError) return { result: null, error: familyDbError(memberError.message) }
 
-  return { result: { familyId, memberKind: 'parent', memberId: parentId }, error: null }
+  return {
+    result: {
+      session: { familyId, memberKind: 'parent', memberId: parentId },
+      recoveryCode,
+    },
+    error: null,
+  }
 }
 
 async function nextChildSortOrder(familyId: string): Promise<number> {
@@ -105,12 +147,21 @@ async function joinFamilyAsChild(
   familyId: string,
   inviteCode: string,
   profile: Extract<OnboardingMemberProfile, { memberKind: 'child' }>,
-): Promise<{ result: FamilySession | null; error: Error | null }> {
+  devicePrefs?: OnboardingDevicePrefs,
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
   const childId = newId()
   const sortOrder = await nextChildSortOrder(familyId)
+  let recoveryCode: string
+  try {
+    recoveryCode = await generateUniqueMemberRecoveryCode(supabase)
+  } catch (error) {
+    return { result: null, error: error instanceof Error ? error : new Error('Recovery-Code fehlgeschlagen.') }
+  }
 
   const childCategory = memberAvatarCategoryForChild(profile.gender, profile.age)
   const childPortrait = defaultPortraitForCategory(childCategory)
+  const { accentKey, error: accentError } = await nextAccentKeyForFamily(familyId)
+  if (accentError) return { result: null, error: accentError }
 
   const { error: childError } = await supabase.from('child_profiles').insert({
     id: childId,
@@ -124,38 +175,54 @@ async function joinFamilyAsChild(
     is_active: true,
     total_xp: 0,
     level: 1,
+    accent_key: accentKey,
+    ...memberRecoveryInsertFields(recoveryCode, devicePrefs),
   })
 
   if (childError) {
     if (isRlsError(new Error(childError.message))) {
-      return familyApiFallback(profile, 'join', { inviteCode })
+      return familyApiFallback(profile, 'join', { inviteCode, devicePrefs })
     }
     return { result: null, error: familyDbError(childError.message) }
   }
 
-  return { result: { familyId, memberKind: 'child', memberId: childId }, error: null }
+  return {
+    result: {
+      session: { familyId, memberKind: 'child', memberId: childId },
+      recoveryCode,
+    },
+    error: null,
+  }
 }
 
 export async function joinFamilyWithInviteCode(
   inviteCode: string,
   profile: OnboardingMemberProfile,
-): Promise<{ result: FamilySession | null; error: Error | null }> {
+  devicePrefs?: OnboardingDevicePrefs,
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
   const { familyId, error: familyError } = await resolveFamilyIdByInviteCode(inviteCode)
   if (familyError || !familyId) return { result: null, error: familyError }
 
   if (profile.memberKind === 'parent') {
-    return joinFamilyAsParent(familyId, inviteCode, profile)
+    return joinFamilyAsParent(familyId, inviteCode, profile, devicePrefs)
   }
-  return joinFamilyAsChild(familyId, inviteCode, profile)
+  return joinFamilyAsChild(familyId, inviteCode, profile, devicePrefs)
 }
 
 async function createFamilyAsParent(
   familyName: string,
   inviteCode: string,
   profile: Extract<OnboardingMemberProfile, { memberKind: 'parent' }>,
-): Promise<{ result: FamilySession | null; error: Error | null }> {
+  devicePrefs?: OnboardingDevicePrefs,
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
   const parentId = newId()
   const familyId = newId()
+  let recoveryCode: string
+  try {
+    recoveryCode = await generateUniqueMemberRecoveryCode(supabase)
+  } catch (error) {
+    return { result: null, error: error instanceof Error ? error : new Error('Recovery-Code fehlgeschlagen.') }
+  }
 
   const ownerPortrait = defaultPortraitForCategory(memberAvatarCategoryForParent(profile.gender))
 
@@ -165,11 +232,13 @@ async function createFamilyAsParent(
     gender: profile.gender,
     can_admin: defaultCanAdminForParent(profile.gender),
     avatar_url: ownerPortrait ? portraitSrc(ownerPortrait) : null,
+    accent_key: pickAccentKeyByIndex(0),
+    ...memberRecoveryInsertFields(recoveryCode, devicePrefs),
   })
 
   if (parentError) {
     if (isRlsError(new Error(parentError.message))) {
-      return familyApiFallback(profile, 'create', { familyName: familyName.trim() })
+      return familyApiFallback(profile, 'create', { familyName: familyName.trim(), devicePrefs })
     }
     return { result: null, error: familyDbError(parentError.message) }
   }
@@ -178,6 +247,7 @@ async function createFamilyAsParent(
     id: familyId,
     name: familyName.trim(),
     invite_code: inviteCode,
+    accent_key: 'lavender',
   })
 
   if (familyError) return { result: null, error: familyDbError(familyError.message) }
@@ -191,26 +261,40 @@ async function createFamilyAsParent(
 
   if (memberError) return { result: null, error: familyDbError(memberError.message) }
 
-  return { result: { familyId, memberKind: 'parent', memberId: parentId }, error: null }
+  return {
+    result: {
+      session: { familyId, memberKind: 'parent', memberId: parentId },
+      recoveryCode,
+    },
+    error: null,
+  }
 }
 
 async function createFamilyAsChild(
   familyName: string,
   inviteCode: string,
   profile: Extract<OnboardingMemberProfile, { memberKind: 'child' }>,
-): Promise<{ result: FamilySession | null; error: Error | null }> {
+  devicePrefs?: OnboardingDevicePrefs,
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
   const familyId = newId()
   const childId = newId()
+  let recoveryCode: string
+  try {
+    recoveryCode = await generateUniqueMemberRecoveryCode(supabase)
+  } catch (error) {
+    return { result: null, error: error instanceof Error ? error : new Error('Recovery-Code fehlgeschlagen.') }
+  }
 
   const { error: familyError } = await supabase.from('families').insert({
     id: familyId,
     name: familyName.trim(),
     invite_code: inviteCode,
+    accent_key: 'lavender',
   })
 
   if (familyError) {
     if (isRlsError(new Error(familyError.message))) {
-      return familyApiFallback(profile, 'create', { familyName: familyName.trim() })
+      return familyApiFallback(profile, 'create', { familyName: familyName.trim(), devicePrefs })
     }
     return { result: null, error: familyDbError(familyError.message) }
   }
@@ -230,26 +314,35 @@ async function createFamilyAsChild(
     is_active: true,
     total_xp: 0,
     level: 1,
+    accent_key: pickAccentKeyByIndex(0),
+    ...memberRecoveryInsertFields(recoveryCode, devicePrefs),
   })
 
   if (childError) return { result: null, error: familyDbError(childError.message) }
 
-  return { result: { familyId, memberKind: 'child', memberId: childId }, error: null }
+  return {
+    result: {
+      session: { familyId, memberKind: 'child', memberId: childId },
+      recoveryCode,
+    },
+    error: null,
+  }
 }
 
 export async function createFamilyWithMember(
   familyName: string,
   profile: OnboardingMemberProfile,
-): Promise<{ result: FamilySession | null; error: Error | null }> {
+  devicePrefs?: OnboardingDevicePrefs,
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
   const name = familyName.trim()
   if (!name) return { result: null, error: new Error('Bitte einen Familiennamen eingeben.') }
 
   const inviteCode = generateInviteCode()
 
   if (profile.memberKind === 'parent') {
-    return createFamilyAsParent(name, inviteCode, profile)
+    return createFamilyAsParent(name, inviteCode, profile, devicePrefs)
   }
-  return createFamilyAsChild(name, inviteCode, profile)
+  return createFamilyAsChild(name, inviteCode, profile, devicePrefs)
 }
 
 type FamilyApiMode = 'join' | 'create'
@@ -257,13 +350,13 @@ type FamilyApiMode = 'join' | 'create'
 async function familyApiFallback(
   profile: OnboardingMemberProfile,
   mode: FamilyApiMode,
-  input: { inviteCode?: string; familyName?: string },
-): Promise<{ result: FamilySession | null; error: Error | null }> {
+  input: { inviteCode?: string; familyName?: string; devicePrefs?: OnboardingDevicePrefs },
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
   const endpoint = mode === 'join' ? '/api/family/join' : '/api/family/create'
   const body =
     mode === 'join'
-      ? { inviteCode: input.inviteCode ?? '', profile }
-      : { familyName: input.familyName ?? '', profile }
+      ? { inviteCode: input.inviteCode ?? '', profile, devicePrefs: input.devicePrefs }
+      : { familyName: input.familyName ?? '', profile, devicePrefs: input.devicePrefs }
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -271,7 +364,11 @@ async function familyApiFallback(
     body: JSON.stringify(body),
   })
 
-  const payload = (await response.json()) as { result?: FamilySession; error?: string }
+  const payload = (await response.json()) as {
+    result?: FamilySession
+    recoveryCode?: string
+    error?: string
+  }
 
   if (!response.ok) {
     const apiMessage = payload.error ?? ''
@@ -285,11 +382,14 @@ async function familyApiFallback(
     }
   }
 
-  if (!payload.result) {
+  if (!payload.result || !payload.recoveryCode) {
     return { result: null, error: new Error('Familie konnte nicht verbunden werden.') }
   }
 
-  return { result: payload.result, error: null }
+  return {
+    result: { session: payload.result, recoveryCode: payload.recoveryCode },
+    error: null,
+  }
 }
 
 export async function fetchFamilyByInviteCode(
@@ -305,5 +405,6 @@ export async function fetchFamilyByInviteCode(
     .maybeSingle()
 
   if (error) return { family: null, error: new Error(error.message) }
-  return { family: (data as Family | null) ?? null, error: null }
+  if (!data) return { family: null, error: null }
+  return { family: mapFamilyRow(data as Record<string, unknown>), error: null }
 }

@@ -43,3 +43,19 @@ export function memberDailyXpBarPercent(value: number, scaleMax = MEMBER_DAILY_X
 export function memberDailyXpShowBoostZone(value: number): boolean {
   return clampMemberDailyXp(value) >= MEMBER_DAILY_XP_BOOST_THRESHOLD
 }
+
+/** Ab diesen Tages-XP: Portrait-Stufe _2 … _6 (Basis bleibt _1). */
+export const MEMBER_PORTRAIT_XP_TIER_MINS = [5, 10, 15, 20, 25] as const
+
+export type MemberPortraitXpTier = 1 | 2 | 3 | 4 | 5 | 6
+
+export function memberPortraitTierFromDailyXp(todayXp: number): MemberPortraitXpTier {
+  const xp = clampMemberDailyXp(todayXp)
+  let tier: MemberPortraitXpTier = 1
+  for (let i = 0; i < MEMBER_PORTRAIT_XP_TIER_MINS.length; i++) {
+    if (xp >= MEMBER_PORTRAIT_XP_TIER_MINS[i]) {
+      tier = (i + 2) as MemberPortraitXpTier
+    }
+  }
+  return tier
+}

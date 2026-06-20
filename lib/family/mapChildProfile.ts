@@ -1,6 +1,7 @@
 import type { ChildProfile } from './types'
 import { canAdminForChildProfile } from './memberAdmin'
 import { defaultPortraitForCategory, isPortraitId, memberAvatarCategoryForChild, portraitIdFromStored, portraitOptionsForCategory } from './memberAvatar'
+import { normalizeMemberAccentKey } from './memberAccentColor'
 import { normalizeChildGender } from './memberGender'
 
 type ChildProfileRow = Record<string, unknown>
@@ -72,6 +73,11 @@ export function mapChildProfileRow(row: ChildProfileRow): ChildProfile | null {
     is_active: boolValue(row.is_active, true),
     sort_order: numberValue(row.sort_order),
     notes: row.notes === null || row.notes === undefined ? null : textValue(row.notes),
+    accent_key: normalizeMemberAccentKey(row.accent_key),
+    rec_code: row.rec_code === null || row.rec_code === undefined ? null : textValue(row.rec_code),
+    rec_code_ok: boolValue(row.rec_code_ok),
+    app_installed: boolValue(row.app_installed),
+    app_later: boolValue(row.app_later),
     created_at: textValue(row.created_at),
     updated_at: textValue(row.updated_at),
   }

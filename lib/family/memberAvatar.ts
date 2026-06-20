@@ -1,3 +1,4 @@
+import { memberPortraitTierFromDailyXp } from './dailyXpDisplay'
 import type { ChildGender, ParentGender } from './memberGender'
 
 export const AVATAR_BASE = '/avatars'
@@ -29,6 +30,33 @@ export const PORTRAIT_OPTIONS_BY_CATEGORY: Record<Exclude<MemberAvatarCategory, 
 }
 
 const PORTRAIT_ID_PATTERN = /^(Mann|Frau|Opa|Oma|Junge|Mädchen)_\d+_\d+t?$/
+const PORTRAIT_ID_PARTS_PATTERN = /^(Mann|Frau|Opa|Oma|Junge|Mädchen)_(\d+)_(\d+)(t?)$/
+
+/** Vorhandene Dateien unter /public/avatars/ — fehlende Stufen fallen auf die letzte verfügbare zurück. */
+export const AVAILABLE_PORTRAIT_IDS = new Set<AvatarPortraitId>([
+  'Frau_1_1',
+  'Frau_1_2',
+  'Junge_1_1',
+  'Junge_1_2',
+  'Junge_1_3t',
+  'Junge_1_4',
+  'Junge_1_5',
+  'Junge_1_6',
+  'Junge_2_1',
+  'Junge_2_2',
+  'Junge_2_3',
+  'Junge_2_4',
+  'Mann_1_1',
+  'Mann_1_2',
+  'Mann_1_3',
+  'Mädchen_1_1',
+  'Mädchen_1_2',
+  'Mädchen_1_3',
+  'Mädchen_1_4',
+  'Mädchen_1_5',
+  'Mädchen_1_6',
+  'Mädchen_2_1',
+])
 
 export function isPortraitId(value: string): boolean {
   return PORTRAIT_ID_PATTERN.test(value)
@@ -36,6 +64,42 @@ export function isPortraitId(value: string): boolean {
 
 export function portraitSrc(portraitId: AvatarPortraitId): string {
   return `${AVATAR_BASE}/${portraitId}.webp`
+}
+
+export type ResolveMemberAvatarOptions = {
+  /** Tages-XP: steuert Stufe _2 … _6; ohne Angabe bleibt die gespeicherte Basis-Stufe. */
+  todayXp?: number
+}
+
+function parsePortraitStem(portraitId: AvatarPortraitId): { stem: string; suffix: string } | null {
+  const match = portraitId.match(PORTRAIT_ID_PARTS_PATTERN)
+  if (!match) return null
+  return { stem: `${match[1]}_${match[2]}`, suffix: match[4] ?? '' }
+}
+
+function portraitIdCandidates(stem: string, tier: number, suffix: string): AvatarPortraitId[] {
+  const primary = `${stem}_${tier}${suffix}` as AvatarPortraitId
+  if (suffix) return [primary]
+  const withTeenSuffix = `${stem}_${tier}t` as AvatarPortraitId
+  return primary === withTeenSuffix ? [primary] : [primary, withTeenSuffix]
+}
+
+export function portraitIdForDailyXp(
+  basePortraitId: AvatarPortraitId,
+  todayXp: number,
+  availableIds: ReadonlySet<string> = AVAILABLE_PORTRAIT_IDS,
+): AvatarPortraitId {
+  const parsed = parsePortraitStem(basePortraitId)
+  if (!parsed) return basePortraitId
+
+  const targetTier = memberPortraitTierFromDailyXp(todayXp)
+  for (let tier = targetTier; tier >= 1; tier--) {
+    for (const candidate of portraitIdCandidates(parsed.stem, tier, parsed.suffix)) {
+      if (availableIds.has(candidate)) return candidate
+    }
+  }
+
+  return basePortraitId
 }
 
 export function portraitIdFromStored(value: string | null | undefined): AvatarPortraitId | null {
@@ -102,12 +166,17 @@ export type ResolvedMemberAvatar = {
 export function resolveParentAvatar(
   gender: ParentGender,
   storedAvatarUrl: string | null | undefined,
+  resolveOptions?: ResolveMemberAvatarOptions,
 ): ResolvedMemberAvatar {
   const category = memberAvatarCategoryForParent(gender)
   const options = portraitOptionsForCategory(category)
   const stored = portraitIdFromStored(storedAvatarUrl)
-  const portraitId =
+  let portraitId =
     stored && options.includes(stored) ? stored : defaultPortraitForCategory(category)
+
+  if (portraitId && resolveOptions?.todayXp !== undefined) {
+    portraitId = portraitIdForDailyXp(portraitId, resolveOptions.todayXp)
+  }
 
   return {
     category,
@@ -122,6 +191,7 @@ export function resolveChildAvatar(
   gender: ChildGender,
   age: number | null | undefined,
   storedPortraitId: string | null | undefined,
+  resolveOptions?: ResolveMemberAvatarOptions,
 ): ResolvedMemberAvatar {
   const category = memberAvatarCategoryForChild(gender, age)
   const options = portraitOptionsForCategory(category)
@@ -137,8 +207,12 @@ export function resolveChildAvatar(
   }
 
   const stored = portraitIdFromStored(storedPortraitId)
-  const portraitId =
+  let portraitId =
     stored && options.includes(stored) ? stored : defaultPortraitForCategory(category)
+
+  if (portraitId && resolveOptions?.todayXp !== undefined) {
+    portraitId = portraitIdForDailyXp(portraitId, resolveOptions.todayXp)
+  }
 
   return {
     category,

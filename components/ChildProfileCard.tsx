@@ -17,7 +17,9 @@ export default function ChildProfileCard({ child, href }: ChildProfileCardProps)
   const progress = getProgressPercent(child.total_xp)
   const remaining = getXpRemainingToNextLevel(child.total_xp)
   const ageLabel = formatChildAge(child.age)
-  const avatar = resolveChildAvatar(child.gender, child.age, child.portrait_id)
+  const avatar = resolveChildAvatar(child.gender, child.age, child.portrait_id, {
+    todayXp: child.todayXp,
+  })
 
   const content = (
     <article className={`${CARD_SURFACE_CLASS} rounded-2xl p-4 transition hover:border-emerald-400/80`}>

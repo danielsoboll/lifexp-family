@@ -11,16 +11,28 @@ import {
   memberAvatarCategoryForParent,
   portraitSrc,
 } from './memberAvatar'
-import type { OnboardingMemberProfile } from './onboardingMember'
+import { nextAccentKeyForFamily } from './memberAccentAssign'
+import { pickAccentKeyByIndex } from './memberAccentColor'
+import {
+  generateUniqueMemberRecoveryCode,
+  memberRecoveryInsertFields,
+} from './memberRecoveryCode'
+import type {
+  FamilyOnboardingResult,
+  OnboardingDevicePrefs,
+  OnboardingMemberProfile,
+} from './onboardingMember'
 
 async function createFamilyAsParentDirect(
   client: SupabaseClient,
   familyName: string,
   inviteCode: string,
   profile: Extract<OnboardingMemberProfile, { memberKind: 'parent' }>,
-): Promise<{ result: FamilySession | null; error: Error | null }> {
+  devicePrefs?: OnboardingDevicePrefs,
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
   const parentId = newId()
   const familyId = newId()
+  const recoveryCode = await generateUniqueMemberRecoveryCode(client)
 
   const ownerPortrait = defaultPortraitForCategory(memberAvatarCategoryForParent(profile.gender))
 
@@ -30,6 +42,8 @@ async function createFamilyAsParentDirect(
     gender: profile.gender,
     can_admin: defaultCanAdminForParent(profile.gender),
     avatar_url: ownerPortrait ? portraitSrc(ownerPortrait) : null,
+    accent_key: pickAccentKeyByIndex(0),
+    ...memberRecoveryInsertFields(recoveryCode, devicePrefs),
   })
 
   if (parentError) return { result: null, error: familyDbError(parentError.message) }
@@ -38,6 +52,7 @@ async function createFamilyAsParentDirect(
     id: familyId,
     name: familyName.trim(),
     invite_code: inviteCode,
+    accent_key: 'lavender',
   })
 
   if (familyError) return { result: null, error: familyDbError(familyError.message) }
@@ -52,7 +67,10 @@ async function createFamilyAsParentDirect(
   if (memberError) return { result: null, error: familyDbError(memberError.message) }
 
   return {
-    result: { familyId, memberKind: 'parent', memberId: parentId },
+    result: {
+      session: { familyId, memberKind: 'parent', memberId: parentId },
+      recoveryCode,
+    },
     error: null,
   }
 }
@@ -62,14 +80,17 @@ async function createFamilyAsChildDirect(
   familyName: string,
   inviteCode: string,
   profile: Extract<OnboardingMemberProfile, { memberKind: 'child' }>,
-): Promise<{ result: FamilySession | null; error: Error | null }> {
+  devicePrefs?: OnboardingDevicePrefs,
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
   const familyId = newId()
   const childId = newId()
+  const recoveryCode = await generateUniqueMemberRecoveryCode(client)
 
   const { error: familyError } = await client.from('families').insert({
     id: familyId,
     name: familyName.trim(),
     invite_code: inviteCode,
+    accent_key: 'lavender',
   })
 
   if (familyError) return { result: null, error: familyDbError(familyError.message) }
@@ -89,12 +110,17 @@ async function createFamilyAsChildDirect(
     is_active: true,
     total_xp: 0,
     level: 1,
+    accent_key: pickAccentKeyByIndex(0),
+    ...memberRecoveryInsertFields(recoveryCode, devicePrefs),
   })
 
   if (childError) return { result: null, error: familyDbError(childError.message) }
 
   return {
-    result: { familyId, memberKind: 'child', memberId: childId },
+    result: {
+      session: { familyId, memberKind: 'child', memberId: childId },
+      recoveryCode,
+    },
     error: null,
   }
 }
@@ -103,14 +129,15 @@ export async function createFamilyWithMemberDirect(
   client: SupabaseClient,
   familyName: string,
   profile: OnboardingMemberProfile,
-): Promise<{ result: FamilySession | null; error: Error | null }> {
+  devicePrefs?: OnboardingDevicePrefs,
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
   const name = familyName.trim()
   if (!name) return { result: null, error: new Error('Bitte einen Familiennamen eingeben.') }
 
   const inviteCode = generateInviteCode()
 
   if (profile.memberKind === 'parent') {
-    return createFamilyAsParentDirect(client, name, inviteCode, profile)
+    return createFamilyAsParentDirect(client, name, inviteCode, profile, devicePrefs)
   }
-  return createFamilyAsChildDirect(client, name, inviteCode, profile)
+  return createFamilyAsChildDirect(client, name, inviteCode, profile, devicePrefs)
 }

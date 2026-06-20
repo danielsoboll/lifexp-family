@@ -3,12 +3,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-import MemberSingleSelect from '../../../components/MemberSingleSelect'
+import QuestAssigneePicker, {
+  assigneesFromChoice,
+  type QuestAssigneeChoice,
+} from '../../../components/QuestAssigneePicker'
 import QuestDayToggle from '../../../components/QuestDayToggle'
 import QuestXpSlider from '../../../components/QuestXpSlider'
 import { notifyFamilyDataChanged, useFamily } from '../../../components/FamilyProvider'
 import PageHeaderBar from '../../../components/PageHeaderBar'
-import { createQuest } from '../../../lib/family/quests'
+import { createQuestsForAssignees } from '../../../lib/family/quests'
 import type { QuestAssignee } from '../../../lib/family/types'
 import {
   QUEST_XP_HIGH_CONFIRM_THRESHOLD,
@@ -25,7 +28,7 @@ export default function NewQuestPage() {
   const [description, setDescription] = useState('')
   const [xpReward, setXpReward] = useState(3)
   const [dayChoice, setDayChoice] = useState<QuestDayChoice>('today')
-  const [assignee, setAssignee] = useState<QuestAssignee | null>(null)
+  const [assigneeChoice, setAssigneeChoice] = useState<QuestAssigneeChoice | null>(null)
   const [remainingXp, setRemainingXp] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -36,40 +39,51 @@ export default function NewQuestPage() {
     return null
   }, [memberKind, parent, activeChild])
 
+  const selectedAssignees = useMemo(
+    () => assigneesFromChoice(assigneeChoice, parents, children, excludeMember),
+    [assigneeChoice, parents, children, excludeMember],
+  )
+
   const taskDate = questDayChoiceToDateKey(dayChoice)
   const maxSliderXp = remainingXp === null ? 10 : Math.min(10, Math.max(1, remainingXp))
 
   useEffect(() => {
-    if (!family || !assignee) {
+    if (!family || selectedAssignees.length === 0) {
       setRemainingXp(null)
       return
     }
     let cancelled = false
     void (async () => {
-      const { budget, error: budgetError } = await fetchMemberXpBudget({
-        familyId: family.id,
-        memberType: assignee.type,
-        memberId: assignee.id,
-        taskDate,
-      })
-      if (cancelled) return
-      if (budgetError) {
-        setRemainingXp(null)
-        return
+      let minRemaining = Number.POSITIVE_INFINITY
+      for (const assignee of selectedAssignees) {
+        const { budget, error: budgetError } = await fetchMemberXpBudget({
+          familyId: family.id,
+          memberType: assignee.type,
+          memberId: assignee.id,
+          taskDate,
+        })
+        if (cancelled) return
+        if (budgetError) {
+          setRemainingXp(null)
+          return
+        }
+        minRemaining = Math.min(minRemaining, budget.remainingXp)
       }
-      setRemainingXp(budget.remainingXp)
-      setXpReward((prev) => Math.min(prev, Math.max(1, Math.min(10, budget.remainingXp))))
+      if (cancelled) return
+      const nextRemaining = Number.isFinite(minRemaining) ? minRemaining : 0
+      setRemainingXp(nextRemaining)
+      setXpReward((prev) => Math.min(prev, Math.max(1, Math.min(10, nextRemaining))))
     })()
     return () => {
       cancelled = true
     }
-  }, [family, assignee, taskDate])
+  }, [family, selectedAssignees, taskDate])
 
   if (!family) return null
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!assignee) {
+    if (selectedAssignees.length === 0) {
       setError('Bitte ein Familienmitglied auswählen — nicht dich selbst.')
       return
     }
@@ -82,13 +96,13 @@ export default function NewQuestPage() {
     setLoading(true)
     setError(null)
 
-    const { error: createError } = await createQuest({
+    const { error: createError } = await createQuestsForAssignees({
       familyId: family.id,
       title,
       description,
       xpReward,
       taskDate,
-      assignee,
+      assignees: selectedAssignees,
     })
 
     setLoading(false)
@@ -101,19 +115,24 @@ export default function NewQuestPage() {
     router.push('/quests')
   }
 
+  const submitLabel =
+    assigneeChoice?.mode === 'all' && selectedAssignees.length > 1
+      ? `Quest für ${selectedAssignees.length} eintragen`
+      : 'Quest eintragen'
+
   return (
     <main className={`${MAIN_SHELL_CLASS} ${MAIN_PAGE_INSET_CLASS} mx-auto w-full max-w-lg px-4`}>
-      <PageHeaderBar backHref="/quests" backLabel="Quests" />
+      <PageHeaderBar backHref="/quests" backLabel="Family-Quests" />
       <h1 className="mb-1 text-2xl font-bold text-slate-900 dark:text-slate-100">Quest eintragen</h1>
       <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">
         Für ein anderes Familienmitglied — heute oder morgen, max. 10 XP pro Quest und 30 XP pro Tag.
       </p>
       <form onSubmit={(e) => void handleSubmit(e)} className={`${CARD_SURFACE_CLASS} space-y-4 rounded-2xl p-5`}>
-        <MemberSingleSelect
+        <QuestAssigneePicker
           parents={parents}
           children={children}
-          value={assignee}
-          onChange={setAssignee}
+          value={assigneeChoice}
+          onChange={setAssigneeChoice}
           excludeMember={excludeMember}
         />
         <QuestDayToggle value={dayChoice} onChange={setDayChoice} />
@@ -147,11 +166,20 @@ export default function NewQuestPage() {
           value={xpReward}
           onChange={setXpReward}
           maxAllowed={maxSliderXp}
-          disabled={assignee !== null && remainingXp === 0}
+          disabled={selectedAssignees.length > 0 && remainingXp === 0}
         />
-        {assignee && remainingXp !== null ? (
+        {selectedAssignees.length > 0 && remainingXp !== null ? (
           <p className="text-xs text-slate-600 dark:text-slate-400">
-            An dem Tag sind für diese Person noch <strong>{remainingXp} XP</strong> frei (max. 30 pro Tag).
+            {assigneeChoice?.mode === 'all' ? (
+              <>
+                An dem Tag sind für <strong>alle</strong> noch mindestens <strong>{remainingXp} XP</strong> frei (max. 30
+                pro Person).
+              </>
+            ) : (
+              <>
+                An dem Tag sind für diese Person noch <strong>{remainingXp} XP</strong> frei (max. 30 pro Tag).
+              </>
+            )}
           </p>
         ) : null}
         {error ? (
@@ -161,10 +189,10 @@ export default function NewQuestPage() {
         ) : null}
         <button
           type="submit"
-          disabled={loading || !assignee || remainingXp === 0}
+          disabled={loading || selectedAssignees.length === 0 || remainingXp === 0}
           className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 font-bold text-white disabled:opacity-60`}
         >
-          {loading ? 'Wird gespeichert …' : 'Quest eintragen'}
+          {loading ? 'Wird gespeichert …' : submitLabel}
         </button>
       </form>
     </main>

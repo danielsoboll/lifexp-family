@@ -7,6 +7,8 @@ export type PwaInstallResult =
   | 'ios-manual'
   | 'unavailable'
 
+export type PwaInstallPlatform = 'android' | 'iphone' | 'ipad' | 'other'
+
 const PREFERENCE_KEY = 'lifexp_home_screen_icon'
 export const PWA_INSTALL_LATER_KEY = 'lifexp-pwa-install-later'
 export const LIFEXP_PWA_INSTALL_PROMPT_READY_EVENT = 'lifexp-pwa-install-prompt-ready'
@@ -64,14 +66,32 @@ export function isPwaInstallDetected(): boolean {
   return isStandaloneDisplayMode()
 }
 
-export function isIosDevice(): boolean {
+export function isIpadDevice(): boolean {
   if (typeof window === 'undefined') return false
-  return /iphone|ipad|ipod/i.test(window.navigator.userAgent)
+  const ua = window.navigator.userAgent
+  if (/ipad/i.test(ua)) return true
+  return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1
+}
+
+export function isIphoneDevice(): boolean {
+  if (typeof window === 'undefined') return false
+  return /iphone|ipod/i.test(window.navigator.userAgent)
+}
+
+export function isIosDevice(): boolean {
+  return isIphoneDevice() || isIpadDevice()
 }
 
 export function isAndroidDevice(): boolean {
   if (typeof window === 'undefined') return false
   return /android/i.test(window.navigator.userAgent)
+}
+
+export function getPwaInstallPlatform(): PwaInstallPlatform {
+  if (isAndroidDevice()) return 'android'
+  if (isIpadDevice()) return 'ipad'
+  if (isIphoneDevice()) return 'iphone'
+  return 'other'
 }
 
 export function canShowNativeInstallPrompt(): boolean {
@@ -101,17 +121,44 @@ export function attachPwaInstallListener(): void {
   })
 }
 
+async function syncMemberAppInstalled(installed: boolean): Promise<void> {
+  const { readFamilySession } = await import('./familySession')
+  const { updateMemberAppInstalled } = await import('./family/memberSettings')
+  const session = readFamilySession()
+  if (!session) return
+  await updateMemberAppInstalled(session.memberKind, session.memberId, installed)
+}
+
+async function syncMemberAppLater(later: boolean): Promise<void> {
+  const { readFamilySession } = await import('./familySession')
+  const { updateMemberAppLater } = await import('./family/memberSettings')
+  const session = readFamilySession()
+  if (!session) return
+  await updateMemberAppLater(session.memberKind, session.memberId, later)
+}
+
 export async function recordPwaInstallSuccess(): Promise<void> {
   saveHomeScreenIconPreference('yes')
   clearPwaInstallLater()
+  await syncMemberAppInstalled(true)
 }
 
-export async function recordPwaInstallLaterChoice(): Promise<void> {
+export async function recordPwaInstallLaterChoice(options?: {
+  persistToProfile?: boolean
+}): Promise<void> {
   savePwaInstallLater()
+  if (options?.persistToProfile === false) return
+  await syncMemberAppLater(true)
 }
 
 export async function syncPwaInstallLaterFromProfile(): Promise<void> {
-  /* Family-MVP: nur localStorage, kein Profil-Sync. */
+  const { readFamilySession } = await import('./familySession')
+  const { fetchMemberDeviceSettings } = await import('./family/memberSettings')
+  const session = readFamilySession()
+  if (!session) return
+  const { appLater, error } = await fetchMemberDeviceSettings(session.memberKind, session.memberId)
+  if (error) return
+  if (appLater) savePwaInstallLater()
 }
 
 export async function syncAppInstalledProfileIfStandalone(): Promise<void> {

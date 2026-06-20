@@ -1,10 +1,21 @@
 import type { ChildGender, ParentGender } from './memberGender'
+import type { FamilySession } from '../familySession'
 
 export type OnboardingMemberGender = ParentGender | ChildGender
 
 export type OnboardingMemberProfile =
   | { memberKind: 'parent'; displayName: string; gender: ParentGender }
   | { memberKind: 'child'; displayName: string; gender: ChildGender; age: number }
+
+export type OnboardingDevicePrefs = {
+  appInstalled: boolean
+  appLater: boolean
+}
+
+export type FamilyOnboardingResult = {
+  session: FamilySession
+  recoveryCode: string
+}
 
 export const ONBOARDING_MEMBER_OPTIONS: {
   value: OnboardingMemberGender

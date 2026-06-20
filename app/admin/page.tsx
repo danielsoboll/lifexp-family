@@ -8,6 +8,8 @@ import AdminScrollPage from '../../components/AdminScrollPage'
 import ChildMemberEditor from '../../components/ChildMemberEditor'
 import DangerConfirmAction from '../../components/DangerConfirmAction'
 import ParentMemberEditor from '../../components/ParentMemberEditor'
+import FamilyQuestAccentEditor from '../../components/FamilyQuestAccentEditor'
+import MemberRecoveryAdminSection from '../../components/MemberRecoveryAdminSection'
 import PageHeaderBar from '../../components/PageHeaderBar'
 import { notifyFamilyDataChanged, useFamily } from '../../components/FamilyProvider'
 import { deleteChildById, deleteFamilyById } from '../../lib/family/admin'
@@ -100,6 +102,36 @@ export default function AdminPage() {
               </span>
             </p>
           </section>
+
+          {family ? (
+            <div className="mb-4">
+              <FamilyQuestAccentEditor family={family} />
+            </div>
+          ) : null}
+
+          {parent ? (
+            <div className="mb-4">
+              <MemberRecoveryAdminSection
+                memberKind="parent"
+                memberId={parent.id}
+                recCode={parent.rec_code}
+                recCodeOk={parent.rec_code_ok}
+                appInstalled={parent.app_installed}
+                appLater={parent.app_later}
+              />
+            </div>
+          ) : activeChild ? (
+            <div className="mb-4">
+              <MemberRecoveryAdminSection
+                memberKind="child"
+                memberId={activeChild.id}
+                recCode={activeChild.rec_code}
+                recCodeOk={activeChild.rec_code_ok}
+                appInstalled={activeChild.app_installed}
+                appLater={activeChild.app_later}
+              />
+            </div>
+          ) : null}
 
           <section className="mb-4 space-y-2">
             <div className="flex items-center justify-between gap-3">

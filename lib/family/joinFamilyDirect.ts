@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-import type { FamilySession } from '../familySession'
 import { newId } from '../newId'
 import { familyDbError } from './dbError'
 import { defaultCanAdminForChild, defaultCanAdminForParent } from './memberAdmin'
@@ -10,7 +9,16 @@ import {
   memberAvatarCategoryForParent,
   portraitSrc,
 } from './memberAvatar'
-import type { OnboardingMemberProfile } from './onboardingMember'
+import { nextAccentKeyForFamily } from './memberAccentAssign'
+import {
+  generateUniqueMemberRecoveryCode,
+  memberRecoveryInsertFields,
+} from './memberRecoveryCode'
+import type {
+  FamilyOnboardingResult,
+  OnboardingDevicePrefs,
+  OnboardingMemberProfile,
+} from './onboardingMember'
 
 async function resolveFamilyIdByInviteCode(
   client: SupabaseClient,
@@ -34,10 +42,14 @@ async function joinFamilyAsParentDirect(
   client: SupabaseClient,
   familyId: string,
   profile: Extract<OnboardingMemberProfile, { memberKind: 'parent' }>,
-): Promise<{ result: FamilySession | null; error: Error | null }> {
+  devicePrefs?: OnboardingDevicePrefs,
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
   const parentId = newId()
+  const recoveryCode = await generateUniqueMemberRecoveryCode(client)
 
   const parentPortrait = defaultPortraitForCategory(memberAvatarCategoryForParent(profile.gender))
+  const { accentKey, error: accentError } = await nextAccentKeyForFamily(familyId)
+  if (accentError) return { result: null, error: accentError }
 
   const { error: parentError } = await client.from('parent_profiles').insert({
     id: parentId,
@@ -45,6 +57,8 @@ async function joinFamilyAsParentDirect(
     gender: profile.gender,
     can_admin: defaultCanAdminForParent(profile.gender),
     avatar_url: parentPortrait ? portraitSrc(parentPortrait) : null,
+    accent_key: accentKey,
+    ...memberRecoveryInsertFields(recoveryCode, devicePrefs),
   })
 
   if (parentError) return { result: null, error: familyDbError(parentError.message) }
@@ -59,7 +73,10 @@ async function joinFamilyAsParentDirect(
   if (memberError) return { result: null, error: familyDbError(memberError.message) }
 
   return {
-    result: { familyId, memberKind: 'parent', memberId: parentId },
+    result: {
+      session: { familyId, memberKind: 'parent', memberId: parentId },
+      recoveryCode,
+    },
     error: null,
   }
 }
@@ -68,8 +85,10 @@ async function joinFamilyAsChildDirect(
   client: SupabaseClient,
   familyId: string,
   profile: Extract<OnboardingMemberProfile, { memberKind: 'child' }>,
-): Promise<{ result: FamilySession | null; error: Error | null }> {
+  devicePrefs?: OnboardingDevicePrefs,
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
   const childId = newId()
+  const recoveryCode = await generateUniqueMemberRecoveryCode(client)
 
   const { data: sortRows } = await client
     .from('child_profiles')
@@ -82,6 +101,8 @@ async function joinFamilyAsChildDirect(
 
   const childCategory = memberAvatarCategoryForChild(profile.gender, profile.age)
   const childPortrait = defaultPortraitForCategory(childCategory)
+  const { accentKey, error: accentError } = await nextAccentKeyForFamily(familyId)
+  if (accentError) return { result: null, error: accentError }
 
   const { error: childError } = await client.from('child_profiles').insert({
     id: childId,
@@ -95,12 +116,17 @@ async function joinFamilyAsChildDirect(
     is_active: true,
     total_xp: 0,
     level: 1,
+    accent_key: accentKey,
+    ...memberRecoveryInsertFields(recoveryCode, devicePrefs),
   })
 
   if (childError) return { result: null, error: familyDbError(childError.message) }
 
   return {
-    result: { familyId, memberKind: 'child', memberId: childId },
+    result: {
+      session: { familyId, memberKind: 'child', memberId: childId },
+      recoveryCode,
+    },
     error: null,
   }
 }
@@ -109,12 +135,13 @@ export async function joinFamilyWithInviteCodeDirect(
   client: SupabaseClient,
   inviteCode: string,
   profile: OnboardingMemberProfile,
-): Promise<{ result: FamilySession | null; error: Error | null }> {
+  devicePrefs?: OnboardingDevicePrefs,
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
   const { familyId, error: familyError } = await resolveFamilyIdByInviteCode(client, inviteCode)
   if (familyError || !familyId) return { result: null, error: familyError }
 
   if (profile.memberKind === 'parent') {
-    return joinFamilyAsParentDirect(client, familyId, profile)
+    return joinFamilyAsParentDirect(client, familyId, profile, devicePrefs)
   }
-  return joinFamilyAsChildDirect(client, familyId, profile)
+  return joinFamilyAsChildDirect(client, familyId, profile, devicePrefs)
 }

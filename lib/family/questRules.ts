@@ -39,6 +39,12 @@ export function formatQuestDayLabel(taskDate: string, instant = Date.now()): 'He
   return key
 }
 
+export function taskDateToQuestDayChoice(taskDate: string, instant = Date.now()): QuestDayChoice {
+  const key = normalizeDateKey(taskDate)
+  const today = cetToday(instant)
+  return key === cetAddDays(today, 1) ? 'tomorrow' : 'today'
+}
+
 export function memberDailyXpRemaining(scheduledXp: number, earnedXp: number): number {
   const used = Math.max(0, Math.floor(scheduledXp)) + Math.max(0, Math.floor(earnedXp))
   return Math.max(0, MEMBER_DAILY_XP_MAX - used)

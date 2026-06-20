@@ -17,7 +17,7 @@ export default function FamilyTodayXpBoard() {
 
   const members = [
     ...parents.map((parent) => {
-      const avatar = resolveParentAvatar(parent.gender, parent.avatar_url)
+      const avatar = resolveParentAvatar(parent.gender, parent.avatar_url, { todayXp: parent.todayXp })
       return {
         key: `p-${parent.id}`,
         name: formatParentDisplayName(parent.display_name, parent.gender),
@@ -27,7 +27,9 @@ export default function FamilyTodayXpBoard() {
       }
     }),
     ...children.map((child) => {
-      const avatar = resolveChildAvatar(child.gender, child.age, child.portrait_id)
+      const avatar = resolveChildAvatar(child.gender, child.age, child.portrait_id, {
+        todayXp: child.todayXp,
+      })
       return {
         key: `c-${child.id}`,
         name: child.display_name,

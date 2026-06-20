@@ -4,15 +4,21 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import OnboardingProfileFields from './OnboardingProfileFields'
+import OnboardingPwaStep from './OnboardingPwaStep'
+import OnboardingRecoveryStep from './OnboardingRecoveryStep'
 import QrCodeScanner from './QrCodeScanner'
 import { useFamily } from './FamilyProvider'
 import { joinFamilyWithInviteCode } from '../lib/family/families'
 import { parseAgeInput } from '../lib/family/memberGender'
-import { onboardingProfileFromForm, type OnboardingMemberGender } from '../lib/family/onboardingMember'
+import {
+  onboardingProfileFromForm,
+  type OnboardingDevicePrefs,
+  type OnboardingMemberGender,
+} from '../lib/family/onboardingMember'
 import { normalizeInviteCodeInput, parseInviteCodeFromQr } from '../lib/parseInviteCode'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 
-type JoinStep = 'choice' | 'code' | 'scan' | 'confirm'
+type JoinStep = 'choice' | 'code' | 'scan' | 'confirm' | 'install' | 'recovery'
 
 type JoinFamilyPanelProps = {
   onBack: () => void
@@ -20,33 +26,50 @@ type JoinFamilyPanelProps = {
 
 export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
   const router = useRouter()
-  const { setSession } = useFamily()
+  const { setSession, session } = useFamily()
   const [step, setStep] = useState<JoinStep>('choice')
   const [inviteCode, setInviteCode] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [gender, setGender] = useState<OnboardingMemberGender>('male')
   const [ageInput, setAgeInput] = useState('')
+  const [recoveryCode, setRecoveryCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const submitJoin = async (code: string) => {
-    setLoading(true)
-    setError(null)
+  const finishOnboarding = () => {
+    router.replace('/')
+    router.refresh()
+  }
 
+  const validateProfile = () => {
     const age = parseAgeInput(ageInput)
-    const { profile, error: profileError } = onboardingProfileFromForm({
-      displayName,
-      gender,
-      age,
-    })
+    return onboardingProfileFromForm({ displayName, gender, age })
+  }
 
+  const proceedToInstall = (code: string) => {
+    setError(null)
+    const { profile, error: profileError } = validateProfile()
     if (profileError || !profile) {
-      setLoading(false)
       setError(profileError ?? 'Profil unvollständig.')
       return
     }
+    setInviteCode(normalizeInviteCodeInput(code))
+    setStep('install')
+  }
 
-    const { result, error: joinError } = await joinFamilyWithInviteCode(code, profile)
+  const submitJoin = async (code: string, devicePrefs: OnboardingDevicePrefs) => {
+    setLoading(true)
+    setError(null)
+
+    const { profile, error: profileError } = validateProfile()
+    if (profileError || !profile) {
+      setLoading(false)
+      setError(profileError ?? 'Profil unvollständig.')
+      setStep('code')
+      return
+    }
+
+    const { result, error: joinError } = await joinFamilyWithInviteCode(code, profile, devicePrefs)
 
     setLoading(false)
     if (joinError) {
@@ -58,14 +81,14 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
       return
     }
 
-    setSession(result)
-    router.replace('/')
-    router.refresh()
+    setSession(result.session)
+    setRecoveryCode(result.recoveryCode)
+    setStep('recovery')
   }
 
-  const handleCodeSubmit = async (event: React.FormEvent) => {
+  const handleCodeSubmit = (event: React.FormEvent) => {
     event.preventDefault()
-    await submitJoin(normalizeInviteCodeInput(inviteCode))
+    proceedToInstall(inviteCode)
   }
 
   const handleScannedCode = (raw: string) => {
@@ -89,6 +112,39 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
       onAgeInputChange={setAgeInput}
     />
   )
+
+  if (step === 'install') {
+    return (
+      <div className="space-y-4">
+        <button
+          type="button"
+          onClick={() => setStep(inviteCode ? 'confirm' : 'code')}
+          className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+        >
+          ← Zurück
+        </button>
+        {error ? (
+          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+            {error}
+          </p>
+        ) : null}
+        <OnboardingPwaStep
+          onContinue={(prefs) => void submitJoin(inviteCode, prefs)}
+          disabled={loading}
+        />
+      </div>
+    )
+  }
+
+  if (step === 'recovery' && session) {
+    return (
+      <OnboardingRecoveryStep
+        recoveryCode={recoveryCode}
+        session={session}
+        onFinished={finishOnboarding}
+      />
+    )
+  }
 
   if (step === 'choice') {
     return (
@@ -150,7 +206,7 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
 
   if (step === 'confirm') {
     return (
-      <form onSubmit={(e) => void handleCodeSubmit(e)} className="space-y-4">
+      <form onSubmit={handleCodeSubmit} className="space-y-4">
         <button
           type="button"
           onClick={() => {
@@ -172,17 +228,16 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
         ) : null}
         <button
           type="submit"
-          disabled={loading}
-          className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white disabled:opacity-60`}
+          className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white`}
         >
-          {loading ? 'Verbinden …' : 'Familie verbinden'}
+          Weiter
         </button>
       </form>
     )
   }
 
   return (
-    <form onSubmit={(e) => void handleCodeSubmit(e)} className="space-y-4">
+    <form onSubmit={handleCodeSubmit} className="space-y-4">
       <button
         type="button"
         onClick={() => {
@@ -218,10 +273,9 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
       ) : null}
       <button
         type="submit"
-        disabled={loading}
-        className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white disabled:opacity-60`}
+        className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white`}
       >
-        {loading ? 'Verbinden …' : 'Familie verbinden'}
+        Weiter
       </button>
     </form>
   )
