@@ -8,24 +8,29 @@ import AdminScrollPage from '../../components/AdminScrollPage'
 import ChildMemberEditor from '../../components/ChildMemberEditor'
 import DangerConfirmAction from '../../components/DangerConfirmAction'
 import ParentMemberEditor from '../../components/ParentMemberEditor'
-import FamilyQuestAccentEditor from '../../components/FamilyQuestAccentEditor'
-import MemberRecoveryAdminSection from '../../components/MemberRecoveryAdminSection'
 import PageHeaderBar from '../../components/PageHeaderBar'
 import { notifyFamilyDataChanged, useFamily } from '../../components/FamilyProvider'
-import { deleteChildById, deleteFamilyById } from '../../lib/family/admin'
-import { clearFamilySession } from '../../lib/familySession'
+import { markSetupGuideAdminVisited, notifySetupGuideChanged } from '../../lib/family/setupGuide'
+import { deleteChildById } from '../../lib/family/admin'
 import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../../lib/appShell'
 import { formatParentDisplayName } from '../../lib/family/familyDisplayName'
 
 const ADMIN_ADD_LINK_CLASS = `${PRESSABLE_3D_CLASS} flex w-full items-center justify-center rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3.5 text-base font-bold text-white shadow-[0_4px_14px_-4px_rgba(5,150,105,0.55)] ring-1 ring-emerald-400/30 dark:border-emerald-500 dark:ring-emerald-600/40`
 
+const ADMIN_SETTINGS_LINK_CLASS = `${PRESSABLE_3D_CLASS} flex w-full items-center justify-center rounded-2xl border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200/90 px-4 py-3 text-sm font-bold text-slate-800 dark:border-slate-600 dark:from-slate-800 dark:to-slate-950 dark:text-slate-100`
+
 export default function AdminPage() {
   const router = useRouter()
   const { family, parent, activeChild, parents, children, loading, error, canAdmin, refresh } = useFamily()
-  const [deleteFamilyError, setDeleteFamilyError] = useState<string | null>(null)
-  const [deleteFamilyBusy, setDeleteFamilyBusy] = useState(false)
   const [childDeleteError, setChildDeleteError] = useState<string | null>(null)
   const [childDeleteBusy, setChildDeleteBusy] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (family?.id) {
+      markSetupGuideAdminVisited(family.id)
+      notifySetupGuideChanged()
+    }
+  }, [family?.id])
 
   useEffect(() => {
     if (!loading && !canAdmin) {
@@ -35,22 +40,6 @@ export default function AdminPage() {
 
   if (!loading && !canAdmin) {
     return null
-  }
-
-  const handleDeleteFamily = async (): Promise<boolean> => {
-    if (!family) return false
-    setDeleteFamilyBusy(true)
-    setDeleteFamilyError(null)
-    const { error: deleteError } = await deleteFamilyById(family.id)
-    setDeleteFamilyBusy(false)
-    if (deleteError) {
-      setDeleteFamilyError(deleteError.message)
-      return false
-    }
-    clearFamilySession()
-    router.replace('/')
-    router.refresh()
-    return true
   }
 
   const handleDeleteChild = async (childId: string): Promise<boolean> => {
@@ -151,46 +140,11 @@ export default function AdminPage() {
             )}
           </section>
 
-          {family ? (
-            <div className="mb-4">
-              <FamilyQuestAccentEditor family={family} />
-            </div>
-          ) : null}
-
-          {parent ? (
-            <div className="mb-4">
-              <MemberRecoveryAdminSection
-                memberKind="parent"
-                memberId={parent.id}
-                recCode={parent.rec_code}
-                recCodeOk={parent.rec_code_ok}
-                appInstalled={parent.app_installed}
-                appLater={parent.app_later}
-              />
-            </div>
-          ) : activeChild ? (
-            <div className="mb-4">
-              <MemberRecoveryAdminSection
-                memberKind="child"
-                memberId={activeChild.id}
-                recCode={activeChild.rec_code}
-                recCodeOk={activeChild.rec_code_ok}
-                appInstalled={activeChild.app_installed}
-                appLater={activeChild.app_later}
-              />
-            </div>
-          ) : null}
-
-          <section aria-label="Gefährliche Aktionen" className="pt-2">
-            <DangerConfirmAction
-              triggerLabel="Familie löschen"
-              confirmTitle="Familie unwiderrichlich löschen?"
-              confirmDescription="Familie, alle Eltern- und Kinderprofile, Quests, XP-Einträge und der gesamte Verlauf werden dauerhaft entfernt."
-              onConfirm={handleDeleteFamily}
-              busy={deleteFamilyBusy}
-              error={deleteFamilyError}
-            />
-          </section>
+          <div className="mt-10 pb-8">
+            <Link href="/admin/settings" className={ADMIN_SETTINGS_LINK_CLASS}>
+              Weitere Einstellungen
+            </Link>
+          </div>
         </>
       )}
     </AdminScrollPage>

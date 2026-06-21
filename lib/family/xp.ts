@@ -70,25 +70,42 @@ export async function fetchTodayXpByChild(
   return { totals, error: null }
 }
 
-/** Eltern-XP heute aus erledigten Quests (parent_id in quest_completions). */
+/** Eltern-XP heute: Quest-Abschlüsse + Tages-Einträge (z. B. Streak). */
 export async function fetchTodayXpByParent(
   familyId: string,
   entryDate = cetToday(),
 ): Promise<{ totals: Record<string, number>; error: Error | null }> {
-  const { data, error } = await supabase
-    .from('quest_completions')
-    .select('parent_id, xp_awarded, creator_confirmed_at')
-    .eq('family_id', familyId)
-    .eq('completed_on', entryDate)
-    .not('parent_id', 'is', null)
-    .not('creator_confirmed_at', 'is', null)
+  const [{ data: completionRows, error: completionError }, { data: entryRows, error: entryError }] =
+    await Promise.all([
+      supabase
+        .from('quest_completions')
+        .select('parent_id, xp_awarded, creator_confirmed_at')
+        .eq('family_id', familyId)
+        .eq('completed_on', entryDate)
+        .not('parent_id', 'is', null)
+        .not('creator_confirmed_at', 'is', null),
+      supabase
+        .from('daily_xp_entries')
+        .select('parent_id, xp_amount')
+        .eq('family_id', familyId)
+        .eq('entry_date', entryDate)
+        .not('parent_id', 'is', null),
+    ])
 
-  if (error) return { totals: {}, error: new Error(error.message) }
+  if (completionError) return { totals: {}, error: new Error(completionError.message) }
+  if (entryError && !entryError.message.includes('parent_id')) {
+    return { totals: {}, error: new Error(entryError.message) }
+  }
 
   const totals: Record<string, number> = {}
-  for (const row of data ?? []) {
+  for (const row of completionRows ?? []) {
     const parentId = row.parent_id as string
     const amount = typeof row.xp_awarded === 'number' ? row.xp_awarded : 0
+    totals[parentId] = (totals[parentId] ?? 0) + amount
+  }
+  for (const row of entryRows ?? []) {
+    const parentId = row.parent_id as string
+    const amount = typeof row.xp_amount === 'number' ? row.xp_amount : 0
     totals[parentId] = (totals[parentId] ?? 0) + amount
   }
   return { totals, error: null }

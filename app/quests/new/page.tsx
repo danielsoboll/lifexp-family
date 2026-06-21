@@ -21,6 +21,13 @@ import {
 } from '../../../lib/family/questRules'
 import { assigneesForFamilyQuestXpBudget, fetchMemberXpBudget } from '../../../lib/family/questXpBudget'
 import { questAssignmentsTableReady } from '../../../lib/family/questAssignments'
+import {
+  isSoloFamily,
+  markSetupGuideQuestVisited,
+  notifySetupGuideChanged,
+  soloQuestBlockedMessage,
+} from '../../../lib/family/setupGuide'
+import FamilySetupGuideBubble from '../../../components/FamilySetupGuideBubble'
 import { CARD_SURFACE_CLASS, MAIN_PAGE_INSET_CLASS, MAIN_SHELL_CLASS, PRESSABLE_3D_CLASS } from '../../../lib/appShell'
 
 export default function NewQuestPage() {
@@ -58,6 +65,12 @@ export default function NewQuestPage() {
   const maxSliderXp = remainingXp === null ? 10 : Math.min(10, Math.max(1, remainingXp))
 
   useEffect(() => {
+    if (!family?.id) return
+    markSetupGuideQuestVisited(family.id)
+    notifySetupGuideChanged()
+  }, [family?.id])
+
+  useEffect(() => {
     let cancelled = false
     void (async () => {
       const { ready } = await questAssignmentsTableReady()
@@ -67,6 +80,10 @@ export default function NewQuestPage() {
       cancelled = true
     }
   }, [])
+
+  const soloFamily = isSoloFamily(parents.length, children.length)
+  const soloHint = soloQuestBlockedMessage()
+  const [soloHintDismissed, setSoloHintDismissed] = useState(false)
 
   useEffect(() => {
     if (!family || budgetAssignees.length === 0) {
@@ -109,6 +126,11 @@ export default function NewQuestPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setError(null)
+
+    if (soloFamily) {
+      setError(soloHint.body)
+      return
+    }
 
     if (!assigneeChoice) {
       setError('Bitte wähle aus, für wen die Quest ist — eine Person oder „Alle“.')
@@ -172,7 +194,8 @@ export default function NewQuestPage() {
 
   const submitLabel = assigneeChoice?.mode === 'all' ? 'Quest für alle eintragen' : 'Quest eintragen'
   const submitBlockedByXp = budgetAssignees.length > 0 && !budgetLoading && remainingXp !== null && remainingXp < xpReward
-  const canSubmit = Boolean(assigneeChoice) && !loading && !(familyWide && familyQuestsReady === false)
+  const canSubmit =
+    Boolean(assigneeChoice) && !loading && !soloFamily && !(familyWide && familyQuestsReady === false)
 
   return (
     <main className={`${MAIN_SHELL_CLASS} ${MAIN_PAGE_INSET_CLASS} mx-auto w-full max-w-lg px-4`}>
@@ -264,6 +287,16 @@ export default function NewQuestPage() {
           {loading ? 'Wird gespeichert …' : budgetLoading && familyWide ? 'XP wird geprüft …' : submitLabel}
         </button>
       </form>
+
+      {soloFamily && !soloHintDismissed ? (
+        <FamilySetupGuideBubble
+          title={soloHint.title}
+          body={soloHint.body}
+          target="admin"
+          showArrow={false}
+          onDismiss={() => setSoloHintDismissed(true)}
+        />
+      ) : null}
     </main>
   )
 }

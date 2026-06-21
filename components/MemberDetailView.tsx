@@ -4,12 +4,14 @@ import { useEffect, useMemo, useState } from 'react'
 
 import MemberDailyXpBar from './MemberDailyXpBar'
 import ProgressBar from './ProgressBar'
+import DailyStreakCheckin from './DailyStreakCheckin'
 import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
 import { formatChildAge } from '../lib/family/memberGender'
 import { formatParentDisplayName } from '../lib/family/familyDisplayName'
 import { resolveChildAvatar, resolveParentAvatar } from '../lib/family/memberAvatar'
 import { completeQuestForChild, completeQuestForParent } from '../lib/family/questCompletions'
 import { cetToday } from '../lib/cetDate'
+import { fetchMemberStreakClaimedToday } from '../lib/family/dailyStreak'
 import { fetchQuestsWithCompletions, questAppliesToMember } from '../lib/family/quests'
 import { fulfillmentForMemberOnQuest } from '../lib/family/questConfirmation'
 import type { QuestWithCompletion } from '../lib/family/types'
@@ -27,6 +29,7 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
   const [questsLoading, setQuestsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyQuestId, setBusyQuestId] = useState<string | null>(null)
+  const [streakClaimed, setStreakClaimed] = useState<boolean | null>(null)
 
   const isSelf =
     (memberKind === 'parent' && sessionKind === 'parent' && sessionParent?.id === memberId) ||
@@ -60,6 +63,25 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
       cancelled = true
     }
   }, [family, memberKind, memberId])
+
+  useEffect(() => {
+    if (!family || !isSelf) {
+      setStreakClaimed(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const { claimed } = await fetchMemberStreakClaimedToday({
+        familyId: family.id,
+        memberKind,
+        memberId,
+      })
+      if (!cancelled) setStreakClaimed(claimed)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [family, isSelf, memberKind, memberId])
 
   const displayName =
     memberKind === 'parent' && parent
@@ -157,6 +179,16 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
             <span className="text-xs text-slate-500 dark:text-slate-400">Kein Portrait</span>
           </div>
         )}
+        {isSelf && family ? (
+          <DailyStreakCheckin
+            layout="detail"
+            familyId={family.id}
+            memberKind={memberKind}
+            memberId={memberId}
+            claimed={streakClaimed === true}
+            onClaimed={() => setStreakClaimed(true)}
+          />
+        ) : null}
         <div className="mt-1.5 w-full px-0.5">
           <MemberDailyXpBar todayXp={todayXp} />
         </div>

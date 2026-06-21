@@ -24,6 +24,8 @@ type DashboardButtonProps = {
   tone?: 'default' | 'wjt-primary' | 'wjt-secondary'
   /** Vorschau ohne Navigation (Startbildschirm). */
   preview?: boolean
+  setupGuideTarget?: string
+  highlightClass?: string
 }
 
 const TONE_SURFACE_CLASS = {
@@ -63,6 +65,8 @@ export default function DashboardButton({
   status,
   tone = 'default',
   preview = false,
+  setupGuideTarget,
+  highlightClass = '',
 }: DashboardButtonProps) {
   const statusClasses =
     tone !== 'default'
@@ -132,7 +136,7 @@ export default function DashboardButton({
   }
 
   return (
-    <Link href={href} className={className}>
+    <Link href={href} data-setup-guide-target={setupGuideTarget} className={`${className} ${highlightClass}`}>
       {inner}
     </Link>
   )

@@ -10,6 +10,8 @@ type MemberSlotProps = {
   avatarError?: string | null
   href?: string
   preview?: boolean
+  highlightClass?: string
+  setupGuideTarget?: string
 }
 
 export default function MemberSlot({
@@ -19,6 +21,8 @@ export default function MemberSlot({
   avatarError,
   href,
   preview = false,
+  highlightClass = '',
+  setupGuideTarget,
 }: MemberSlotProps) {
   const visual = avatarError ? (
     <div className="flex aspect-[5/6] w-full items-center justify-center rounded-xl bg-slate-100 px-1 dark:bg-slate-800">
@@ -37,7 +41,8 @@ export default function MemberSlot({
 
   const inner = (
     <article
-      className={`${CARD_SURFACE_CLASS} flex flex-col items-center rounded-2xl p-2 text-center transition hover:border-emerald-400/80`}
+      data-setup-guide-target={setupGuideTarget}
+      className={`${CARD_SURFACE_CLASS} flex flex-col items-center rounded-2xl p-2 text-center transition hover:border-emerald-400/80 ${highlightClass}`}
     >
       {visual}
       <div className="mt-1.5 w-full px-0.5">

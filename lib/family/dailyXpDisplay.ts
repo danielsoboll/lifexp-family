@@ -1,6 +1,6 @@
 /** Tages-XP pro Familienmitglied — gleiche Logik wie Life-XP Bewegung/Ernährung, Skala fix bis 30. */
 export const MEMBER_DAILY_XP_MAX = 30
-export const MEMBER_DAILY_XP_TARGET = 15
+export const MEMBER_DAILY_XP_TARGET = 20
 export const MEMBER_DAILY_XP_BOOST_THRESHOLD = 20
 
 /** Familie gemeinsam: Happy_all-Banner ab dieser Tages-XP-Summe. */

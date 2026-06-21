@@ -2,7 +2,7 @@ import type { ChildGender, ParentGender } from './memberGender'
 
 export type FamilyMemberRole = 'owner' | 'parent' | 'child'
 export type QuestRecurrence = 'once' | 'daily' | 'weekly'
-export type XpEntrySource = 'quest' | 'bonus' | 'challenge' | 'manual' | 'redemption_adjustment'
+export type XpEntrySource = 'quest' | 'bonus' | 'challenge' | 'manual' | 'redemption_adjustment' | 'streak'
 
 export type Family = {
   id: string
@@ -147,7 +147,8 @@ export type PendingCreatorConfirmation = {
 export type DailyXpEntry = {
   id: string
   family_id: string
-  child_id: string
+  child_id: string | null
+  parent_id?: string | null
   entry_date: string
   source: XpEntrySource
   source_id: string | null
