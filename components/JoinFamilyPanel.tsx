@@ -8,7 +8,6 @@ import OnboardingPwaStep from './OnboardingPwaStep'
 import OnboardingRecoveryStep from './OnboardingRecoveryStep'
 import OpenPwaHint from './OpenPwaHint'
 import QrCodeScanner from './QrCodeScanner'
-import { useFamily } from './FamilyProvider'
 import { useFamilyOnboardingBridge } from '../hooks/useFamilyOnboardingBridge'
 import { joinFamilyWithInviteCode } from '../lib/family/families'
 import { updateMemberAppInstalled, updateMemberAppLater } from '../lib/family/memberSettings'
@@ -17,6 +16,13 @@ import {
   flushOnboardingBridge,
   persistFamilyOnboardingDraft,
 } from '../lib/family/onboardingBridge'
+import {
+  commitFocusedFormField,
+  deferFlushOnboardingBridge,
+  readJoinFormSnapshot,
+  resolveOnboardingPendingCredentials,
+  type JoinFormSnapshot,
+} from '../lib/family/onboardingPanelDraft'
 import {
   clearFamilyOnboardingDraft,
   loadFamilyOnboardingDraft,
@@ -31,7 +37,7 @@ import {
   type OnboardingMemberGender,
 } from '../lib/family/onboardingMember'
 import { normalizeInviteCodeInput, parseInviteCodeFromQr } from '../lib/parseInviteCode'
-import type { FamilySession } from '../lib/familySession'
+import { storeFamilySession, type FamilySession } from '../lib/familySession'
 import { isStandaloneDisplayMode } from '../lib/pwaInstall'
 import { FORM_FIELD_INPUT_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 import { oneLineTextInputProps } from '../lib/formInputAutofill'
@@ -80,8 +86,12 @@ function joinStateFromDraft(): JoinState {
 
 export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
   const router = useRouter()
-  const { setSession } = useFamily()
   const draftHydratedRef = useRef(false)
+  const submitBusyRef = useRef(false)
+  const onboardingBusyRef = useRef(false)
+  const stepRef = useRef<JoinOnboardingStep>('choice')
+  const genderRef = useRef<OnboardingMemberGender>('male')
+  const loadingRef = useRef(false)
   const standaloneInstallResumeRef = useRef(false)
   const [step, setStep] = useState<JoinOnboardingStep>('choice')
   const [inviteCode, setInviteCode] = useState('')
@@ -94,6 +104,10 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
   const [showOpenPwaHint, setShowOpenPwaHint] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  stepRef.current = step
+  genderRef.current = gender
+  loadingRef.current = loading
 
   const buildDraft = useCallback((): FamilyOnboardingDraft => {
     return {
@@ -112,11 +126,10 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
     }
   }, [step, inviteCode, displayName, gender, ageInput, pwaInstallAcknowledged, recoveryCode, pendingSession])
 
-  const persistDraft = useCallback(
+  const saveDraftQuiet = useCallback(
     (patch?: Partial<Extract<FamilyOnboardingDraft, { mode: 'join' }>>) => {
       const draft = { ...buildDraft(), ...patch } as Extract<FamilyOnboardingDraft, { mode: 'join' }>
       persistFamilyOnboardingDraft(draft)
-      flushOnboardingBridge()
     },
     [buildDraft],
   )
@@ -134,6 +147,8 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
   }, [])
 
   const resyncFromStorage = useCallback(() => {
+    if (submitBusyRef.current || onboardingBusyRef.current || loadingRef.current) return
+    if (stepRef.current === 'install' || stepRef.current === 'recovery') return
     bootstrapOnboardingBridge()
     const draft = loadFamilyOnboardingDraft()
     if (draft?.mode !== 'join') return
@@ -159,15 +174,56 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
   }, [applyDraftSnapshot])
 
   useEffect(() => {
-    persistFamilyOnboardingDraft(buildDraft())
-  }, [buildDraft])
+    if (!draftHydratedRef.current) return
+    if (submitBusyRef.current || onboardingBusyRef.current || loadingRef.current) return
+    if (step === 'install' || step === 'recovery') return
+
+    const timer = window.setTimeout(() => {
+      if (submitBusyRef.current || onboardingBusyRef.current || loadingRef.current) return
+      persistFamilyOnboardingDraft(buildDraft())
+    }, 400)
+
+    return () => window.clearTimeout(timer)
+  }, [buildDraft, step])
+
+  const applyFormSnapshot = (snapshot: JoinFormSnapshot) => {
+    setInviteCode(snapshot.inviteCode)
+    setDisplayName(snapshot.displayName)
+    setGender(snapshot.gender)
+    setAgeInput(snapshot.ageInput)
+  }
 
   const finishOnboarding = () => {
-    if (pendingSession) setSession(pendingSession)
+    onboardingBusyRef.current = true
+    const resolved = resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
     clearFamilyOnboardingDraft()
-    flushOnboardingBridge()
+    deferFlushOnboardingBridge()
     router.replace('/')
-    router.refresh()
+    if (resolved) {
+      storeFamilySession(resolved.session)
+    }
+  }
+
+  const goToRecoveryStep = (
+    session: FamilySession,
+    code: string,
+    prefs?: OnboardingDevicePrefs,
+  ) => {
+    onboardingBusyRef.current = true
+    setShowOpenPwaHint(false)
+    setPwaInstallAcknowledged(true)
+    setPendingSession(session)
+    setRecoveryCode(code)
+    setStep('recovery')
+    saveDraftQuiet({
+      step: 'recovery',
+      pwaInstallAcknowledged: true,
+      pendingSession: session,
+      recoveryCode: code,
+    })
+    if (prefs) {
+      void syncDevicePrefs(session, prefs)
+    }
   }
 
   const handleBackToWelcome = () => {
@@ -178,31 +234,62 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
     onBack()
   }
 
-  const ensureJoined = async (code: string): Promise<{ session: FamilySession; recoveryCode: string } | null> => {
+  const ensureJoined = async (
+    code: string,
+    snapshot?: JoinFormSnapshot,
+  ): Promise<{ session: FamilySession; recoveryCode: string } | null> => {
     const normalized = normalizeInviteCodeInput(code)
     if (!normalized) {
       setError('Bitte einen Einladungscode eingeben.')
+      submitBusyRef.current = false
+      setLoading(false)
       return null
     }
 
-    if (pendingSession && recoveryCode) {
-      return { session: pendingSession, recoveryCode }
+    const resolved = resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
+    if (resolved) {
+      setPendingSession(resolved.session)
+      setRecoveryCode(resolved.recoveryCode)
+      setStep('install')
+      submitBusyRef.current = false
+      setLoading(false)
+      return resolved
     }
 
-    const age = parseAgeInput(ageInput)
-    const { profile, error: profileError } = onboardingProfileFromForm({ displayName, gender, age })
+    const form = snapshot ?? {
+      inviteCode: normalized,
+      displayName,
+      gender: genderRef.current,
+      ageInput,
+    }
+
+    const age = parseAgeInput(form.ageInput)
+    const { profile, error: profileError } = onboardingProfileFromForm({
+      displayName: form.displayName,
+      gender: form.gender,
+      age,
+    })
     if (profileError || !profile) {
       setError(profileError ?? 'Profil unvollständig.')
+      submitBusyRef.current = false
+      setLoading(false)
       return null
     }
 
     setLoading(true)
     setError(null)
-    const { result, error: joinError } = await joinFamilyWithInviteCode(normalized, profile, {
-      appInstalled: false,
-      appLater: false,
-    })
-    setLoading(false)
+    submitBusyRef.current = true
+    let result: Awaited<ReturnType<typeof joinFamilyWithInviteCode>>['result'] = null
+    let joinError: Error | null = null
+    try {
+      ;({ result, error: joinError } = await joinFamilyWithInviteCode(normalized, profile, {
+        appInstalled: false,
+        appLater: false,
+      }))
+    } finally {
+      submitBusyRef.current = false
+      setLoading(false)
+    }
 
     if (joinError) {
       setError(joinError.message)
@@ -216,8 +303,12 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
     setInviteCode(normalized)
     setPendingSession(result.session)
     setRecoveryCode(result.recoveryCode)
-    persistDraft({
+    setStep('install')
+    saveDraftQuiet({
       inviteCode: normalized,
+      displayName: form.displayName,
+      gender: form.gender,
+      ageInput: form.ageInput,
       pendingSession: result.session,
       recoveryCode: result.recoveryCode,
       step: 'install',
@@ -230,21 +321,19 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
     await updateMemberAppLater(session.memberKind, session.memberId, prefs.appLater)
   }
 
+  const tryGoToRecovery = (prefs?: OnboardingDevicePrefs): boolean => {
+    const resolved = resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
+    if (!resolved) return false
+    goToRecoveryStep(resolved.session, resolved.recoveryCode, prefs)
+    return true
+  }
+
   const advanceToRecovery = async (code: string, prefs?: OnboardingDevicePrefs) => {
+    if (tryGoToRecovery(prefs)) return
+
     const joined = await ensureJoined(code)
     if (!joined) return
-
-    if (prefs) await syncDevicePrefs(joined.session, prefs)
-
-    setShowOpenPwaHint(false)
-    setPwaInstallAcknowledged(true)
-    persistDraft({
-      step: 'recovery',
-      pwaInstallAcknowledged: true,
-      pendingSession: joined.session,
-      recoveryCode: joined.recoveryCode,
-    })
-    setStep('recovery')
+    goToRecoveryStep(joined.session, joined.recoveryCode, prefs)
   }
 
   useEffect(() => {
@@ -254,49 +343,69 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
     if (!pendingSession || !recoveryCode) return
 
     standaloneInstallResumeRef.current = true
+    onboardingBusyRef.current = true
     setShowOpenPwaHint(false)
     setPwaInstallAcknowledged(true)
-    void syncDevicePrefs(pendingSession, { appInstalled: true, appLater: false }).finally(() => {
-      persistDraft({ step: 'recovery', pwaInstallAcknowledged: true })
-      setStep('recovery')
-    })
-  }, [step, inviteCode, pendingSession, recoveryCode, persistDraft])
+    setPendingSession(pendingSession)
+    setRecoveryCode(recoveryCode)
+    setStep('recovery')
+    saveDraftQuiet({ step: 'recovery', pwaInstallAcknowledged: true })
+    void syncDevicePrefs(pendingSession, { appInstalled: true, appLater: false })
+  }, [step, inviteCode, pendingSession, recoveryCode, saveDraftQuiet])
 
-  const proceedToInstall = async (code: string) => {
-    const joined = await ensureJoined(code)
-    if (!joined) return
-    persistDraft({ step: 'install' })
-    setStep('install')
+  const proceedToInstall = async (code: string, snapshot?: JoinFormSnapshot) => {
+    await ensureJoined(code, snapshot)
   }
 
-  const handleInstallDone = async () => {
-    const joined = await ensureJoined(inviteCode)
-    if (!joined) return
-
-    setPwaInstallAcknowledged(true)
-    persistDraft({ pwaInstallAcknowledged: true })
-
-    if (isStandaloneDisplayMode()) {
-      await advanceToRecovery(inviteCode, { appInstalled: true, appLater: false })
+  const handleInstallDone = () => {
+    if (
+      tryGoToRecovery({
+        appInstalled: isStandaloneDisplayMode(),
+        appLater: false,
+      })
+    ) {
       return
     }
 
-    setShowOpenPwaHint(true)
+    void advanceToRecovery(inviteCode, { appInstalled: isStandaloneDisplayMode(), appLater: false })
+  }
+
+  const handleInstallLater = () => {
+    if (tryGoToRecovery({ appInstalled: false, appLater: true })) return
+    void advanceToRecovery(inviteCode, { appInstalled: false, appLater: true })
   }
 
   const handleContinueInBrowserFromPwaHint = () => {
+    if (tryGoToRecovery({ appInstalled: true, appLater: false })) return
     void advanceToRecovery(inviteCode, { appInstalled: true, appLater: false })
   }
 
   const handleCloseTabFromPwaHint = () => {
-    persistDraft({ pwaInstallAcknowledged: true })
-    flushOnboardingBridge()
+    saveDraftQuiet({ pwaInstallAcknowledged: true })
+    deferFlushOnboardingBridge()
     window.close()
   }
 
-  const handleCodeSubmit = (event: React.FormEvent) => {
+  const recoveryCredentials = resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
+
+  const handleCodeSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    void proceedToInstall(inviteCode)
+    if (loading || submitBusyRef.current) return
+
+    commitFocusedFormField()
+    const snapshot = readJoinFormSnapshot({
+      inviteCode,
+      displayName,
+      gender: genderRef.current,
+      ageInput,
+    })
+    applyFormSnapshot(snapshot)
+
+    submitBusyRef.current = true
+    setLoading(true)
+    setError(null)
+
+    await proceedToInstall(snapshot.inviteCode, snapshot)
   }
 
   const handleScannedCode = (raw: string) => {
@@ -339,7 +448,7 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
             ← Zurück
           </button>
           {inviteCode ? (
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-slate-950 dark:text-slate-400">
               Code: <span className="font-mono font-semibold text-slate-900 dark:text-slate-100">{inviteCode}</span>
             </p>
           ) : null}
@@ -349,8 +458,8 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
             </p>
           ) : null}
           <OnboardingPwaStep
-            onInstallDone={() => void handleInstallDone()}
-            onInstallLater={() => void advanceToRecovery(inviteCode, { appInstalled: false, appLater: true })}
+            onInstallDone={handleInstallDone}
+            onInstallLater={handleInstallLater}
             disabled={loading}
           />
         </div>
@@ -358,11 +467,11 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
     )
   }
 
-  if (step === 'recovery' && pendingSession && recoveryCode) {
+  if (step === 'recovery' && recoveryCredentials) {
     return (
       <OnboardingRecoveryStep
-        recoveryCode={recoveryCode}
-        session={pendingSession}
+        recoveryCode={recoveryCredentials.recoveryCode}
+        session={recoveryCredentials.session}
         onFinished={finishOnboarding}
       />
     )
@@ -378,7 +487,7 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
         >
           ← Zurück
         </button>
-        <p className="text-sm text-slate-600 dark:text-slate-400">Wie möchtest du dich mit deiner Familie verbinden?</p>
+        <p className="text-sm text-slate-950 dark:text-slate-400">Wie möchtest du dich mit deiner Familie verbinden?</p>
         <button
           type="button"
           onClick={() => {
@@ -428,7 +537,7 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
 
   if (step === 'confirm') {
     return (
-      <form onSubmit={handleCodeSubmit} className="space-y-4">
+      <form noValidate onSubmit={(event) => void handleCodeSubmit(event)} className="space-y-4">
         <button
           type="button"
           onClick={() => {
@@ -439,7 +548,7 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
         >
           ← Erneut scannen
         </button>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-slate-950 dark:text-slate-400">
           Code erkannt: <span className="font-bold text-slate-900 dark:text-slate-100">{inviteCode}</span>
         </p>
         {profileFields}
@@ -460,7 +569,7 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
   }
 
   return (
-    <form onSubmit={handleCodeSubmit} className="space-y-4">
+    <form noValidate onSubmit={(event) => void handleCodeSubmit(event)} className="space-y-4">
       <button
         type="button"
         onClick={() => {

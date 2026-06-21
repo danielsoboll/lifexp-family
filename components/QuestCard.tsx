@@ -104,7 +104,7 @@ export default function QuestCard({
         <p className="mt-1 line-clamp-2 text-sm text-slate-700/90 dark:text-slate-300/90">{quest.description}</p>
       ) : null}
 
-      <p className="mt-1.5 text-[11px] text-slate-600/90 dark:text-slate-400/90">
+      <p className="mt-1.5 text-[11px] text-slate-950/95 dark:text-slate-400/90">
         von {creatorLabel(quest, parents, children)}
       </p>
       {manageable ? (

@@ -101,7 +101,7 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
 
   return (
     <form onSubmit={(e) => void handleSave(e)} className={`${CARD_SURFACE_CLASS} space-y-2 rounded-xl p-3`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{subtitle}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-400">{subtitle}</p>
       <div className="flex gap-3">
         <MemberPortraitThumb src={resolved.src} error={resolved.error} />
         <div className="min-w-0 flex-1 space-y-2">

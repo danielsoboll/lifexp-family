@@ -10,9 +10,9 @@ import DangerConfirmAction from '../../components/DangerConfirmAction'
 import ParentMemberEditor from '../../components/ParentMemberEditor'
 import PageHeaderBar from '../../components/PageHeaderBar'
 import { notifyFamilyDataChanged, useFamily } from '../../components/FamilyProvider'
-import { markSetupGuideAdminVisited, notifySetupGuideChanged } from '../../lib/family/setupGuide'
+import { markSetupGuideAdminVisited } from '../../lib/family/setupGuide'
 import { deleteChildById } from '../../lib/family/admin'
-import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../../lib/appShell'
+import { CARD_SURFACE_CLASS, MUTED_BODY_TEXT_CLASS, PRESSABLE_3D_CLASS } from '../../lib/appShell'
 import { formatParentDisplayName } from '../../lib/family/familyDisplayName'
 
 const ADMIN_ADD_LINK_CLASS = `${PRESSABLE_3D_CLASS} flex w-full items-center justify-center rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3.5 text-base font-bold text-white shadow-[0_4px_14px_-4px_rgba(5,150,105,0.55)] ring-1 ring-emerald-400/30 dark:border-emerald-500 dark:ring-emerald-600/40`
@@ -26,11 +26,12 @@ export default function AdminPage() {
   const [childDeleteBusy, setChildDeleteBusy] = useState<string | null>(null)
 
   useEffect(() => {
-    if (family?.id) {
-      markSetupGuideAdminVisited(family.id)
-      notifySetupGuideChanged()
-    }
-  }, [family?.id])
+    if (!family) return
+    void (async () => {
+      await markSetupGuideAdminVisited(family)
+      notifyFamilyDataChanged()
+    })()
+  }, [family])
 
   useEffect(() => {
     if (!loading && !canAdmin) {
@@ -70,25 +71,25 @@ export default function AdminPage() {
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-slate-600 dark:text-slate-400">Wird geladen …</p>
+        <p className={MUTED_BODY_TEXT_CLASS}>Wird geladen …</p>
       ) : (
         <>
           <section className={`${CARD_SURFACE_CLASS} mb-4 space-y-1.5 rounded-xl p-3`}>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className={MUTED_BODY_TEXT_CLASS}>
               Familie:{' '}
-              <span className="font-semibold text-slate-900 dark:text-slate-100">{family?.name ?? '—'}</span>
+              <span className="font-semibold text-slate-950 dark:text-slate-100">{family?.name ?? '—'}</span>
             </p>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className={MUTED_BODY_TEXT_CLASS}>
               Angemeldet als:{' '}
-              <span className="font-semibold text-slate-900 dark:text-slate-100">
+              <span className="font-semibold text-slate-950 dark:text-slate-100">
                 {parent
                   ? formatParentDisplayName(parent.display_name, parent.gender)
                   : (activeChild?.display_name ?? '—')}
               </span>
             </p>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className={MUTED_BODY_TEXT_CLASS}>
               Einladungscode:{' '}
-              <span className="font-mono font-semibold text-slate-900 dark:text-slate-100">
+              <span className="font-mono font-semibold text-slate-950 dark:text-slate-100">
                 {family?.invite_code ?? '—'}
               </span>
             </p>
@@ -108,7 +109,7 @@ export default function AdminPage() {
 
           <section className="mb-4 space-y-3">
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              Kinder <span className="text-sm font-normal text-slate-500">({children.length}/6)</span>
+              Kinder <span className="text-sm font-normal text-slate-950 dark:text-slate-400">({children.length}/6)</span>
             </h2>
             <Link href="/children/new" className={ADMIN_ADD_LINK_CLASS}>
               + Kind hinzufügen
@@ -121,7 +122,7 @@ export default function AdminPage() {
             ) : null}
 
             {children.length === 0 ? (
-              <p className="text-sm text-slate-600 dark:text-slate-400">Noch keine Kinder.</p>
+              <p className="text-sm font-medium text-slate-950 dark:text-slate-300">Noch keine Kinder.</p>
             ) : (
               <div className="space-y-2">
                 {children.map((child) => (

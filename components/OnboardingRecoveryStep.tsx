@@ -18,22 +18,13 @@ export default function OnboardingRecoveryStep({
   session,
   onFinished,
 }: OnboardingRecoveryStepProps) {
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleDone = async () => {
-    setSaving(true)
+  const handleDone = () => {
     setError(null)
-    const { error: saveError } = await updateMemberRecCodeOk(
-      session.memberKind,
-      session.memberId,
-      true,
-    )
-    setSaving(false)
-    if (saveError) {
-      setError(saveError.message)
-      return
-    }
+    void updateMemberRecCodeOk(session.memberKind, session.memberId, true).then(({ error: saveError }) => {
+      if (saveError) setError(saveError.message)
+    })
     onFinished()
   }
 
@@ -44,8 +35,7 @@ export default function OnboardingRecoveryStep({
         code={recoveryCode}
         variant="onboarding"
         showDoneButton
-        doneSaving={saving}
-        onDone={() => void handleDone()}
+        onDone={handleDone}
       />
       {error ? (
         <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">

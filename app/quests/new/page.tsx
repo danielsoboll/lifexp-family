@@ -22,9 +22,9 @@ import {
 import { assigneesForFamilyQuestXpBudget, fetchMemberXpBudget } from '../../../lib/family/questXpBudget'
 import { questAssignmentsTableReady } from '../../../lib/family/questAssignments'
 import {
+  dismissSoloQuestHint,
   isSoloFamily,
   markSetupGuideQuestVisited,
-  notifySetupGuideChanged,
   soloQuestBlockedMessage,
 } from '../../../lib/family/setupGuide'
 import FamilySetupGuideBubble from '../../../components/FamilySetupGuideBubble'
@@ -65,10 +65,12 @@ export default function NewQuestPage() {
   const maxSliderXp = remainingXp === null ? 10 : Math.min(10, Math.max(1, remainingXp))
 
   useEffect(() => {
-    if (!family?.id) return
-    markSetupGuideQuestVisited(family.id)
-    notifySetupGuideChanged()
-  }, [family?.id])
+    if (!family) return
+    void (async () => {
+      await markSetupGuideQuestVisited(family)
+      notifyFamilyDataChanged()
+    })()
+  }, [family])
 
   useEffect(() => {
     let cancelled = false
@@ -83,7 +85,7 @@ export default function NewQuestPage() {
 
   const soloFamily = isSoloFamily(parents.length, children.length)
   const soloHint = soloQuestBlockedMessage()
-  const [soloHintDismissed, setSoloHintDismissed] = useState(false)
+  const showSoloHint = soloFamily && family && !family.guide_solo_quest_seen
 
   useEffect(() => {
     if (!family || budgetAssignees.length === 0) {
@@ -201,7 +203,7 @@ export default function NewQuestPage() {
     <main className={`${MAIN_SHELL_CLASS} ${MAIN_PAGE_INSET_CLASS} mx-auto w-full max-w-lg px-4`}>
       <PageHeaderBar backHref="/quests" backLabel="Family-Quests" />
       <h1 className="mb-1 text-2xl font-bold text-slate-900 dark:text-slate-100">Quest eintragen</h1>
-      <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">
+      <p className="mb-4 text-sm text-slate-950 dark:text-slate-400">
         Für ein anderes Familienmitglied — heute oder morgen, max. 10 XP pro Quest und 30 XP pro Tag.
       </p>
       <form onSubmit={(e) => void handleSubmit(e)} className={`${CARD_SURFACE_CLASS} space-y-4 rounded-2xl p-5`}>
@@ -252,10 +254,10 @@ export default function NewQuestPage() {
           </p>
         ) : null}
         {budgetAssignees.length > 0 && budgetLoading ? (
-          <p className="text-xs text-slate-600 dark:text-slate-400">XP-Budget wird geprüft …</p>
+          <p className="text-xs text-slate-950 dark:text-slate-400">XP-Budget wird geprüft …</p>
         ) : null}
         {budgetAssignees.length > 0 && remainingXp !== null ? (
-          <p className="text-xs text-slate-600 dark:text-slate-400">
+          <p className="text-xs text-slate-950 dark:text-slate-400">
             {familyWide ? (
               <>
                 Für die anderen Familienmitglieder sind an dem Tag noch mindestens <strong>{remainingXp} XP</strong> frei
@@ -288,13 +290,19 @@ export default function NewQuestPage() {
         </button>
       </form>
 
-      {soloFamily && !soloHintDismissed ? (
+      {showSoloHint ? (
         <FamilySetupGuideBubble
           title={soloHint.title}
           body={soloHint.body}
           target="admin"
           showArrow={false}
-          onDismiss={() => setSoloHintDismissed(true)}
+          showBrandMark={false}
+          onDismiss={() => {
+            void (async () => {
+              await dismissSoloQuestHint(family)
+              notifyFamilyDataChanged()
+            })()
+          }}
         />
       ) : null}
     </main>

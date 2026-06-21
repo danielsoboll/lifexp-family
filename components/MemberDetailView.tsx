@@ -12,6 +12,7 @@ import { resolveChildAvatar, resolveParentAvatar } from '../lib/family/memberAva
 import { completeQuestForChild, completeQuestForParent } from '../lib/family/questCompletions'
 import { cetToday } from '../lib/cetDate'
 import { fetchMemberStreakClaimedToday } from '../lib/family/dailyStreak'
+import { persistMemberStreakIntroSeen } from '../lib/family/streakIntroHint'
 import { fetchQuestsWithCompletions, questAppliesToMember } from '../lib/family/quests'
 import { fulfillmentForMemberOnQuest } from '../lib/family/questConfirmation'
 import type { QuestWithCompletion } from '../lib/family/types'
@@ -83,6 +84,15 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
     }
   }, [family, isSelf, memberKind, memberId])
 
+  useEffect(() => {
+    if (!isSelf) return
+    const dbSeen =
+      memberKind === 'parent'
+        ? parent?.streak_intro_seen === true
+        : child?.streak_intro_seen === true
+    void persistMemberStreakIntroSeen({ memberKind, memberId, dbSeen })
+  }, [isSelf, memberKind, memberId, parent?.streak_intro_seen, child?.streak_intro_seen])
+
   const displayName =
     memberKind === 'parent' && parent
       ? formatParentDisplayName(parent.display_name, parent.gender)
@@ -153,11 +163,11 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
   }
 
   if (familyLoading) {
-    return <p className="text-sm text-slate-600 dark:text-slate-400">Wird geladen …</p>
+    return <p className="text-sm text-slate-950 dark:text-slate-400">Wird geladen …</p>
   }
 
   if (!displayName) {
-    return <p className="text-sm text-slate-600 dark:text-slate-400">Familienmitglied nicht gefunden.</p>
+    return <p className="text-sm text-slate-950 dark:text-slate-400">Familienmitglied nicht gefunden.</p>
   }
 
   return (
@@ -194,27 +204,27 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
         </div>
         <h1 className="mt-1.5 line-clamp-2 text-base font-bold text-slate-900 dark:text-slate-100">{displayName}</h1>
         {memberKind === 'child' && child && formatChildAge(child.age) ? (
-          <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{formatChildAge(child.age)}</p>
+          <p className="mt-0.5 text-xs text-slate-950 dark:text-slate-400">{formatChildAge(child.age)}</p>
         ) : null}
       </article>
 
       <section className={`${CARD_SURFACE_CLASS} space-y-3 rounded-2xl p-4`}>
         <div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Quests heute</h2>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
             {completedCount} von {quests.length} erledigt
           </p>
         </div>
         {quests.length > 0 ? <ProgressBar progress={questProgress} /> : null}
 
         {questsLoading ? (
-          <p className="text-sm text-slate-600 dark:text-slate-400">Quests werden geladen …</p>
+          <p className="text-sm text-slate-950 dark:text-slate-400">Quests werden geladen …</p>
         ) : error ? (
           <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
             {error}
           </p>
         ) : quests.length === 0 ? (
-          <p className="text-sm text-slate-600 dark:text-slate-400">Keine Quests für heute zugewiesen.</p>
+          <p className="text-sm text-slate-950 dark:text-slate-400">Keine Quests für heute zugewiesen.</p>
         ) : (
           <ul className="space-y-2">
             {quests.map((quest) => {
@@ -237,7 +247,7 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
                     <div className="min-w-0">
                       <p className="font-semibold text-slate-900 dark:text-slate-100">{quest.title}</p>
                       {quest.description ? (
-                        <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{quest.description}</p>
+                        <p className="mt-0.5 text-xs text-slate-950 dark:text-slate-400">{quest.description}</p>
                       ) : null}
                     </div>
                     <span className="shrink-0 text-xs font-bold tabular-nums text-emerald-700 dark:text-emerald-300">

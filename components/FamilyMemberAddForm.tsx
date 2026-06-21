@@ -224,11 +224,11 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
               })}
             </div>
             {memberKind === 'adult' ? (
-              <p className="mt-1.5 text-[11px] text-slate-600 dark:text-slate-400">
+              <p className="mt-1.5 text-[11px] text-slate-950 dark:text-slate-400">
                 Mehrere Papas oder Mamas sind möglich.
               </p>
             ) : (
-              <p className="mt-1.5 text-[11px] text-slate-600 dark:text-slate-400">
+              <p className="mt-1.5 text-[11px] text-slate-950 dark:text-slate-400">
                 Kinder: {children.length}/{MAX_CHILDREN_PER_FAMILY}
               </p>
             )}

@@ -12,7 +12,7 @@ export default function FamilyTodayXpBoard() {
   const todayLabel = cetFormatLongDateDe(cetToday())
 
   if (loading) {
-    return <p className="text-sm text-slate-600 dark:text-slate-400">Tages-XP wird geladen …</p>
+    return <p className="text-sm text-slate-950 dark:text-slate-400">Tages-XP wird geladen …</p>
   }
 
   const members = [
@@ -41,14 +41,14 @@ export default function FamilyTodayXpBoard() {
   ]
 
   if (members.length === 0) {
-    return <p className="text-sm text-slate-600 dark:text-slate-400">Noch keine Familienmitglieder.</p>
+    return <p className="text-sm font-medium text-slate-950 dark:text-slate-300">Noch keine Familienmitglieder.</p>
   }
 
   return (
     <section className={`${CARD_SURFACE_CLASS} space-y-3 rounded-2xl p-4`}>
       <div>
         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">XP heute</h2>
-        <p className="text-xs text-slate-600 dark:text-slate-400">{todayLabel}</p>
+        <p className="text-xs text-slate-950 dark:text-slate-400">{todayLabel}</p>
       </div>
       <div className="space-y-3">
         {members.map((member) => (

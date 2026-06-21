@@ -92,7 +92,7 @@ export default function QuestList() {
   if (!family) return null
 
   if (loading) {
-    return <p className="text-sm text-slate-600 dark:text-slate-400">Quests werden geladen …</p>
+    return <p className="text-sm text-slate-950 dark:text-slate-400">Quests werden geladen …</p>
   }
 
   if (error) {
@@ -105,7 +105,7 @@ export default function QuestList() {
 
   if (quests.length === 0) {
     return (
-      <p className="text-sm text-slate-600 dark:text-slate-400">
+      <p className="text-sm text-slate-950 dark:text-slate-400">
         Noch keine Quests — trage die erste für jemand anderen ein.
       </p>
     )

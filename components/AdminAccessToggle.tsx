@@ -22,7 +22,7 @@ export default function AdminAccessToggle({ checked, onChange, disabled = false 
       />
       <span>
         <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100">Admin-Zugang</span>
-        <span className="block text-xs text-slate-600 dark:text-slate-400">
+        <span className="block text-xs text-slate-950 dark:text-slate-400">
           Darf Admin-Bereich und Familienverwaltung nutzen
         </span>
       </span>

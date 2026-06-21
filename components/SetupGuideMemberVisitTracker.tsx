@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react'
 
-import { useFamily } from './FamilyProvider'
-import { markSetupGuideMemberVisited, notifySetupGuideChanged } from '../lib/family/setupGuide'
+import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
+import { markSetupGuideMemberVisited } from '../lib/family/setupGuide'
 
 type SetupGuideMemberVisitTrackerProps = {
   memberKind: 'parent' | 'child'
@@ -14,11 +14,13 @@ export default function SetupGuideMemberVisitTracker({ memberKind, memberId }: S
   const { family, session } = useFamily()
 
   useEffect(() => {
-    if (!family?.id || !session) return
+    if (!family || !session) return
     if (session.memberKind === memberKind && session.memberId === memberId) return
-    markSetupGuideMemberVisited(family.id)
-    notifySetupGuideChanged()
-  }, [family?.id, session, memberKind, memberId])
+    void (async () => {
+      await markSetupGuideMemberVisited(family)
+      notifyFamilyDataChanged()
+    })()
+  }, [family, session, memberKind, memberId])
 
   return null
 }

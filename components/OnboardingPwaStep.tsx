@@ -33,7 +33,7 @@ export default function OnboardingPwaStep({ onInstallDone, onInstallLater, disab
         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
           LifeXP Family zum Home-Bildschirm
         </h2>
-        <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+        <p className="mt-1 text-sm leading-relaxed text-slate-950 dark:text-slate-400">
           So startest du die App wie auf dem Home-Bildschirm — ohne Browser-Leiste.
         </p>
       </div>

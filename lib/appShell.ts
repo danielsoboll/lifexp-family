@@ -17,6 +17,12 @@ export const HOME_PAGE_INSET_CLASS =
 export const CARD_SURFACE_CLASS =
   'border-2 border-slate-400/85 bg-slate-100 shadow-[0_4px_16px_-4px_rgba(15,23,42,0.14)] ring-1 ring-slate-500/15 dark:border-slate-600 dark:bg-slate-900/90 dark:ring-slate-700/50'
 
+/** Sekundärtext auf Seitenverlauf und Karten — gut lesbar im Tagesmodus. */
+export const MUTED_BODY_TEXT_CLASS = 'text-sm text-slate-950 dark:text-slate-400'
+
+/** Kleinere Hilfetexte (Listen, Metadaten, Leer-Zustände). */
+export const MUTED_CAPTION_TEXT_CLASS = 'text-xs text-slate-950 dark:text-slate-400'
+
 /** Kartenfläche für 3D-Steintafel-Buttons. */
 export const CARD_BUTTON_SURFACE_CLASS =
   'border-2 border-stone-400/90 bg-gradient-to-b from-stone-100 via-stone-200/95 to-stone-400/75 ring-1 ring-stone-500/20 dark:border-stone-600 dark:from-stone-700 dark:via-stone-800 dark:to-stone-950 dark:ring-stone-600/35'

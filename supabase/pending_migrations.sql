@@ -193,4 +193,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS daily_xp_entries_parent_streak_uidx
   ON public.daily_xp_entries (parent_id, entry_date)
   WHERE parent_id IS NOT NULL AND source = 'streak';
 
+-- =============================================================================
+-- 6) Einmal-Hinweise (Setup-Assistent + Streak)
+-- =============================================================================
+
+ALTER TABLE public.families
+  ADD COLUMN IF NOT EXISTS guide_welcome_seen boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS guide_quest_seen boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS guide_invite_seen boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS guide_profile_seen boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS guide_finished boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS guide_solo_quest_seen boolean NOT NULL DEFAULT false;
+
+ALTER TABLE public.parent_profiles
+  ADD COLUMN IF NOT EXISTS streak_intro_seen boolean NOT NULL DEFAULT false;
+
+ALTER TABLE public.child_profiles
+  ADD COLUMN IF NOT EXISTS streak_intro_seen boolean NOT NULL DEFAULT false;
+
 NOTIFY pgrst, 'reload schema';

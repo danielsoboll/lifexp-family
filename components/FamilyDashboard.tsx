@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { useFamily, FAMILY_DATA_CHANGED_EVENT } from './FamilyProvider'
+import { notifyFamilyDataChanged, useFamily, FAMILY_DATA_CHANGED_EVENT } from './FamilyProvider'
 import DashboardButton from './DashboardButton'
 import DashboardHeaderActions from './DashboardHeaderActions'
 import FamilySetupGuideBubble, { setupGuideHighlightClass } from './FamilySetupGuideBubble'
@@ -20,9 +20,15 @@ import {
   sumFamilyTodayXp,
 } from '../lib/family/dailyXpDisplay'
 import { fetchMemberStreakClaimedToday } from '../lib/family/dailyStreak'
-import { firstOtherMemberHref, setupGuideTargetAttr } from '../lib/family/setupGuide'
+import {
+  isMemberStreakIntroSeen,
+  MEMBER_STREAK_INTRO_CHANGED_EVENT,
+  persistMemberStreakIntroSeen,
+} from '../lib/family/streakIntroHint'
+import { firstOtherMemberHref, markSetupGuideAdminVisited, setupGuideTargetAttr } from '../lib/family/setupGuide'
 import { cetFormatLongDateDe, cetToday } from '../lib/cetDate'
 import { HOME_PAGE_INSET_CLASS, MAIN_SHELL_CLASS } from '../lib/appShell'
+import { slowScrollToElement, slowScrollToRevealElement } from '../lib/slowScroll'
 import { useSetupGuide, isSetupGuideTargetActive } from '../hooks/useSetupGuide'
 
 type FamilyDashboardProps = {
@@ -40,8 +46,8 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
   const canAdmin = preview ? false : familyCtx.canAdmin
   const memberKind = preview ? null : familyCtx.memberKind
   const session = preview ? null : familyCtx.session
-
-  const [streakClaimed, setStreakClaimed] = useState<boolean | null>(null)
+  const parent = preview ? null : familyCtx.parent
+  const activeChild = preview ? null : familyCtx.activeChild
 
   const todayLabel = cetFormatLongDateDe(cetToday())
   const familyHeading = preview ? formatFamilyHeading('Sonnenschein') : formatFamilyHeading(family?.name)
@@ -103,14 +109,20 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
   const showHappyAll = !loading && familyReachedHappyAllToday(parentRows, childRows)
 
   const guide = useSetupGuide({
-    familyId: family?.id,
+    family,
     parentCount: parentRows.length,
     childCount: childRows.length,
     canAdmin,
   })
 
   const [sessionStreakClaimed, setSessionStreakClaimed] = useState<boolean | null>(null)
-  const [streakHintDismissed, setStreakHintDismissed] = useState(false)
+  const [streakIntroTick, setStreakIntroTick] = useState(0)
+
+  useEffect(() => {
+    const onStreakIntroChanged = () => setStreakIntroTick((n) => n + 1)
+    window.addEventListener(MEMBER_STREAK_INTRO_CHANGED_EVENT, onStreakIntroChanged)
+    return () => window.removeEventListener(MEMBER_STREAK_INTRO_CHANGED_EVENT, onStreakIntroChanged)
+  }, [])
 
   useEffect(() => {
     if (preview || !family || !session) {
@@ -126,7 +138,6 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
       })
       if (!cancelled) {
         setSessionStreakClaimed(claimed)
-        if (claimed) setStreakHintDismissed(false)
       }
     }
     void loadStreak()
@@ -143,8 +154,91 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
     return `${session.memberKind}:${session.memberId}`
   }, [session])
 
-  const showStreakProfileHint = !preview && sessionStreakClaimed === false && !streakHintDismissed
-  const showSetupGuide = Boolean(!preview && guide.visible && guide.copy && sessionStreakClaimed === true)
+  const streakIntroSeen = useMemo(() => {
+    if (memberKind === 'parent' && parent) {
+      return isMemberStreakIntroSeen({
+        memberKind: 'parent',
+        memberId: parent.id,
+        dbSeen: parent.streak_intro_seen,
+      })
+    }
+    if (memberKind === 'child' && activeChild) {
+      return isMemberStreakIntroSeen({
+        memberKind: 'child',
+        memberId: activeChild.id,
+        dbSeen: activeChild.streak_intro_seen,
+      })
+    }
+    return true
+  }, [memberKind, parent, activeChild, streakIntroTick])
+
+  const showSetupGuide = Boolean(!preview && guide.visible && guide.copy)
+  const showStreakProfileHint =
+    !preview && sessionStreakClaimed === false && !streakIntroSeen && !showSetupGuide
+
+  const dismissStreakHint = () => {
+    if (!session) return
+    const dbSeen =
+      session.memberKind === 'parent'
+        ? parent?.streak_intro_seen === true
+        : activeChild?.streak_intro_seen === true
+    void persistMemberStreakIntroSeen({
+      memberKind: session.memberKind,
+      memberId: session.memberId,
+      dbSeen,
+    }).then(() => notifyFamilyDataChanged())
+  }
+
+  const handleOwnProfileNavigate = useCallback(() => {
+    if (!session || preview) return
+    const dbSeen =
+      session.memberKind === 'parent'
+        ? parent?.streak_intro_seen === true
+        : activeChild?.streak_intro_seen === true
+    void persistMemberStreakIntroSeen({
+      memberKind: session.memberKind,
+      memberId: session.memberId,
+      dbSeen,
+    }).then(() => notifyFamilyDataChanged())
+  }, [session, preview, parent?.streak_intro_seen, activeChild?.streak_intro_seen])
+
+  const handleAdminNavigate = useCallback(() => {
+    if (!family || preview) return
+    void markSetupGuideAdminVisited(family)
+  }, [family, preview])
+
+  useEffect(() => {
+    if (!showSetupGuide) return
+
+    let cancelled = false
+    const scrollToGuideTarget = () => {
+      if (cancelled) return
+
+      if (guide.step === 'first_quest') {
+        const el = document.querySelector(`[data-setup-guide-target="${setupGuideTargetAttr('new_quest')}"]`)
+        if (el instanceof HTMLElement) {
+          slowScrollToRevealElement(el, { durationMs: 2000, bottomInsetPx: 140 })
+        }
+        return
+      }
+
+      if (guide.step === 'invite_code') {
+        const el = document.querySelector(`[data-setup-guide-target="${setupGuideTargetAttr('admin')}"]`)
+        if (el instanceof HTMLElement) {
+          slowScrollToElement(el, { durationMs: 2000, viewportAnchor: 0.2 })
+        }
+      }
+    }
+
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(scrollToGuideTarget)
+    })
+
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf)
+    }
+  }, [showSetupGuide, guide.step])
 
   const firstMemberHref = useMemo(
     () =>
@@ -163,24 +257,30 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
     return match ? `${match[1] === 'parents' ? 'parent' : 'child'}:${match[2]}` : null
   }, [firstMemberHref])
 
+  const memberOwnProfileNavigate = (type: 'parent' | 'child', id: string) =>
+    showStreakProfileHint && ownMemberTargetId === `${type}:${id}` ? handleOwnProfileNavigate : undefined
+
   const memberSetupGuideTarget = (type: 'parent' | 'child', id: string) => {
     const key = `${type}:${id}`
+    if (showSetupGuide && firstMemberTargetId === key && isSetupGuideTargetActive(guide.activeTarget, 'first_member')) {
+      return setupGuideTargetAttr('first_member')
+    }
     if (showStreakProfileHint && ownMemberTargetId === key) {
       return setupGuideTargetAttr('own_profile')
-    }
-    if (showSetupGuide && firstMemberTargetId === key) {
-      return setupGuideTargetAttr('first_member')
     }
     return undefined
   }
 
   const renderMemberHighlight = (type: 'parent' | 'child', id: string) => {
     const key = `${type}:${id}`
+    const targetActive = isSetupGuideTargetActive(guide.activeTarget, 'first_member')
+    if (showSetupGuide && targetActive && firstMemberTargetId === key) {
+      return setupGuideHighlightClass(true)
+    }
     if (showStreakProfileHint && ownMemberTargetId === key) {
       return setupGuideHighlightClass(true)
     }
-    const targetActive = isSetupGuideTargetActive(guide.activeTarget, 'first_member')
-    return setupGuideHighlightClass(showSetupGuide && targetActive && firstMemberTargetId === key)
+    return ''
   }
 
   return (
@@ -191,12 +291,13 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
         <div className="min-w-0 flex-1">
           <LifeXpBrandMark showFamilySuffix />
           <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-slate-100">{familyHeading}</h2>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{todayLabel}</p>
+          <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">{todayLabel}</p>
         </div>
         <DashboardHeaderActions
           showAdmin={canAdmin}
           preview={preview}
           highlightAdmin={showSetupGuide && isSetupGuideTargetActive(guide.activeTarget, 'admin')}
+          onAdminNavigate={handleAdminNavigate}
         />
       </header>
 
@@ -207,7 +308,7 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-slate-600 dark:text-slate-400">Wird geladen …</p>
+        <p className="text-sm text-slate-950 dark:text-slate-400">Wird geladen …</p>
       ) : (
         <section className="space-y-3">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Familienmitglieder</h2>
@@ -227,6 +328,7 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
                   preview={preview}
                   highlightClass={renderMemberHighlight('parent', parent.id)}
                   setupGuideTarget={memberSetupGuideTarget('parent', parent.id)}
+                  onNavigate={memberOwnProfileNavigate('parent', parent.id)}
                 />
               )
             })}
@@ -248,12 +350,13 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
                     preview={preview}
                     highlightClass={renderMemberHighlight('child', child.id)}
                     setupGuideTarget={memberSetupGuideTarget('child', child.id)}
+                    onNavigate={memberOwnProfileNavigate('child', child.id)}
                   />
                 )
               })}
             </div>
           ) : !preview ? (
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm font-medium text-slate-950 dark:text-slate-300">
               Noch keine weiteren Familienmitglieder — über Admin hinzufügen.
             </p>
           ) : null}
@@ -289,16 +392,6 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
 
       {!preview ? <LegalFooterNav /> : null}
 
-      {showStreakProfileHint ? (
-        <FamilySetupGuideBubble
-          title="Streak"
-          body="Tippe auf dein Profilbild — dort kannst du „Heute dabei“ bestätigen und +2 XP sammeln."
-          target="own_profile"
-          showArrow
-          onDismiss={() => setStreakHintDismissed(true)}
-        />
-      ) : null}
-
       {showSetupGuide ? (
         <FamilySetupGuideBubble
           title={guide.copy!.title}
@@ -306,6 +399,17 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
           target={guide.copy!.target}
           showArrow={guide.step !== 'complete'}
           onDismiss={guide.dismiss}
+        />
+      ) : null}
+
+      {showStreakProfileHint ? (
+        <FamilySetupGuideBubble
+          title="Streak"
+          body="Tippe auf dein Profilbild — dort kannst du „Heute dabei“ bestätigen und +2 XP sammeln"
+          target="own_profile"
+          showArrow
+          showBrandMark={false}
+          onDismiss={dismissStreakHint}
         />
       ) : null}
     </main>

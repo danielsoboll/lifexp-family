@@ -89,7 +89,7 @@ export default function QuestCreatorConfirmSheet() {
             <h2 id="quest-confirm-sheet-title" className="text-lg font-bold text-slate-900 dark:text-slate-100">
               Quests bestätigen
             </h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
               Dein Familienmitglied hat erledigt — bitte bestätigen, damit XP gutgeschrieben werden.
             </p>
           </div>
@@ -103,7 +103,7 @@ export default function QuestCreatorConfirmSheet() {
                   className="rounded-2xl border-2 border-slate-300/90 bg-white/95 p-4 dark:border-slate-600 dark:bg-slate-900/90"
                 >
                   <p className="font-bold text-slate-900 dark:text-slate-100">{item.questTitle}</p>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
                     Bestätigt von <strong className="text-slate-800 dark:text-slate-200">{item.assigneeName}</strong>
                     {timeLabel ? `, ${timeLabel} Uhr` : null}
                   </p>

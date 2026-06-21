@@ -39,7 +39,7 @@ export default function OpenPwaHint({ onContinueInBrowser, onCloseTab }: OpenPwa
               ? 'LifeXP Family vom Home-Bildschirm öffnen'
               : 'LifeXP Family als App öffnen'}
         </h2>
-        <p className="mt-3 text-balance text-center text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+        <p className="mt-3 text-balance text-center text-sm leading-relaxed text-slate-950 dark:text-slate-300">
           {closeBlocked
             ? 'Safari kann diesen Tab nicht automatisch schließen. Tippe auf das LifeXP-Family-Symbol auf deinem Home-Bildschirm — alle Eingaben sind gespeichert.'
             : isIosDevice()

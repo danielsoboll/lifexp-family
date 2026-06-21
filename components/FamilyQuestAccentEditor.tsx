@@ -47,7 +47,7 @@ export default function FamilyQuestAccentEditor({ family }: FamilyQuestAccentEdi
     <form onSubmit={(e) => void handleSave(e)} className={`${CARD_SURFACE_CLASS} space-y-3 rounded-xl p-3`}>
       <div>
         <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Familien-Quests</h2>
-        <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
+        <p className="mt-0.5 text-xs text-slate-950 dark:text-slate-400">
           Farbe für {formatFamilyHeading(family.name)} — wenn eine Quest für „Alle“ eingetragen wird.
         </p>
       </div>

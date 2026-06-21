@@ -57,7 +57,7 @@ export default function PwaInstallOverlay() {
         >
           LifeXP Family zum Home-Bildschirm
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+        <p className="mt-2 text-sm leading-relaxed text-slate-950 dark:text-slate-400">
           So startest du die App wie auf dem Home-Bildschirm — ohne Browser-Leiste.
         </p>
         <div className="mt-4">

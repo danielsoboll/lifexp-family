@@ -28,10 +28,7 @@ export default function RecoveryCodePanel({
     <div className="flex flex-col gap-3">
       {variant === 'onboarding' ? (
         <div className="rounded-2xl border-2 border-emerald-300/90 bg-emerald-50/95 px-3 py-3 dark:border-emerald-700/55 dark:bg-emerald-950/40">
-          <p className="text-base font-bold leading-snug text-slate-900 dark:text-slate-100">
-            Du machst Fortschritte!
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+          <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
             Bitte speichere jetzt deinen Recovery-Code, damit dein Profil niemals verloren geht.
           </p>
         </div>

@@ -65,13 +65,13 @@ export default function FamilyHistoryList() {
         <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Aktivitäten</h2>
 
         {loading ? (
-          <p className="text-sm text-slate-600 dark:text-slate-400">Verlauf wird geladen …</p>
+          <p className="text-sm text-slate-950 dark:text-slate-400">Verlauf wird geladen …</p>
         ) : error ? (
           <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
             {error}
           </p>
         ) : entries.length === 0 ? (
-          <p className="text-sm text-slate-600 dark:text-slate-400">Noch keine Einträge im Verlauf.</p>
+          <p className="text-sm text-slate-950 dark:text-slate-400">Noch keine Einträge im Verlauf.</p>
         ) : (
           <div className="space-y-2">
             {entries.map((entry) => {
@@ -85,7 +85,7 @@ export default function FamilyHistoryList() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-slate-900 dark:text-slate-100">{entry.title}</p>
-                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                      <p className="text-xs text-slate-950 dark:text-slate-400">
                         {entry.date} · {memberName} · {entry.subtitle}
                       </p>
                     </div>

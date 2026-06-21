@@ -61,7 +61,7 @@ export default function MemberRecoveryAdminSection({
     <section className={`${CARD_SURFACE_CLASS} space-y-4 rounded-xl p-3`}>
       <div>
         <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">App & Recovery</h3>
-        <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
+        <p className="mt-0.5 text-xs text-slate-950 dark:text-slate-400">
           Home-Bildschirm: {appInstalled ? 'installiert' : appLater ? 'später' : 'offen'}
         </p>
       </div>

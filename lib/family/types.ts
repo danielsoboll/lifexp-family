@@ -10,6 +10,12 @@ export type Family = {
   invite_code: string | null
   timezone: string
   accent_key: string
+  guide_welcome_seen: boolean
+  guide_quest_seen: boolean
+  guide_invite_seen: boolean
+  guide_profile_seen: boolean
+  guide_finished: boolean
+  guide_solo_quest_seen: boolean
   created_at: string
   updated_at: string
 }
@@ -25,6 +31,7 @@ export type ParentProfile = {
   rec_code_ok: boolean
   app_installed: boolean
   app_later: boolean
+  streak_intro_seen: boolean
   created_at: string
   updated_at: string
 }
@@ -57,6 +64,7 @@ export type ChildProfile = {
   rec_code_ok: boolean
   app_installed: boolean
   app_later: boolean
+  streak_intro_seen: boolean
   created_at: string
   updated_at: string
 }

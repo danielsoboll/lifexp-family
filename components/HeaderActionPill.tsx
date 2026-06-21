@@ -9,6 +9,7 @@ type HeaderActionPillProps = {
   preview?: boolean
   setupGuideTarget?: string
   highlightClass?: string
+  onNavigate?: () => void
 }
 
 export default function HeaderActionPill({
@@ -17,6 +18,7 @@ export default function HeaderActionPill({
   preview = false,
   setupGuideTarget,
   highlightClass = '',
+  onNavigate,
 }: HeaderActionPillProps) {
   if (preview || !href) {
     return (
@@ -31,6 +33,7 @@ export default function HeaderActionPill({
       href={href}
       data-setup-guide-target={setupGuideTarget}
       className={`${PILL_BACK_CLASS} px-3 py-2 ${highlightClass}`}
+      onClick={() => onNavigate?.()}
     >
       {label}
     </Link>

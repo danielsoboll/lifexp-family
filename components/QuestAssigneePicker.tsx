@@ -109,7 +109,7 @@ export default function QuestAssigneePicker({
             <FamilyGroupPortrait className="w-[4.5rem] shrink-0" />
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-bold text-slate-900 dark:text-slate-100">Alle</span>
-              <span className="mt-0.5 block text-xs text-slate-600 dark:text-slate-400">
+              <span className="mt-0.5 block text-xs text-slate-950 dark:text-slate-400">
                 Gleiche Quest für die ganze Familie — dich eingeschlossen
               </span>
             </span>

@@ -30,7 +30,7 @@ export default function MemberAvatarPicker({
 
   if (resolved.options.length === 0) {
     return (
-      <p className="text-sm text-slate-600 dark:text-slate-400">Kein Portrait für diese Kombination verfügbar.</p>
+      <p className="text-sm text-slate-950 dark:text-slate-400">Kein Portrait für diese Kombination verfügbar.</p>
     )
   }
 

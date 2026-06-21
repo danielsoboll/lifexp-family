@@ -191,15 +191,15 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
               Quest bearbeiten
             </h2>
             {!isCreator ? (
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
                 Nur der Ersteller kann diese Quest ändern.
               </p>
             ) : !editable ? (
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
                 Schon in Bearbeitung — Ändern oder Löschen nicht mehr möglich.
               </p>
             ) : (
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Von dir eingetragen — anpassen oder entfernen.</p>
+              <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">Von dir eingetragen — anpassen oder entfernen.</p>
             )}
           </div>
 
@@ -269,7 +269,7 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
             <div className="px-5 py-4">
               <p className="font-bold text-slate-900 dark:text-slate-100">{quest.title}</p>
               {quest.description ? (
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{quest.description}</p>
+                <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">{quest.description}</p>
               ) : null}
             </div>
           )}
@@ -278,7 +278,7 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              className="w-full rounded-xl px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
             >
               Schließen
             </button>

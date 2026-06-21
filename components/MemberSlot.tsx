@@ -12,6 +12,7 @@ type MemberSlotProps = {
   preview?: boolean
   highlightClass?: string
   setupGuideTarget?: string
+  onNavigate?: () => void
 }
 
 export default function MemberSlot({
@@ -23,6 +24,7 @@ export default function MemberSlot({
   preview = false,
   highlightClass = '',
   setupGuideTarget,
+  onNavigate,
 }: MemberSlotProps) {
   const visual = avatarError ? (
     <div className="flex aspect-[5/6] w-full items-center justify-center rounded-xl bg-slate-100 px-1 dark:bg-slate-800">
@@ -60,6 +62,7 @@ export default function MemberSlot({
     <Link
       href={href}
       className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+      onClick={() => onNavigate?.()}
     >
       {inner}
     </Link>

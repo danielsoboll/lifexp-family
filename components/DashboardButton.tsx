@@ -55,6 +55,31 @@ const TONE_ARROW_CLASS = {
   'wjt-secondary': 'text-white/55 group-hover:text-white/80 dark:text-slate-500 dark:group-hover:text-emerald-400',
 } as const
 
+function subtitleClassForButton(input: {
+  tone: DashboardButtonProps['tone']
+  featured: boolean
+  status: AreaButtonStatus
+}): string {
+  if (input.tone === 'wjt-primary') return TONE_SUBTITLE_CLASS['wjt-primary']
+  if (input.tone === 'wjt-secondary') return TONE_SUBTITLE_CLASS['wjt-secondary']
+
+  if (input.featured) return 'text-emerald-950/90 dark:text-emerald-200'
+  switch (input.status) {
+    case 'done':
+      return 'text-emerald-950/85 dark:text-emerald-200'
+    case 'subdone':
+      return 'text-emerald-950/80 dark:text-emerald-200/90'
+    case 'attention':
+      return 'text-red-950/90 dark:text-red-200'
+    case 'pending':
+      return 'text-amber-950/90 dark:text-amber-200'
+    case 'highlight':
+      return 'text-stone-900/90 dark:text-stone-300'
+    default:
+      return 'text-stone-900/85 dark:text-slate-400'
+  }
+}
+
 export default function DashboardButton({
   href,
   emoji,
@@ -87,8 +112,7 @@ export default function DashboardButton({
 
   const titleClass =
     tone !== 'default' ? TONE_TITLE_CLASS[tone] : 'text-slate-900 dark:text-slate-100'
-  const subtitleClass =
-    tone !== 'default' ? TONE_SUBTITLE_CLASS[tone] : 'text-slate-600 dark:text-slate-400'
+  const subtitleClass = subtitleClassForButton({ tone, featured, status })
   const xpClass =
     tone !== 'default' ? TONE_XP_CLASS[tone] : 'text-emerald-700 dark:text-emerald-400'
   const arrowClass =

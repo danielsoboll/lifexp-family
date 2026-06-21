@@ -124,7 +124,7 @@ function FamilyAppIconPreview({ compact = false }: { compact?: boolean }) {
         className={`${compact ? 'h-10 w-10' : 'h-12 w-12'} shrink-0 rounded-xl object-cover shadow-md ring-2 ring-emerald-500/30`}
         priority
       />
-      <p className="text-sm leading-snug text-slate-600 dark:text-slate-400">
+      <p className="text-sm leading-snug text-slate-950 dark:text-slate-400">
         {compact
           ? 'So erscheint LifeXP Family auf deinem Home-Bildschirm.'
           : 'LifeXP Family auf dem Home-Bildschirm — schneller Zugriff wie bei einer installierten App.'}

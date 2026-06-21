@@ -100,7 +100,7 @@ export default function OwnQuestList() {
   }
 
   if (loading) {
-    return <p className="text-sm text-slate-600 dark:text-slate-400">Quests werden geladen …</p>
+    return <p className="text-sm text-slate-950 dark:text-slate-400">Quests werden geladen …</p>
   }
 
   if (error) {
@@ -113,7 +113,7 @@ export default function OwnQuestList() {
 
   if (quests.length === 0) {
     return (
-      <p className="text-sm text-slate-600 dark:text-slate-400">Dir sind noch keine Quests zugewiesen.</p>
+      <p className="text-sm text-slate-950 dark:text-slate-400">Dir sind noch keine Quests zugewiesen.</p>
     )
   }
 
@@ -147,7 +147,7 @@ export default function OwnQuestList() {
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-slate-100">{quest.title}</h3>
                   {quest.description ? (
-                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{quest.description}</p>
+                    <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">{quest.description}</p>
                   ) : null}
                 </div>
                 <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">

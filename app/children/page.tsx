@@ -30,9 +30,9 @@ export default function ChildrenPage() {
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-slate-600 dark:text-slate-400">Kinder werden geladen …</p>
+        <p className="text-sm text-slate-950 dark:text-slate-400">Kinder werden geladen …</p>
       ) : children.length === 0 ? (
-        <p className="text-sm text-slate-600 dark:text-slate-400">Noch keine Kinderprofile angelegt.</p>
+        <p className="text-sm text-slate-950 dark:text-slate-400">Noch keine Kinderprofile angelegt.</p>
       ) : (
         <div className="space-y-3">
           {children.map((child) => (

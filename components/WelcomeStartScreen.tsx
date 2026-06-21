@@ -30,11 +30,9 @@ export default function WelcomeStartScreen() {
 
   const applyResumeFromBridge = useCallback(() => {
     const next = readResumeState()
-    if (next.open) {
-      setSheetView(next.view)
-      setSheetOpen(true)
-      setPanelKey((key) => key + 1)
-    }
+    if (!next.open) return
+    setSheetView(next.view)
+    setSheetOpen(true)
   }, [])
 
   useFamilyOnboardingBridge({ onResume: applyResumeFromBridge })
@@ -120,8 +118,8 @@ export default function WelcomeStartScreen() {
                     >
                       Willkommen bei LifeXP Family
                     </h1>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                      Verbinde dich mit deiner Familie oder lege eine neue an — als Elternteil oder Familienmitglied.
+                    <p className="mt-2 text-sm leading-relaxed text-slate-950 dark:text-slate-400">
+                      Verbinde dich mit deiner Familie oder lege eine neue an — als Elternteil oder Kind
                     </p>
                   </div>
 

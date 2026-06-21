@@ -13,6 +13,7 @@ import {
 
 import { fetchChildById, fetchChildrenForFamily } from '../lib/family/children'
 import { fetchFamilyById, fetchParentById } from '../lib/family/families'
+import { migrateLegacySetupGuideIfNeeded } from '../lib/family/setupGuide'
 import { sessionHasAdminAccess } from '../lib/family/memberAdmin'
 import { fetchMemberRoleForParent, fetchParentsForFamily, isAdminRole, type ParentMember } from '../lib/family/members'
 import { fetchTodayXpTotalsForFamily } from '../lib/family/xp'
@@ -23,6 +24,7 @@ import {
 import {
   FAMILY_SESSION_CHANGED_EVENT,
   clearFamilySession,
+  resetLifeXpFamilyClientState,
   readFamilySession,
   storeFamilySession,
   type FamilySession,
@@ -105,7 +107,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     }
 
     if (!familyRow) {
-      clearFamilySession()
+      resetLifeXpFamilyClientState()
       setSessionState(null)
       setFamily(null)
       setParent(null)
@@ -119,7 +121,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    setFamily(familyRow)
+    let resolvedFamily = familyRow
+    if (await migrateLegacySetupGuideIfNeeded(familyRow)) {
+      const { family: refetched } = await fetchFamilyById(familyRow.id)
+      if (refetched) resolvedFamily = refetched
+    }
+
+    setFamily(resolvedFamily)
 
     let nextParent: ParentProfile | null = null
     let nextActiveChild: ChildProfile | null = null
@@ -144,7 +152,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       }
 
       if (!parentRow) {
-        clearFamilySession()
+        resetLifeXpFamilyClientState()
         setSessionState(null)
         setFamily(null)
         setParent(null)
@@ -161,7 +169,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       nextParent = parentRow
       nextCanAdmin = sessionHasAdminAccess('parent', parentRow.can_admin, isAdminRole(role))
 
-      const { parents: parentRows, error: parentsError } = await fetchParentsForFamily(familyRow.id)
+      const { parents: parentRows, error: parentsError } = await fetchParentsForFamily(resolvedFamily.id)
       if (parentsError) {
         nextParents = [{ ...parentRow, role: role ?? 'parent', todayXp: 0 }]
       } else {
@@ -184,8 +192,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      if (!childRow || childRow.family_id !== familyRow.id) {
-        clearFamilySession()
+      if (!childRow || childRow.family_id !== resolvedFamily.id) {
+        resetLifeXpFamilyClientState()
         setSessionState(null)
         setFamily(null)
         setParent(null)
@@ -202,11 +210,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       nextActiveChild = childRow
       nextCanAdmin = sessionHasAdminAccess('child', childRow.can_admin)
 
-      const { parents: parentRows, error: parentsError } = await fetchParentsForFamily(familyRow.id)
+      const { parents: parentRows, error: parentsError } = await fetchParentsForFamily(resolvedFamily.id)
       nextParents = parentsError ? [] : parentRows
     }
 
-    const { children: childRows, error: childError } = await fetchChildrenForFamily(familyRow.id)
+    const { children: childRows, error: childError } = await fetchChildrenForFamily(resolvedFamily.id)
 
     if (childError) {
       setParent(nextParent)
@@ -219,7 +227,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const { childTotals, parentTotals, error: xpError } = await fetchTodayXpTotalsForFamily(familyRow.id)
+    const { childTotals, parentTotals, error: xpError } = await fetchTodayXpTotalsForFamily(resolvedFamily.id)
 
     setParent(nextParent)
     setActiveChild(nextActiveChild)

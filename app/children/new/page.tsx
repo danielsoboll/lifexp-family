@@ -15,7 +15,7 @@ export default function NewChildPage() {
   if (loading) {
     return (
       <main className={`${MAIN_SHELL_CLASS} mx-auto flex min-h-dvh w-full max-w-lg items-center justify-center px-4 pt-[max(0.75rem,env(safe-area-inset-top))]`}>
-        <p className="text-sm text-slate-600 dark:text-slate-400">Familie wird geladen …</p>
+        <p className="text-sm text-slate-950 dark:text-slate-400">Familie wird geladen …</p>
       </main>
     )
   }

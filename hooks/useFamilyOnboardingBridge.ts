@@ -20,7 +20,7 @@ export function useFamilyOnboardingBridge(options?: { onResume?: () => void }) {
 
   useEffect(() => {
     bootstrapOnboardingBridge()
-    flushOnboardingBridge()
+    queueMicrotask(() => flushOnboardingBridge())
 
     const detachFlush = attachOnboardingBridgeFlushListeners()
     const detachResume = attachOnboardingResumeListeners(handleResume)

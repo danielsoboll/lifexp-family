@@ -50,7 +50,7 @@ export default function SessionGate({ children }: { children: React.ReactNode })
   if (showLoader) {
     return (
       <main
-        className={`${MAIN_SHELL_CLASS} flex min-h-dvh items-center justify-center text-sm text-slate-600 dark:text-slate-400`}
+        className={`${MAIN_SHELL_CLASS} flex min-h-dvh items-center justify-center text-sm text-slate-950 dark:text-slate-400`}
       >
         <p>Wird geladen …</p>
       </main>

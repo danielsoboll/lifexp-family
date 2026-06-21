@@ -8,10 +8,11 @@ import DangerConfirmAction from '../../../components/DangerConfirmAction'
 import FamilyQuestAccentEditor from '../../../components/FamilyQuestAccentEditor'
 import MemberRecoveryAdminSection from '../../../components/MemberRecoveryAdminSection'
 import PageHeaderBar from '../../../components/PageHeaderBar'
-import { useFamily } from '../../../components/FamilyProvider'
+import { notifyFamilyDataChanged, useFamily } from '../../../components/FamilyProvider'
 import { deleteFamilyById } from '../../../lib/family/admin'
-import { markSetupGuideAdminVisited, notifySetupGuideChanged } from '../../../lib/family/setupGuide'
-import { clearFamilySession } from '../../../lib/familySession'
+import { markSetupGuideAdminVisited } from '../../../lib/family/setupGuide'
+import { resetLifeXpFamilyClientState } from '../../../lib/familySession'
+import { MUTED_BODY_TEXT_CLASS } from '../../../lib/appShell'
 
 export default function AdminSettingsPage() {
   const router = useRouter()
@@ -20,11 +21,12 @@ export default function AdminSettingsPage() {
   const [deleteFamilyBusy, setDeleteFamilyBusy] = useState(false)
 
   useEffect(() => {
-    if (family?.id) {
-      markSetupGuideAdminVisited(family.id)
-      notifySetupGuideChanged()
-    }
-  }, [family?.id])
+    if (!family) return
+    void (async () => {
+      await markSetupGuideAdminVisited(family)
+      notifyFamilyDataChanged()
+    })()
+  }, [family])
 
   useEffect(() => {
     if (!loading && !canAdmin) {
@@ -46,7 +48,7 @@ export default function AdminSettingsPage() {
       setDeleteFamilyError(deleteError.message)
       return false
     }
-    clearFamilySession()
+    resetLifeXpFamilyClientState()
     router.replace('/')
     router.refresh()
     return true
@@ -57,7 +59,7 @@ export default function AdminSettingsPage() {
       <PageHeaderBar backHref="/admin" backLabel="Admin" compact />
 
       <h1 className="mb-1 text-xl font-bold text-slate-900 dark:text-slate-100">Weitere Einstellungen</h1>
-      <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">
+      <p className={`mb-4 ${MUTED_BODY_TEXT_CLASS}`}>
         Quest-Farben, Sicherheit, App und gefährliche Aktionen.
       </p>
 
@@ -68,7 +70,7 @@ export default function AdminSettingsPage() {
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-slate-600 dark:text-slate-400">Wird geladen …</p>
+        <p className={MUTED_BODY_TEXT_CLASS}>Wird geladen …</p>
       ) : (
         <div className="space-y-4">
           {family ? (

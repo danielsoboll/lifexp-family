@@ -26,7 +26,7 @@ export default function ChildProfileCard({ child, href }: ChildProfileCardProps)
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{child.display_name}</h3>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
             {ageLabel ? `${ageLabel} · ` : ''}Level {level} · {child.total_xp} XP gesamt
           </p>
         </div>
@@ -42,7 +42,7 @@ export default function ChildProfileCard({ child, href }: ChildProfileCardProps)
         )}
       </div>
       <div className="mt-4 space-y-2">
-        <div className="flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-300">
+        <div className="flex items-center justify-between text-xs font-semibold text-slate-950 dark:text-slate-300">
           <span>Heute: +{child.todayXp} XP</span>
           <span>Noch {remaining} XP bis Level {level + 1}</span>
         </div>

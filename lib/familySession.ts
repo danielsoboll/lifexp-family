@@ -1,7 +1,10 @@
+import { clearAvatarDisplayCache } from './avatarDisplayCache'
 import {
-  FAMILY_ONBOARDING_DRAFT_LOCAL_KEY,
+  FAMILY_ONBOARDING_DRAFT_COOKIE_KEY,
+  clearFamilyOnboardingDraft,
 } from './family/onboardingDraft'
 import { clearBridgedCookie, getBridgedCookie, setBridgedCookie } from './bridgedStorage'
+import { THEME_STORAGE_KEY } from './theme'
 
 export const FAMILY_ID_KEY = 'lifexp_family_id'
 export const MEMBER_KIND_KEY = 'lifexp_member_kind'
@@ -166,32 +169,69 @@ export function clearFamilySession(): void {
   window.dispatchEvent(new Event(FAMILY_SESSION_CHANGED_EVENT))
 }
 
-/** Alle App-localStorage-Einträge dieser Family-App löschen (Theme bleibt). */
-export function clearLifeXpFamilyAppStorage(): void {
+const PRESERVED_ON_RESET_LOCAL_KEYS = new Set([
+  THEME_STORAGE_KEY,
+  'lifexp_family_life_xp_de_initialized',
+])
+
+const PRESERVED_ON_RESET_COOKIE_KEYS = new Set(['lifexp_t', 'lifexp_fxd'])
+
+function clearLifeXpCookiesExceptPreserved(): void {
+  if (typeof document === 'undefined') return
+  for (const part of document.cookie.split(';')) {
+    const trimmed = part.trim()
+    const eq = trimmed.indexOf('=')
+    if (eq <= 0) continue
+    const name = trimmed.slice(0, eq)
+    if (!name.startsWith('lifexp_')) continue
+    if (PRESERVED_ON_RESET_COOKIE_KEYS.has(name)) continue
+    clearBridgedCookie(name)
+  }
+}
+
+/**
+ * Session, Onboarding-Entwurf, Assistent-Cache und alle lifexp_*-Cookies löschen.
+ * Theme und Domain-Marker bleiben — danach startet man beim Willkommens-Onboarding.
+ */
+export function resetLifeXpFamilyClientState(): void {
   if (typeof window === 'undefined') return
 
-  const keys: string[] = []
+  clearFamilySession()
+  clearFamilyOnboardingDraft()
+  clearAvatarDisplayCache()
+
+  const localKeys: string[] = []
   for (let i = 0; i < localStorage.length; i += 1) {
     const key = localStorage.key(i)
-    if (!key) continue
-    if (key === FAMILY_ONBOARDING_DRAFT_LOCAL_KEY) continue
-    if (
-      key === FAMILY_ID_KEY ||
-      key === MEMBER_KIND_KEY ||
-      key === MEMBER_ID_KEY ||
-      key === PARENT_ID_KEY ||
-      key === LEGACY_ACTIVE_FAMILY_KEY ||
-      key.startsWith('lifexp_family') ||
-      key.startsWith('lifexp-family')
-    ) {
-      keys.push(key)
+    if (!key || PRESERVED_ON_RESET_LOCAL_KEYS.has(key)) continue
+    if (key.startsWith('lifexp') || key.startsWith('lifexp-') || key.startsWith('lifexp_')) {
+      localKeys.push(key)
     }
   }
-  for (const key of keys) {
+  for (const key of localKeys) {
     localStorage.removeItem(key)
   }
 
+  const sessionKeys: string[] = []
+  for (let i = 0; i < sessionStorage.length; i += 1) {
+    const key = sessionStorage.key(i)
+    if (key?.startsWith('lifexp')) sessionKeys.push(key)
+  }
+  for (const key of sessionKeys) {
+    sessionStorage.removeItem(key)
+  }
+
+  clearLifeXpCookiesExceptPreserved()
+  clearBridgedCookie(FAMILY_SESSION_COOKIE_KEY)
+  clearBridgedCookie(FAMILY_ONBOARDING_DRAFT_COOKIE_KEY)
+
   window.dispatchEvent(new Event(FAMILY_SESSION_CHANGED_EVENT))
+  window.dispatchEvent(new Event('lifexp-setup-guide-changed'))
+}
+
+/** @deprecated Nutze resetLifeXpFamilyClientState — löscht Session ohne Cookies/Onboarding. */
+export function clearLifeXpFamilyAppStorage(): void {
+  resetLifeXpFamilyClientState()
 }
 
 export function hasFamilySession(): boolean {

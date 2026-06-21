@@ -1,4 +1,16 @@
-const STORAGE_KEY = 'lifexp_family_setup_guide_v1'
+import type { Family } from './types'
+import {
+  familyHasAnyGuideProgress,
+  setupGuidePatchForAdminVisit,
+  setupGuidePatchForStep,
+  setupGuidePatchFromLegacyLocal,
+  setupGuideStateFromFamily,
+} from './setupGuideFamily'
+import { mergeGuideLocalCache, readGuideLocalCache } from './setupGuideLocalCache'
+import { updateFamilySetupGuide } from './setupGuidePersistence'
+import type { SetupGuideDbPatch } from './setupGuideFamily'
+
+const LEGACY_STORAGE_KEY = 'lifexp_family_setup_guide_v1'
 
 export type SetupGuideStep =
   | 'welcome_members'
@@ -12,54 +24,48 @@ export type SetupGuideTarget = 'admin' | 'new_quest' | 'first_member' | 'own_pro
 export type SetupGuideState = {
   familyId: string
   finished: boolean
+  welcomeMembersIntroSeen: boolean
   visitedQuestNew: boolean
   visitedAdminAfterQuest: boolean
   visitedMemberProfile: boolean
-  dismissedStep: SetupGuideStep | null
 }
 
-const EMPTY: SetupGuideState = {
-  familyId: '',
-  finished: false,
-  visitedQuestNew: false,
-  visitedAdminAfterQuest: false,
-  visitedMemberProfile: false,
-  dismissedStep: null,
+type LegacySetupGuideState = SetupGuideState & {
+  dismissedStep?: SetupGuideStep | null
 }
 
-function readAll(): Record<string, SetupGuideState> {
+function readLegacyAll(): Record<string, LegacySetupGuideState> {
   if (typeof window === 'undefined') return {}
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY)
     if (!raw) return {}
-    const parsed = JSON.parse(raw) as Record<string, SetupGuideState>
+    const parsed = JSON.parse(raw) as Record<string, LegacySetupGuideState>
     return parsed && typeof parsed === 'object' ? parsed : {}
   } catch {
     return {}
   }
 }
 
-function writeAll(map: Record<string, SetupGuideState>): void {
+function clearLegacyForFamily(familyId: string): void {
   if (typeof window === 'undefined') return
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
+    const map = readLegacyAll()
+    if (!map[familyId]) return
+    delete map[familyId]
+    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(map))
   } catch {
     /* ignore */
   }
 }
 
-export function readSetupGuideState(familyId: string): SetupGuideState {
-  const map = readAll()
-  const stored = map[familyId]
-  if (!stored) return { ...EMPTY, familyId }
-  return { ...EMPTY, ...stored, familyId }
+async function persistGuidePatch(familyId: string, patch: SetupGuideDbPatch): Promise<void> {
+  if (Object.keys(patch).length === 0) return
+  mergeGuideLocalCache(familyId, patch)
+  notifySetupGuideChanged()
+  await updateFamilySetupGuide(familyId, patch)
 }
 
-export function writeSetupGuideState(state: SetupGuideState): void {
-  const map = readAll()
-  map[state.familyId] = state
-  writeAll(map)
-}
+export { setupGuideStateFromFamily } from './setupGuideFamily'
 
 export function totalFamilyMembers(parentCount: number, childCount: number): number {
   return parentCount + childCount
@@ -74,7 +80,7 @@ export function resolveSetupGuideStep(input: {
   if (!input.canAdmin || input.state.finished) return null
 
   const members = totalFamilyMembers(input.parentCount, input.childCount)
-  if (members < 2) return 'welcome_members'
+  if (members < 2 && !input.state.welcomeMembersIntroSeen) return 'welcome_members'
   if (!input.state.visitedQuestNew) return 'first_quest'
   if (!input.state.visitedAdminAfterQuest) return 'invite_code'
   if (!input.state.visitedMemberProfile) return 'member_profile'
@@ -85,68 +91,93 @@ export function setupGuideCopy(step: SetupGuideStep): { title: string; body: str
   switch (step) {
     case 'welcome_members':
       return {
-        title: 'Willkommen bei LifeXP Family!',
-        body: 'Hier dein nächster Schritt: trage deine Familienmitglieder ein.',
+        title: 'Willkommen bei LifeXP!',
+        body: 'Bitte lege zuerst deine Familienmitglieder an — tippe dafür auf Admin',
         target: 'admin',
       }
     case 'first_quest':
       return {
-        title: 'Sehr gut!',
-        body: 'Ab jetzt kannst du Aufgaben für andere Familienmitglieder anlegen.',
+        title: 'Quests eintragen',
+        body: 'Lege hier die erste Aufgabe für ein Familienmitglied an',
         target: 'new_quest',
       }
     case 'invite_code':
       return {
         title: 'Weiter geht’s',
-        body: 'Deine Familienmitglieder können sich über den Einladungscode mit deiner Familie verbinden.',
+        body: 'Deine Familienmitglieder können sich über den Einladungscode mit deiner Familie verbinden',
         target: 'admin',
       }
     case 'member_profile':
       return {
         title: 'Fast geschafft',
-        body: 'Nun kann jedes Familienmitglied Aufgaben einstellen und seine Aufgaben verfolgen.',
+        body: 'Nun kann jedes Familienmitglied Aufgaben einstellen und seine Aufgaben verfolgen',
         target: 'first_member',
       }
     case 'complete':
       return {
         title: 'Super, du hast LifeXP Family verstanden!',
-        body: 'Viel Spaß und Erfolg bei der Benutzung.',
+        body: 'Viel Spaß und Erfolg bei der Benutzung',
         target: null,
       }
   }
 }
 
-export function markSetupGuideQuestVisited(familyId: string): void {
-  const state = readSetupGuideState(familyId)
-  if (state.visitedQuestNew) return
-  writeSetupGuideState({ ...state, familyId, visitedQuestNew: true, dismissedStep: null })
+export async function migrateLegacySetupGuideIfNeeded(family: Family): Promise<boolean> {
+  if (familyHasAnyGuideProgress(family)) return false
+  const legacy = readLegacyAll()[family.id]
+  if (!legacy) return false
+
+  const patch = setupGuidePatchFromLegacyLocal({
+    welcomeMembersIntroSeen: legacy.welcomeMembersIntroSeen,
+    visitedQuestNew: legacy.visitedQuestNew,
+    visitedAdminAfterQuest: legacy.visitedAdminAfterQuest,
+    visitedMemberProfile: legacy.visitedMemberProfile,
+    finished: legacy.finished,
+    dismissedStep: legacy.dismissedStep ?? null,
+  })
+
+  if (Object.keys(patch).length === 0) return false
+
+  const { error } = await updateFamilySetupGuide(family.id, patch)
+  if (error) return false
+  clearLegacyForFamily(family.id)
+  return true
 }
 
-export function markSetupGuideAdminVisited(familyId: string): void {
-  const state = readSetupGuideState(familyId)
-  if (!state.visitedQuestNew || state.visitedAdminAfterQuest) return
-  writeSetupGuideState({ ...state, familyId, visitedAdminAfterQuest: true, dismissedStep: null })
+export async function markSetupGuideQuestVisited(family: Family | null | undefined): Promise<void> {
+  if (!family?.id) return
+  const state = setupGuideStateFromFamily(family)
+  if (!state || state.visitedQuestNew) return
+  await persistGuidePatch(family.id, setupGuidePatchForStep('first_quest'))
 }
 
-export function markSetupGuideMemberVisited(familyId: string): void {
-  const state = readSetupGuideState(familyId)
-  if (state.visitedMemberProfile) return
-  writeSetupGuideState({ ...state, familyId, visitedMemberProfile: true, dismissedStep: null })
+export async function markSetupGuideAdminVisited(family: Family | null | undefined): Promise<void> {
+  if (!family?.id) return
+  const state = setupGuideStateFromFamily(family)
+  if (!state) return
+  const patch = setupGuidePatchForAdminVisit(state)
+  await persistGuidePatch(family.id, patch)
 }
 
-export function dismissSetupGuideStep(familyId: string, step: SetupGuideStep): void {
-  const state = readSetupGuideState(familyId)
-  if (step === 'complete') {
-    writeSetupGuideState({ ...state, familyId, finished: true, dismissedStep: null })
-    return
-  }
-  writeSetupGuideState({ ...state, familyId, dismissedStep: step })
+export async function markSetupGuideMemberVisited(family: Family | null | undefined): Promise<void> {
+  if (!family?.id) return
+  const state = setupGuideStateFromFamily(family)
+  if (!state || state.visitedMemberProfile) return
+  await persistGuidePatch(family.id, setupGuidePatchForStep('member_profile'))
 }
 
-export function clearSetupGuideDismiss(familyId: string): void {
-  const state = readSetupGuideState(familyId)
-  if (!state.dismissedStep) return
-  writeSetupGuideState({ ...state, familyId, dismissedStep: null })
+export async function dismissSetupGuideStep(family: Family | null | undefined, step: SetupGuideStep): Promise<void> {
+  if (!family?.id) return
+  await persistGuidePatch(family.id, setupGuidePatchForStep(step))
+}
+
+export async function dismissSoloQuestHint(family: Family | null | undefined): Promise<void> {
+  if (!family?.id) return
+  const merged = setupGuideStateFromFamily(family)
+  if (!merged) return
+  const local = readGuideLocalCache(family.id)
+  if (family.guide_solo_quest_seen || local.guide_solo_quest_seen) return
+  await persistGuidePatch(family.id, { guide_solo_quest_seen: true })
 }
 
 export function setupGuideTargetAttr(target: SetupGuideTarget): string {
@@ -178,7 +209,7 @@ export function isSoloFamily(parentCount: number, childCount: number): boolean {
 export function soloQuestBlockedMessage(): { title: string; body: string } {
   return {
     title: 'Erst Familienmitglieder anlegen',
-    body: 'Du kannst keine Aufgaben für dich selbst eintragen. Lege zuerst weitere Familienmitglieder unter Admin an.',
+    body: 'Du kannst keine Aufgaben für dich selbst eintragen. Lege zuerst weitere Familienmitglieder unter Admin an',
   }
 }
 
