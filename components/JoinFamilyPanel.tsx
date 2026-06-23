@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 
 import OnboardingProfileFields from './OnboardingProfileFields'
 import OnboardingPwaStep from './OnboardingPwaStep'
@@ -27,10 +27,15 @@ import {
   clearFamilyOnboardingDraft,
   loadFamilyOnboardingDraft,
   mergeJoinStep,
+  mergeJoinStepForwardOnly,
   type FamilyOnboardingDraft,
   type JoinOnboardingStep,
 } from '../lib/family/onboardingDraft'
-import { parseAgeInput } from '../lib/family/memberGender'
+import {
+  coerceOnboardingPortrait,
+  defaultOnboardingPortrait,
+  type AvatarPortraitId,
+} from '../lib/family/memberAvatar'
 import {
   onboardingProfileFromForm,
   type OnboardingDevicePrefs,
@@ -41,9 +46,11 @@ import { storeFamilySession, type FamilySession } from '../lib/familySession'
 import { isStandaloneDisplayMode } from '../lib/pwaInstall'
 import { FORM_FIELD_INPUT_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 import { oneLineTextInputProps } from '../lib/formInputAutofill'
+import { resetOnboardingSheetScroll } from '../lib/slowScroll'
 
 type JoinFamilyPanelProps = {
   onBack: () => void
+  sheetScrollRef?: RefObject<HTMLElement | null>
 }
 
 type JoinState = {
@@ -51,10 +58,15 @@ type JoinState = {
   inviteCode: string
   displayName: string
   gender: OnboardingMemberGender
-  ageInput: string
+  portraitId: AvatarPortraitId
   recoveryCode: string
   pendingSession: FamilySession | null
   pwaInstallAcknowledged: boolean
+  joinEntryPath: 'code' | 'scan' | null
+}
+
+function portraitFromDraft(gender: OnboardingMemberGender, draftPortraitId?: string): AvatarPortraitId {
+  return coerceOnboardingPortrait(gender, draftPortraitId ?? null)
 }
 
 function joinStateFromDraft(): JoinState {
@@ -65,10 +77,11 @@ function joinStateFromDraft(): JoinState {
       inviteCode: '',
       displayName: '',
       gender: 'male',
-      ageInput: '',
+      portraitId: defaultOnboardingPortrait('male'),
       recoveryCode: '',
       pendingSession: null,
       pwaInstallAcknowledged: false,
+      joinEntryPath: null,
     }
   }
 
@@ -77,14 +90,15 @@ function joinStateFromDraft(): JoinState {
     inviteCode: draft.inviteCode,
     displayName: draft.displayName,
     gender: draft.gender,
-    ageInput: draft.ageInput,
+    portraitId: portraitFromDraft(draft.gender, draft.portraitId),
     recoveryCode: draft.recoveryCode ?? '',
     pendingSession: draft.pendingSession ?? null,
     pwaInstallAcknowledged: draft.pwaInstallAcknowledged === true,
+    joinEntryPath: draft.joinEntryPath ?? null,
   }
 }
 
-export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
+export default function JoinFamilyPanel({ onBack, sheetScrollRef }: JoinFamilyPanelProps) {
   const router = useRouter()
   const draftHydratedRef = useRef(false)
   const submitBusyRef = useRef(false)
@@ -93,17 +107,21 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
   const genderRef = useRef<OnboardingMemberGender>('male')
   const loadingRef = useRef(false)
   const standaloneInstallResumeRef = useRef(false)
+  const abandoningRef = useRef(false)
+  const joinFormIntroRef = useRef<HTMLDivElement>(null)
   const [step, setStep] = useState<JoinOnboardingStep>('choice')
   const [inviteCode, setInviteCode] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [gender, setGender] = useState<OnboardingMemberGender>('male')
-  const [ageInput, setAgeInput] = useState('')
+  const [portraitId, setPortraitId] = useState<AvatarPortraitId>(defaultOnboardingPortrait('male'))
   const [recoveryCode, setRecoveryCode] = useState('')
   const [pendingSession, setPendingSession] = useState<FamilySession | null>(null)
   const [pwaInstallAcknowledged, setPwaInstallAcknowledged] = useState(false)
   const [showOpenPwaHint, setShowOpenPwaHint] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [recoveryBusy, setRecoveryBusy] = useState(false)
+  const [joinEntryPath, setJoinEntryPath] = useState<'code' | 'scan' | null>(null)
 
   stepRef.current = step
   genderRef.current = gender
@@ -119,12 +137,14 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
       inviteCode,
       displayName,
       gender,
-      ageInput,
+      ageInput: '',
+      portraitId,
       pwaInstallAcknowledged,
       recoveryCode: recoveryCode || undefined,
       pendingSession: pendingSession ?? undefined,
+      joinEntryPath: joinEntryPath ?? undefined,
     }
-  }, [step, inviteCode, displayName, gender, ageInput, pwaInstallAcknowledged, recoveryCode, pendingSession])
+  }, [step, inviteCode, displayName, gender, portraitId, pwaInstallAcknowledged, recoveryCode, pendingSession, joinEntryPath])
 
   const saveDraftQuiet = useCallback(
     (patch?: Partial<Extract<FamilyOnboardingDraft, { mode: 'join' }>>) => {
@@ -134,35 +154,68 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
     [buildDraft],
   )
 
-  const applyDraftSnapshot = useCallback((snapshot: JoinState) => {
-    setStep((current) => mergeJoinStep(current, snapshot.step))
+  const applyDraftSnapshot = useCallback((snapshot: JoinState, resumeMode: 'hydrate' | 'resync' = 'hydrate') => {
+    setStep((current) =>
+      resumeMode === 'resync'
+        ? mergeJoinStepForwardOnly(current, snapshot.step)
+        : mergeJoinStep(current, snapshot.step),
+    )
     setInviteCode(snapshot.inviteCode)
     setDisplayName(snapshot.displayName)
     setGender(snapshot.gender)
-    setAgeInput(snapshot.ageInput)
+    setPortraitId(snapshot.portraitId)
     setRecoveryCode(snapshot.recoveryCode)
     setPendingSession(snapshot.pendingSession)
     setPwaInstallAcknowledged(snapshot.pwaInstallAcknowledged)
+    setJoinEntryPath(snapshot.joinEntryPath)
     setShowOpenPwaHint(false)
   }, [])
 
+  const buildDraftRef = useRef(buildDraft)
+  buildDraftRef.current = buildDraft
+
+  const persistJoinDraft = useCallback(
+    (nextStep: JoinOnboardingStep, patch?: Partial<Extract<FamilyOnboardingDraft, { mode: 'join' }>>) => {
+      const draft = {
+        ...buildDraftRef.current(),
+        ...patch,
+        step: nextStep,
+      } as Extract<FamilyOnboardingDraft, { mode: 'join' }>
+      persistFamilyOnboardingDraft(draft)
+      flushOnboardingBridge()
+    },
+    [],
+  )
+
+  const navigateJoinStep = useCallback(
+    (nextStep: JoinOnboardingStep, patch?: Partial<Extract<FamilyOnboardingDraft, { mode: 'join' }>>) => {
+      setError(null)
+      persistJoinDraft(nextStep, patch)
+      setStep(nextStep)
+      if (patch?.inviteCode !== undefined) setInviteCode(patch.inviteCode)
+      if (patch?.displayName !== undefined) setDisplayName(patch.displayName)
+      if (patch?.gender !== undefined) setGender(patch.gender)
+      if (patch?.portraitId !== undefined) setPortraitId(patch.portraitId as AvatarPortraitId)
+      if (patch?.joinEntryPath !== undefined) setJoinEntryPath(patch.joinEntryPath ?? null)
+      resetOnboardingSheetScroll(sheetScrollRef?.current)
+    },
+    [persistJoinDraft, sheetScrollRef],
+  )
+
   const resyncFromStorage = useCallback(() => {
-    if (submitBusyRef.current || onboardingBusyRef.current || loadingRef.current) return
-    if (stepRef.current === 'install' || stepRef.current === 'recovery') return
+    if (submitBusyRef.current || onboardingBusyRef.current || loadingRef.current || recoveryBusy) return
     bootstrapOnboardingBridge()
     const draft = loadFamilyOnboardingDraft()
     if (draft?.mode !== 'join') return
-    applyDraftSnapshot({
-      step: draft.step,
-      inviteCode: draft.inviteCode,
-      displayName: draft.displayName,
-      gender: draft.gender,
-      ageInput: draft.ageInput,
-      recoveryCode: draft.recoveryCode ?? '',
-      pendingSession: draft.pendingSession ?? null,
-      pwaInstallAcknowledged: draft.pwaInstallAcknowledged === true,
-    })
-  }, [applyDraftSnapshot])
+
+    if (draft.step === 'install' || draft.step === 'recovery') {
+      setRecoveryCode(draft.recoveryCode ?? '')
+      setPendingSession(draft.pendingSession ?? null)
+      setPwaInstallAcknowledged(draft.pwaInstallAcknowledged === true)
+      if (draft.joinEntryPath) setJoinEntryPath(draft.joinEntryPath)
+      setStep((current) => mergeJoinStepForwardOnly(current, draft.step))
+    }
+  }, [recoveryBusy])
 
   useFamilyOnboardingBridge({ onResume: resyncFromStorage })
 
@@ -174,23 +227,28 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
   }, [applyDraftSnapshot])
 
   useEffect(() => {
+    resetOnboardingSheetScroll(sheetScrollRef?.current)
+  }, [step, sheetScrollRef])
+
+  useEffect(() => {
     if (!draftHydratedRef.current) return
-    if (submitBusyRef.current || onboardingBusyRef.current || loadingRef.current) return
+    if (submitBusyRef.current || onboardingBusyRef.current || loadingRef.current || recoveryBusy) return
     if (step === 'install' || step === 'recovery') return
 
     const timer = window.setTimeout(() => {
+      if (abandoningRef.current) return
       if (submitBusyRef.current || onboardingBusyRef.current || loadingRef.current) return
-      persistFamilyOnboardingDraft(buildDraft())
+      persistFamilyOnboardingDraft(buildDraftRef.current())
     }, 400)
 
     return () => window.clearTimeout(timer)
-  }, [buildDraft, step])
+  }, [buildDraft, step, recoveryBusy])
 
   const applyFormSnapshot = (snapshot: JoinFormSnapshot) => {
     setInviteCode(snapshot.inviteCode)
     setDisplayName(snapshot.displayName)
     setGender(snapshot.gender)
-    setAgeInput(snapshot.ageInput)
+    setPortraitId(coerceOnboardingPortrait(snapshot.gender, snapshot.portraitId))
   }
 
   const finishOnboarding = () => {
@@ -227,10 +285,10 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
   }
 
   const handleBackToWelcome = () => {
-    if (step === 'choice') {
-      clearFamilyOnboardingDraft()
-      flushOnboardingBridge()
-    }
+    abandoningRef.current = true
+    clearFamilyOnboardingDraft()
+    flushOnboardingBridge()
+    resetOnboardingSheetScroll(sheetScrollRef?.current)
     onBack()
   }
 
@@ -260,14 +318,13 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
       inviteCode: normalized,
       displayName,
       gender: genderRef.current,
-      ageInput,
+      portraitId,
     }
 
-    const age = parseAgeInput(form.ageInput)
     const { profile, error: profileError } = onboardingProfileFromForm({
       displayName: form.displayName,
       gender: form.gender,
-      age,
+      portraitId: form.portraitId,
     })
     if (profileError || !profile) {
       setError(profileError ?? 'Profil unvollständig.')
@@ -308,7 +365,7 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
       inviteCode: normalized,
       displayName: form.displayName,
       gender: form.gender,
-      ageInput: form.ageInput,
+      portraitId: form.portraitId ?? undefined,
       pendingSession: result.session,
       recoveryCode: result.recoveryCode,
       step: 'install',
@@ -331,9 +388,24 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
   const advanceToRecovery = async (code: string, prefs?: OnboardingDevicePrefs) => {
     if (tryGoToRecovery(prefs)) return
 
-    const joined = await ensureJoined(code)
-    if (!joined) return
-    goToRecoveryStep(joined.session, joined.recoveryCode, prefs)
+    if (
+      stepRef.current === 'install' &&
+      !resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
+    ) {
+      setError(
+        'Dein Fortschritt ist unvollständig. Tippe oben auf „← Zurück“ und erneut auf „Weiter“, oder starte von vorn.',
+      )
+      return
+    }
+
+    setRecoveryBusy(true)
+    try {
+      const joined = await ensureJoined(code)
+      if (!joined) return
+      goToRecoveryStep(joined.session, joined.recoveryCode, prefs)
+    } finally {
+      setRecoveryBusy(false)
+    }
   }
 
   useEffect(() => {
@@ -397,7 +469,7 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
       inviteCode,
       displayName,
       gender: genderRef.current,
-      ageInput,
+      portraitId,
     })
     applyFormSnapshot(snapshot)
 
@@ -414,9 +486,12 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
       setError('QR-Code konnte nicht gelesen werden.')
       return
     }
-    setInviteCode(parsed)
-    setError(null)
-    setStep('confirm')
+    navigateJoinStep('confirm', { inviteCode: parsed, joinEntryPath: 'scan' })
+  }
+
+  const installBackStep = (): JoinOnboardingStep => {
+    if (joinEntryPath === 'scan' && inviteCode.trim()) return 'confirm'
+    return 'code'
   }
 
   const profileFields = (
@@ -425,8 +500,10 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
       onDisplayNameChange={setDisplayName}
       gender={gender}
       onGenderChange={setGender}
-      ageInput={ageInput}
-      onAgeInputChange={setAgeInput}
+      portraitId={portraitId}
+      onPortraitIdChange={setPortraitId}
+      sheetScrollRef={sheetScrollRef}
+      hideAboveRef={joinFormIntroRef}
     />
   )
 
@@ -442,7 +519,7 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
         <div className="space-y-4">
           <button
             type="button"
-            onClick={() => setStep(inviteCode ? 'confirm' : 'code')}
+            onClick={() => navigateJoinStep(installBackStep())}
             className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
           >
             ← Zurück
@@ -460,7 +537,7 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
           <OnboardingPwaStep
             onInstallDone={handleInstallDone}
             onInstallLater={handleInstallLater}
-            disabled={loading}
+            disabled={recoveryBusy}
           />
         </div>
       </>
@@ -477,9 +554,26 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
     )
   }
 
-  if (step === 'choice') {
+  if (step === 'recovery') {
     return (
       <div className="space-y-4">
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+          Recovery-Daten fehlen. Bitte gehe zurück und starte den Schritt erneut.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigateJoinStep('code')}
+          className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+        >
+          ← Zurück
+        </button>
+      </div>
+    )
+  }
+
+  if (step === 'choice') {
+    return (
+      <div key="join-choice" className="space-y-4">
         <button
           type="button"
           onClick={handleBackToWelcome}
@@ -492,7 +586,7 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
           type="button"
           onClick={() => {
             setError(null)
-            setStep('code')
+            navigateJoinStep('code', { joinEntryPath: 'code' })
           }}
           className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white`}
         >
@@ -502,7 +596,7 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
           type="button"
           onClick={() => {
             setError(null)
-            setStep('scan')
+            navigateJoinStep('scan', { joinEntryPath: 'scan' })
           }}
           className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-stone-400 bg-gradient-to-b from-stone-100 via-stone-200 to-stone-400/80 px-4 py-3 text-base font-bold text-stone-900 dark:border-stone-600 dark:from-stone-700 dark:via-stone-800 dark:to-stone-950 dark:text-stone-100`}
         >
@@ -514,14 +608,11 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
 
   if (step === 'scan') {
     return (
-      <div className="space-y-4">
+      <div key="join-scan" className="relative space-y-4">
         <button
           type="button"
-          onClick={() => {
-            setError(null)
-            setStep('choice')
-          }}
-          className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+          onClick={() => navigateJoinStep('choice')}
+          className="relative z-10 text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
         >
           ← Zurück
         </button>
@@ -537,20 +628,19 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
 
   if (step === 'confirm') {
     return (
-      <form noValidate onSubmit={(event) => void handleCodeSubmit(event)} className="space-y-4">
-        <button
-          type="button"
-          onClick={() => {
-            setError(null)
-            setStep('scan')
-          }}
-          className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
-        >
-          ← Erneut scannen
-        </button>
-        <p className="text-sm text-slate-950 dark:text-slate-400">
-          Code erkannt: <span className="font-bold text-slate-900 dark:text-slate-100">{inviteCode}</span>
-        </p>
+      <form key="join-confirm" noValidate autoComplete="off" onSubmit={(event) => void handleCodeSubmit(event)} className="space-y-4 pb-36">
+        <div ref={joinFormIntroRef} className="space-y-4">
+          <button
+            type="button"
+            onClick={() => navigateJoinStep('scan')}
+            className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+          >
+            ← Erneut scannen
+          </button>
+          <p className="text-sm text-slate-950 dark:text-slate-400">
+            Code erkannt: <span className="font-bold text-slate-900 dark:text-slate-100">{inviteCode}</span>
+          </p>
+        </div>
         {profileFields}
         {error ? (
           <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
@@ -569,33 +659,31 @@ export default function JoinFamilyPanel({ onBack }: JoinFamilyPanelProps) {
   }
 
   return (
-    <form noValidate onSubmit={(event) => void handleCodeSubmit(event)} className="space-y-4">
-      <button
-        type="button"
-        onClick={() => {
-          setError(null)
-          setStep('choice')
-        }}
-        className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
-      >
-        ← Zurück
-      </button>
-      <div>
-        <label htmlFor="join-invite-code" className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-          Einladungscode
-        </label>
-        <input
-          id="join-invite-code"
-          required
-          maxLength={40}
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="z. B. ABCD-1234"
-          value={inviteCode}
-          onChange={(e) => setInviteCode(e.target.value)}
-          className={`${FORM_FIELD_INPUT_CLASS} font-mono uppercase`}
-          {...oneLineTextInputProps('lifexp-join-invite-code')}
-        />
+    <form key="join-code" noValidate autoComplete="off" onSubmit={(event) => void handleCodeSubmit(event)} className="space-y-4 pb-36">
+      <div ref={joinFormIntroRef} className="space-y-4">
+        <button
+          type="button"
+          onClick={() => navigateJoinStep('choice')}
+          className="relative z-10 text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+        >
+          ← Zurück
+        </button>
+        <div>
+          <label htmlFor="join-invite-code" className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Einladungscode
+          </label>
+          <input
+            id="join-invite-code"
+            required
+            maxLength={40}
+            spellCheck={false}
+            placeholder="z. B. ABCD-1234"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value)}
+            className={`${FORM_FIELD_INPUT_CLASS} font-mono uppercase`}
+            {...oneLineTextInputProps('lifexp-join-invite-code')}
+          />
+        </div>
       </div>
       {profileFields}
       {error ? (

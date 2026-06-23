@@ -3,13 +3,7 @@ import { supabase } from '../supabase'
 import { mapChildProfileRow, mapChildProfileRows } from './mapChildProfile'
 import { defaultCanAdminForChild } from './memberAdmin'
 import { isChildLimitReached } from './memberLimits'
-import {
-  coercePortraitForCategory,
-  defaultPortraitForCategory,
-  memberAvatarCategoryForChild,
-  portraitOptionsForCategory,
-  type AvatarPortraitId,
-} from './memberAvatar'
+import { coerceOnboardingPortrait, type AvatarPortraitId } from './memberAvatar'
 import { nextAccentKeyForFamily } from './memberAccentAssign'
 import type { ChildGender } from './memberGender'
 import type { ChildProfile } from './types'
@@ -78,8 +72,7 @@ export async function createChild(input: CreateChildInput): Promise<{ child: Chi
   }
 
   const sortOrder = await nextChildSortOrder(input.familyId)
-  const category = memberAvatarCategoryForChild(input.gender, input.age ?? null)
-  const portraitId = coercePortraitForCategory(category, input.portraitId ?? null)
+  const portraitId = coerceOnboardingPortrait(input.gender, input.portraitId ?? null)
   const { accentKey, error: accentError } = await nextAccentKeyForFamily(input.familyId)
   if (accentError) {
     return { child: null, error: accentError }

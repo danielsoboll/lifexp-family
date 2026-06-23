@@ -6,11 +6,9 @@ import { familyDbError } from './dbError'
 import { generateInviteCode } from './inviteCode'
 import { defaultCanAdminForParent } from './memberAdmin'
 import {
-  defaultPortraitForCategory,
-  memberAvatarCategoryForChild,
-  memberAvatarCategoryForParent,
-  portraitSrc,
-} from './memberAvatar'
+  childPortraitKeyForOnboarding,
+  parentAvatarUrlForOnboarding,
+} from './onboardingMember'
 import { nextAccentKeyForFamily } from './memberAccentAssign'
 import { pickAccentKeyByIndex } from './memberAccentColor'
 import {
@@ -34,14 +32,14 @@ async function createFamilyAsParentDirect(
   const familyId = newId()
   const recoveryCode = await generateUniqueMemberRecoveryCode(client)
 
-  const ownerPortrait = defaultPortraitForCategory(memberAvatarCategoryForParent(profile.gender))
+  const ownerPortraitUrl = parentAvatarUrlForOnboarding(profile)
 
   const { error: parentError } = await client.from('parent_profiles').insert({
     id: parentId,
     display_name: profile.displayName,
     gender: profile.gender,
     can_admin: defaultCanAdminForParent(profile.gender),
-    avatar_url: ownerPortrait ? portraitSrc(ownerPortrait) : null,
+    avatar_url: ownerPortraitUrl,
     accent_key: pickAccentKeyByIndex(0),
     ...memberRecoveryInsertFields(recoveryCode, devicePrefs),
   })
@@ -95,8 +93,7 @@ async function createFamilyAsChildDirect(
 
   if (familyError) return { result: null, error: familyDbError(familyError.message) }
 
-  const creatorCategory = memberAvatarCategoryForChild(profile.gender, profile.age)
-  const creatorPortrait = defaultPortraitForCategory(creatorCategory)
+  const creatorPortrait = childPortraitKeyForOnboarding(profile)
 
   const { error: childError } = await client.from('child_profiles').insert({
     id: childId,
@@ -105,7 +102,7 @@ async function createFamilyAsChildDirect(
     gender: profile.gender,
     age: profile.age,
     can_admin: true,
-    avatar_key: creatorPortrait ?? profile.gender,
+    avatar_key: creatorPortrait,
     sort_order: 1,
     is_active: true,
     total_xp: 0,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import QuestAssigneePicker, {
@@ -19,7 +19,8 @@ import {
   questDayChoiceToDateKey,
   type QuestDayChoice,
 } from '../../../lib/family/questRules'
-import { assigneesForFamilyQuestXpBudget, fetchMemberXpBudget } from '../../../lib/family/questXpBudget'
+import { buildAllFamilyAssignees } from '../../../lib/family/questMemberGroups'
+import { assigneesForFamilyQuestXpBudget, budgetAssigneesCacheKey, fetchMemberXpBudget } from '../../../lib/family/questXpBudget'
 import { questAssignmentsTableReady } from '../../../lib/family/questAssignments'
 import {
   dismissSoloQuestHint,
@@ -29,6 +30,7 @@ import {
 } from '../../../lib/family/setupGuide'
 import FamilySetupGuideBubble from '../../../components/FamilySetupGuideBubble'
 import { CARD_SURFACE_CLASS, MAIN_PAGE_INSET_CLASS, MAIN_SHELL_CLASS, PRESSABLE_3D_CLASS } from '../../../lib/appShell'
+import { multilineTextInputProps, oneLineTextInputProps } from '../../../lib/formInputAutofill'
 
 export default function NewQuestPage() {
   const router = useRouter()
@@ -39,16 +41,18 @@ export default function NewQuestPage() {
   const [dayChoice, setDayChoice] = useState<QuestDayChoice>('today')
   const [assigneeChoice, setAssigneeChoice] = useState<QuestAssigneeChoice | null>(null)
   const [remainingXp, setRemainingXp] = useState<number | null>(null)
+  const [budgetError, setBudgetError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [budgetLoading, setBudgetLoading] = useState(false)
+  const budgetRequestRef = useRef(0)
   const [familyQuestsReady, setFamilyQuestsReady] = useState<boolean | null>(null)
 
   const excludeMember = useMemo((): QuestAssignee | null => {
     if (memberKind === 'parent' && parent) return { type: 'parent', id: parent.id }
     if (memberKind === 'child' && activeChild) return { type: 'child', id: activeChild.id }
     return null
-  }, [memberKind, parent, activeChild])
+  }, [memberKind, parent?.id, activeChild?.id])
 
   const selectedAssignees = useMemo(
     () => assigneesFromChoice(assigneeChoice, parents, children, excludeMember),
@@ -56,21 +60,42 @@ export default function NewQuestPage() {
   )
 
   const familyWide = assigneeChoice?.mode === 'all'
-  const budgetAssignees = useMemo(
-    () => assigneesForFamilyQuestXpBudget(selectedAssignees, familyWide, excludeMember),
-    [selectedAssignees, familyWide, excludeMember],
-  )
-
   const taskDate = questDayChoiceToDateKey(dayChoice)
-  const maxSliderXp = remainingXp === null ? 10 : Math.min(10, Math.max(1, remainingXp))
+
+  const budgetAssignees = useMemo(() => {
+    if (!assigneeChoice) return []
+    if (assigneeChoice.mode === 'one') {
+      return assigneesForFamilyQuestXpBudget([assigneeChoice.assignee], false, excludeMember)
+    }
+    return assigneesForFamilyQuestXpBudget(buildAllFamilyAssignees(parents, children), true, excludeMember)
+  }, [assigneeChoice, excludeMember, parents, children])
+
+  const budgetCheckKey = useMemo(() => {
+    if (!family?.id || budgetAssignees.length === 0) return ''
+    const base = budgetAssigneesCacheKey(family.id, taskDate, budgetAssignees)
+    const xpSnapshot = budgetAssignees
+      .map((assignee) => {
+        const todayXp =
+          assignee.type === 'parent'
+            ? (parents.find((row) => row.id === assignee.id)?.todayXp ?? 0)
+            : (children.find((row) => row.id === assignee.id)?.todayXp ?? 0)
+        return `${assignee.type}:${assignee.id}:${todayXp}`
+      })
+      .sort()
+      .join(',')
+    return `${base}|${xpSnapshot}`
+  }, [family?.id, budgetAssignees, taskDate, parents, children])
+
+  const questGuideTrackedRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!family) return
-    void (async () => {
-      await markSetupGuideQuestVisited(family)
-      notifyFamilyDataChanged()
-    })()
-  }, [family])
+    if (!family?.id) return
+    if (questGuideTrackedRef.current === family.id) return
+    questGuideTrackedRef.current = family.id
+    void markSetupGuideQuestVisited(family)
+  }, [family?.id])
+
+  const maxSliderXp = remainingXp === null ? 10 : Math.min(10, Math.max(1, remainingXp))
 
   useEffect(() => {
     let cancelled = false
@@ -88,40 +113,59 @@ export default function NewQuestPage() {
   const showSoloHint = soloFamily && family && !family.guide_solo_quest_seen
 
   useEffect(() => {
-    if (!family || budgetAssignees.length === 0) {
+    if (!family?.id || !budgetCheckKey || !assigneeChoice) {
       setRemainingXp(null)
+      setBudgetError(null)
       setBudgetLoading(false)
       return
     }
-    let cancelled = false
-    setBudgetLoading(true)
-    void (async () => {
-      let minRemaining = Number.POSITIVE_INFINITY
-      for (const assignee of budgetAssignees) {
-        const { budget, error: budgetError } = await fetchMemberXpBudget({
-          familyId: family.id,
-          memberType: assignee.type,
-          memberId: assignee.id,
-          taskDate,
-        })
-        if (cancelled) return
-        if (budgetError) {
-          setRemainingXp(null)
-          setBudgetLoading(false)
-          return
-        }
-        minRemaining = Math.min(minRemaining, budget.remainingXp)
-      }
-      if (cancelled) return
-      const nextRemaining = Number.isFinite(minRemaining) ? minRemaining : 0
-      setRemainingXp(nextRemaining)
-      setXpReward((prev) => Math.min(prev, Math.max(1, Math.min(10, nextRemaining))))
+
+    const assignees =
+      assigneeChoice.mode === 'one'
+        ? assigneesForFamilyQuestXpBudget([assigneeChoice.assignee], false, excludeMember)
+        : assigneesForFamilyQuestXpBudget(buildAllFamilyAssignees(parents, children), true, excludeMember)
+
+    if (assignees.length === 0) {
+      setRemainingXp(null)
+      setBudgetError(null)
       setBudgetLoading(false)
-    })()
-    return () => {
-      cancelled = true
+      return
     }
-  }, [family, budgetAssignees, taskDate])
+
+    const requestId = ++budgetRequestRef.current
+    setBudgetLoading(true)
+    setBudgetError(null)
+    const familyId = family.id
+
+    void (async () => {
+      try {
+        let minRemaining = Number.POSITIVE_INFINITY
+        for (const assignee of assignees) {
+          const { budget, error: fetchError } = await fetchMemberXpBudget({
+            familyId,
+            memberType: assignee.type,
+            memberId: assignee.id,
+            taskDate,
+          })
+          if (budgetRequestRef.current !== requestId) return
+          if (fetchError) {
+            setRemainingXp(null)
+            setBudgetError(fetchError.message)
+            return
+          }
+          minRemaining = Math.min(minRemaining, budget.remainingXp)
+        }
+        if (budgetRequestRef.current !== requestId) return
+        const nextRemaining = Number.isFinite(minRemaining) ? minRemaining : 0
+        setRemainingXp(nextRemaining)
+        setXpReward((prev) => Math.min(prev, Math.max(1, Math.min(10, nextRemaining))))
+      } finally {
+        if (budgetRequestRef.current === requestId) {
+          setBudgetLoading(false)
+        }
+      }
+    })()
+  }, [budgetCheckKey, family?.id])
 
   if (!family) return null
 
@@ -151,8 +195,10 @@ export default function NewQuestPage() {
       return
     }
 
-    if (budgetLoading) {
-      setError('XP-Budget wird noch geprüft — bitte einen Moment warten.')
+    if (budgetLoading) return
+
+    if (budgetError) {
+      setError(budgetError)
       return
     }
 
@@ -197,7 +243,12 @@ export default function NewQuestPage() {
   const submitLabel = assigneeChoice?.mode === 'all' ? 'Quest für alle eintragen' : 'Quest eintragen'
   const submitBlockedByXp = budgetAssignees.length > 0 && !budgetLoading && remainingXp !== null && remainingXp < xpReward
   const canSubmit =
-    Boolean(assigneeChoice) && !loading && !soloFamily && !(familyWide && familyQuestsReady === false)
+    Boolean(assigneeChoice) &&
+    !loading &&
+    !budgetLoading &&
+    !budgetError &&
+    !soloFamily &&
+    !(familyWide && familyQuestsReady === false)
 
   return (
     <main className={`${MAIN_SHELL_CLASS} ${MAIN_PAGE_INSET_CLASS} mx-auto w-full max-w-lg px-4`}>
@@ -206,7 +257,7 @@ export default function NewQuestPage() {
       <p className="mb-4 text-sm text-slate-950 dark:text-slate-400">
         Für ein anderes Familienmitglied — heute oder morgen, max. 10 XP pro Quest und 30 XP pro Tag.
       </p>
-      <form onSubmit={(e) => void handleSubmit(e)} className={`${CARD_SURFACE_CLASS} space-y-4 rounded-2xl p-5`}>
+      <form autoComplete="off" onSubmit={(e) => void handleSubmit(e)} className={`${CARD_SURFACE_CLASS} space-y-4 rounded-2xl p-5`}>
         <QuestAssigneePicker
           parents={parents}
           children={children}
@@ -227,6 +278,7 @@ export default function NewQuestPage() {
             onChange={(e) => setTitle(e.target.value)}
             placeholder="z. B. Zimmer aufräumen"
             className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 dark:border-slate-600 dark:bg-slate-900"
+            {...oneLineTextInputProps('lifexp-quest-title')}
           />
         </div>
         <div>
@@ -239,6 +291,7 @@ export default function NewQuestPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 dark:border-slate-600 dark:bg-slate-900"
+            {...multilineTextInputProps('lifexp-quest-description')}
           />
         </div>
         <QuestXpSlider
@@ -255,6 +308,19 @@ export default function NewQuestPage() {
         ) : null}
         {budgetAssignees.length > 0 && budgetLoading ? (
           <p className="text-xs text-slate-950 dark:text-slate-400">XP-Budget wird geprüft …</p>
+        ) : null}
+        {budgetError ? (
+          <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+            XP-Budget konnte nicht geladen werden: {budgetError}
+            {budgetError.toLowerCase().includes('task_date') ||
+            budgetError.toLowerCase().includes('creator_confirmed') ? (
+              <>
+                {' '}
+                Bitte fehlende Quest-Migrationen in{' '}
+                <code className="text-xs">supabase/pending_migrations.sql</code> (Abschnitte 7–8) ausführen.
+              </>
+            ) : null}
+          </p>
         ) : null}
         {budgetAssignees.length > 0 && remainingXp !== null ? (
           <p className="text-xs text-slate-950 dark:text-slate-400">

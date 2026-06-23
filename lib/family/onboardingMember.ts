@@ -1,11 +1,16 @@
+import {
+  coerceOnboardingPortrait,
+  portraitSrc,
+  type AvatarPortraitId,
+} from './memberAvatar'
 import type { ChildGender, ParentGender } from './memberGender'
 import type { FamilySession } from '../familySession'
 
 export type OnboardingMemberGender = ParentGender | ChildGender
 
 export type OnboardingMemberProfile =
-  | { memberKind: 'parent'; displayName: string; gender: ParentGender }
-  | { memberKind: 'child'; displayName: string; gender: ChildGender; age: number }
+  | { memberKind: 'parent'; displayName: string; gender: ParentGender; portraitId: AvatarPortraitId }
+  | { memberKind: 'child'; displayName: string; gender: ChildGender; age: number | null; portraitId: AvatarPortraitId }
 
 export type OnboardingDevicePrefs = {
   appInstalled: boolean
@@ -41,23 +46,33 @@ export const CHILD_MEMBER_OPTIONS = ONBOARDING_MEMBER_OPTIONS.filter(
   (option) => !isParentOnboardingGender(option.value),
 )
 
+export function parentAvatarUrlForOnboarding(
+  profile: Extract<OnboardingMemberProfile, { memberKind: 'parent' }>,
+): string {
+  return portraitSrc(coerceOnboardingPortrait(profile.gender, profile.portraitId))
+}
+
+export function childPortraitKeyForOnboarding(
+  profile: Extract<OnboardingMemberProfile, { memberKind: 'child' }>,
+): AvatarPortraitId {
+  return coerceOnboardingPortrait(profile.gender, profile.portraitId)
+}
+
 export function onboardingProfileFromForm(input: {
   displayName: string
   gender: OnboardingMemberGender
-  age: number | null
+  portraitId: AvatarPortraitId | null
 }): { profile: OnboardingMemberProfile | null; error: string | null } {
   const displayName = input.displayName.trim()
   if (!displayName) return { profile: null, error: 'Bitte deinen Namen eingeben.' }
 
+  const portraitId = coerceOnboardingPortrait(input.gender, input.portraitId)
+
   if (isParentOnboardingGender(input.gender)) {
     return {
-      profile: { memberKind: 'parent', displayName, gender: input.gender },
+      profile: { memberKind: 'parent', displayName, gender: input.gender, portraitId },
       error: null,
     }
-  }
-
-  if (input.age === null) {
-    return { profile: null, error: 'Bitte dein Alter eingeben (0–99).' }
   }
 
   return {
@@ -65,7 +80,8 @@ export function onboardingProfileFromForm(input: {
       memberKind: 'child',
       displayName,
       gender: input.gender,
-      age: input.age,
+      age: null,
+      portraitId,
     },
     error: null,
   }

@@ -72,7 +72,7 @@ export default function QuestList() {
       cancelled = true
       window.removeEventListener(FAMILY_DATA_CHANGED_EVENT, onRefresh)
     }
-  }, [family])
+  }, [family?.id])
 
   const groups = useMemo(
     () => groupQuestsForDisplay(quests, parents, children, family?.name),

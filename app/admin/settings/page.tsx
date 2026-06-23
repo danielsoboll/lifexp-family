@@ -1,14 +1,14 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import AdminScrollPage from '../../../components/AdminScrollPage'
 import DangerConfirmAction from '../../../components/DangerConfirmAction'
 import FamilyQuestAccentEditor from '../../../components/FamilyQuestAccentEditor'
 import MemberRecoveryAdminSection from '../../../components/MemberRecoveryAdminSection'
 import PageHeaderBar from '../../../components/PageHeaderBar'
-import { notifyFamilyDataChanged, useFamily } from '../../../components/FamilyProvider'
+import { useFamily } from '../../../components/FamilyProvider'
 import { deleteFamilyById } from '../../../lib/family/admin'
 import { markSetupGuideAdminVisited } from '../../../lib/family/setupGuide'
 import { resetLifeXpFamilyClientState } from '../../../lib/familySession'
@@ -19,14 +19,14 @@ export default function AdminSettingsPage() {
   const { family, parent, activeChild, loading, error, canAdmin } = useFamily()
   const [deleteFamilyError, setDeleteFamilyError] = useState<string | null>(null)
   const [deleteFamilyBusy, setDeleteFamilyBusy] = useState(false)
+  const adminGuideTrackedRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!family) return
-    void (async () => {
-      await markSetupGuideAdminVisited(family)
-      notifyFamilyDataChanged()
-    })()
-  }, [family])
+    if (!family?.id) return
+    if (adminGuideTrackedRef.current === family.id) return
+    adminGuideTrackedRef.current = family.id
+    void markSetupGuideAdminVisited(family)
+  }, [family?.id])
 
   useEffect(() => {
     if (!loading && !canAdmin) {
@@ -97,7 +97,7 @@ export default function AdminSettingsPage() {
             />
           ) : null}
 
-          <section aria-label="Gefährliche Aktionen" className="pt-2">
+          <section aria-label="Gefährliche Aktionen" className="pb-[max(2rem,env(safe-area-inset-bottom))] pt-2">
             <DangerConfirmAction
               triggerLabel="Familie löschen"
               confirmTitle="Familie unwiderrichlich löschen?"

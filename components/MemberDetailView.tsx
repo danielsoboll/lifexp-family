@@ -63,7 +63,7 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
     return () => {
       cancelled = true
     }
-  }, [family, memberKind, memberId])
+  }, [family?.id, memberKind, memberId])
 
   useEffect(() => {
     if (!family || !isSelf) {

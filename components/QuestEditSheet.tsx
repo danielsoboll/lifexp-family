@@ -22,6 +22,7 @@ import {
 } from '../lib/family/questRules'
 import { assigneesForFamilyQuestXpBudget, fetchMemberXpBudget } from '../lib/family/questXpBudget'
 import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
+import { multilineTextInputProps, oneLineTextInputProps } from '../lib/formInputAutofill'
 
 type QuestEditSheetProps = {
   quest: QuestWithCompletion | null
@@ -204,7 +205,7 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
           </div>
 
           {isCreator && editable ? (
-            <form onSubmit={(e) => void handleSave(e)} className={`${CARD_SURFACE_CLASS} mx-4 my-4 space-y-4 rounded-2xl p-4`}>
+            <form autoComplete="off" onSubmit={(e) => void handleSave(e)} className={`${CARD_SURFACE_CLASS} mx-4 my-4 space-y-4 rounded-2xl p-4`}>
               <QuestAssigneePicker
                 parents={parents}
                 children={children}
@@ -224,6 +225,7 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 dark:border-slate-600 dark:bg-slate-900"
+                  {...oneLineTextInputProps('lifexp-edit-quest-title')}
                 />
               </div>
               <div>
@@ -236,6 +238,7 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 dark:border-slate-600 dark:bg-slate-900"
+                  {...multilineTextInputProps('lifexp-edit-quest-description')}
                 />
               </div>
               <QuestXpSlider

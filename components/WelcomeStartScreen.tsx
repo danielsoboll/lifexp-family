@@ -1,53 +1,88 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 import CreateFamilyPanel from './CreateFamilyPanel'
 import FamilyDashboard from './FamilyDashboard'
 import JoinFamilyPanel from './JoinFamilyPanel'
+import OnboardingPromoBanner from './OnboardingPromoBanner'
 import SheetPortal from './SheetPortal'
 import { useFamilyOnboardingBridge } from '../hooks/useFamilyOnboardingBridge'
-import { bootstrapOnboardingBridge, persistFamilyOnboardingDraft } from '../lib/family/onboardingBridge'
-import { loadFamilyOnboardingDraft } from '../lib/family/onboardingDraft'
+import { useOnboardingPromoIdleCycle } from '../hooks/useOnboardingPromoIdleCycle'
+import { bootstrapOnboardingBridge, flushOnboardingBridge, persistFamilyOnboardingDraft } from '../lib/family/onboardingBridge'
+import { clearFamilyOnboardingDraft, loadFamilyOnboardingDraft } from '../lib/family/onboardingDraft'
+import { ONBOARDING_PROMO_AFTER_SHEET_MS } from '../lib/family/onboardingPromoBanner'
 import { CARD_SURFACE_CLASS, ONBOARDING_BACKDROP_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 type SheetView = 'welcome' | 'join' | 'create'
 
-function readResumeState(): { open: boolean; view: SheetView; panelKey: number } {
+function readResumeDraftView(): { view: SheetView; panelKey: number } {
   bootstrapOnboardingBridge()
   const draft = loadFamilyOnboardingDraft()
   if (draft?.incomplete) {
-    return { open: true, view: draft.mode, panelKey: 1 }
+    return { view: draft.mode, panelKey: 1 }
   }
-  return { open: false, view: 'welcome', panelKey: 0 }
+  return { view: 'welcome', panelKey: 0 }
 }
 
 export default function WelcomeStartScreen() {
+  const backdropScrollRef = useRef<HTMLDivElement>(null)
+  const sheetScrollRef = useRef<HTMLDivElement>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetView, setSheetView] = useState<SheetView>('welcome')
   const [panelKey, setPanelKey] = useState(0)
   const [resumeChecked, setResumeChecked] = useState(false)
+  const [promoVisible, setPromoVisible] = useState(false)
+
+  const sheetCloseTimerRef = useRef<number | undefined>(undefined)
+
+  const dismissPromo = useCallback(() => {
+    setPromoVisible(false)
+  }, [])
 
   const applyResumeFromBridge = useCallback(() => {
-    const next = readResumeState()
-    if (!next.open) return
-    setSheetView(next.view)
-    setSheetOpen(true)
+    const draft = loadFamilyOnboardingDraft()
+    if (!draft?.incomplete) return
+    setSheetView((current) => (current === 'welcome' ? draft.mode : current))
   }, [])
 
   useFamilyOnboardingBridge({ onResume: applyResumeFromBridge })
 
-  useEffect(() => {
-    const next = readResumeState()
-    if (next.open) {
-      setSheetView(next.view)
-      setSheetOpen(true)
-      setPanelKey(1)
-    }
+  const backToWelcome = useCallback(() => {
+    clearFamilyOnboardingDraft()
+    flushOnboardingBridge()
+    setSheetView('welcome')
+    setPanelKey((key) => key + 1)
+  }, [])
+
+  useLayoutEffect(() => {
+    const resume = readResumeDraftView()
+    setSheetView(resume.view)
+    setPanelKey(resume.panelKey)
+    setPromoVisible(true)
     setResumeChecked(true)
+    return () => {
+      if (sheetCloseTimerRef.current !== undefined) {
+        window.clearTimeout(sheetCloseTimerRef.current)
+      }
+    }
+  }, [])
+
+  const openWelcomeFromPromo = useCallback(() => {
+    if (sheetCloseTimerRef.current !== undefined) {
+      window.clearTimeout(sheetCloseTimerRef.current)
+      sheetCloseTimerRef.current = undefined
+    }
+    setSheetView('welcome')
+    setSheetOpen(true)
   }, [])
 
   const openSheet = useCallback(() => {
+    if (sheetCloseTimerRef.current !== undefined) {
+      window.clearTimeout(sheetCloseTimerRef.current)
+      sheetCloseTimerRef.current = undefined
+    }
+    if (promoVisible) dismissPromo()
     const draft = loadFamilyOnboardingDraft()
     if (draft?.incomplete) {
       setSheetView(draft.mode)
@@ -56,23 +91,46 @@ export default function WelcomeStartScreen() {
       setSheetView('welcome')
     }
     setSheetOpen(true)
-  }, [])
+  }, [dismissPromo, promoVisible])
 
   const closeSheet = useCallback(() => {
     setSheetOpen(false)
+    if (sheetCloseTimerRef.current !== undefined) {
+      window.clearTimeout(sheetCloseTimerRef.current)
+    }
+    sheetCloseTimerRef.current = window.setTimeout(() => {
+      sheetCloseTimerRef.current = undefined
+      setPromoVisible(true)
+    }, ONBOARDING_PROMO_AFTER_SHEET_MS)
   }, [])
 
-  const showBackdropHint = resumeChecked && !sheetOpen && loadFamilyOnboardingDraft()?.incomplete
+  const promoEligible = resumeChecked && !sheetOpen
+
+  useOnboardingPromoIdleCycle({
+    enabled: promoEligible,
+    promoVisible,
+    onShow: () => setPromoVisible(true),
+    activityRootRef: backdropScrollRef,
+  })
+
+  const showBackdropHint = promoEligible && loadFamilyOnboardingDraft()?.incomplete
 
   return (
     <>
+      {promoVisible ? (
+        <OnboardingPromoBanner onActivate={openWelcomeFromPromo} onAutoDismiss={dismissPromo} />
+      ) : null}
+
       <div
+        ref={backdropScrollRef}
         className={`${ONBOARDING_BACKDROP_CLASS} overflow-y-auto overscroll-contain`}
         onClick={() => {
-          if (!sheetOpen) openSheet()
+          if (!resumeChecked || sheetOpen) return
+          openSheet()
         }}
         onKeyDown={(event) => {
-          if (!sheetOpen && (event.key === 'Enter' || event.key === ' ')) {
+          if (!resumeChecked || sheetOpen) return
+          if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
             openSheet()
           }
@@ -82,7 +140,7 @@ export default function WelcomeStartScreen() {
         aria-label="Tippen zum Starten"
       >
         <div className="pointer-events-none select-none">
-          <FamilyDashboard preview />
+          <FamilyDashboard preview previewScrollContainerRef={backdropScrollRef} />
         </div>
         {showBackdropHint ? (
           <p className="pointer-events-none fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-0 right-0 text-center text-xs font-medium text-emerald-800/90 dark:text-emerald-200/90">
@@ -128,33 +186,6 @@ export default function WelcomeStartScreen() {
                       type="button"
                       onClick={() => {
                         const draft = loadFamilyOnboardingDraft()
-                        if (draft?.mode === 'join' && draft.hasStarted) {
-                          setSheetView('join')
-                          setPanelKey((key) => key + 1)
-                          return
-                        }
-                        persistFamilyOnboardingDraft({
-                          version: 1,
-                          incomplete: true,
-                          hasStarted: true,
-                          mode: 'join',
-                          step: 'choice',
-                          inviteCode: '',
-                          displayName: '',
-                          gender: 'male',
-                          ageInput: '',
-                        })
-                        setSheetView('join')
-                        setPanelKey((key) => key + 1)
-                      }}
-                      className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3.5 text-base font-bold text-white`}
-                    >
-                      Mit meiner Familie verbinden
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const draft = loadFamilyOnboardingDraft()
                         if (draft?.mode === 'create' && draft.hasStarted) {
                           setSheetView('create')
                           setPanelKey((key) => key + 1)
@@ -178,15 +209,50 @@ export default function WelcomeStartScreen() {
                     >
                       Neue Familie anlegen
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const draft = loadFamilyOnboardingDraft()
+                        if (draft?.mode === 'join' && draft.hasStarted) {
+                          setSheetView('join')
+                          setPanelKey((key) => key + 1)
+                          return
+                        }
+                        persistFamilyOnboardingDraft({
+                          version: 1,
+                          incomplete: true,
+                          hasStarted: true,
+                          mode: 'join',
+                          step: 'choice',
+                          inviteCode: '',
+                          displayName: '',
+                          gender: 'male',
+                          ageInput: '',
+                        })
+                        setSheetView('join')
+                        setPanelKey((key) => key + 1)
+                      }}
+                      className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3.5 text-base font-bold text-white`}
+                    >
+                      Mit meiner Familie verbinden
+                    </button>
                   </div>
                 </div>
               ) : sheetView === 'join' ? (
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  <JoinFamilyPanel key={`join-${panelKey}`} onBack={() => setSheetView('welcome')} />
+                <div
+                  ref={sheetScrollRef}
+                  data-lifexp-onboarding-scroll
+                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+                >
+                  <JoinFamilyPanel key={`join-${panelKey}`} onBack={backToWelcome} sheetScrollRef={sheetScrollRef} />
                 </div>
               ) : (
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  <CreateFamilyPanel key={`create-${panelKey}`} onBack={() => setSheetView('welcome')} />
+                <div
+                  ref={sheetScrollRef}
+                  data-lifexp-onboarding-scroll
+                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+                >
+                  <CreateFamilyPanel key={`create-${panelKey}`} onBack={backToWelcome} sheetScrollRef={sheetScrollRef} />
                 </div>
               )}
             </div>

@@ -4,11 +4,9 @@ import { newId } from '../newId'
 import { familyDbError } from './dbError'
 import { defaultCanAdminForChild, defaultCanAdminForParent } from './memberAdmin'
 import {
-  defaultPortraitForCategory,
-  memberAvatarCategoryForChild,
-  memberAvatarCategoryForParent,
-  portraitSrc,
-} from './memberAvatar'
+  childPortraitKeyForOnboarding,
+  parentAvatarUrlForOnboarding,
+} from './onboardingMember'
 import { nextAccentKeyForFamily } from './memberAccentAssign'
 import {
   generateUniqueMemberRecoveryCode,
@@ -47,7 +45,7 @@ async function joinFamilyAsParentDirect(
   const parentId = newId()
   const recoveryCode = await generateUniqueMemberRecoveryCode(client)
 
-  const parentPortrait = defaultPortraitForCategory(memberAvatarCategoryForParent(profile.gender))
+  const parentPortraitUrl = parentAvatarUrlForOnboarding(profile)
   const { accentKey, error: accentError } = await nextAccentKeyForFamily(familyId)
   if (accentError) return { result: null, error: accentError }
 
@@ -56,7 +54,7 @@ async function joinFamilyAsParentDirect(
     display_name: profile.displayName,
     gender: profile.gender,
     can_admin: defaultCanAdminForParent(profile.gender),
-    avatar_url: parentPortrait ? portraitSrc(parentPortrait) : null,
+    avatar_url: parentPortraitUrl,
     accent_key: accentKey,
     ...memberRecoveryInsertFields(recoveryCode, devicePrefs),
   })
@@ -99,8 +97,7 @@ async function joinFamilyAsChildDirect(
 
   const sortOrder = (typeof sortRows?.[0]?.sort_order === 'number' ? sortRows[0].sort_order : 0) + 1
 
-  const childCategory = memberAvatarCategoryForChild(profile.gender, profile.age)
-  const childPortrait = defaultPortraitForCategory(childCategory)
+  const childPortrait = childPortraitKeyForOnboarding(profile)
   const { accentKey, error: accentError } = await nextAccentKeyForFamily(familyId)
   if (accentError) return { result: null, error: accentError }
 
@@ -111,7 +108,7 @@ async function joinFamilyAsChildDirect(
     gender: profile.gender,
     age: profile.age,
     can_admin: defaultCanAdminForChild(profile.age),
-    avatar_key: childPortrait ?? profile.gender,
+    avatar_key: childPortrait,
     sort_order: sortOrder,
     is_active: true,
     total_xp: 0,

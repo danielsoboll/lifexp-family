@@ -211,4 +211,52 @@ ALTER TABLE public.parent_profiles
 ALTER TABLE public.child_profiles
   ADD COLUMN IF NOT EXISTS streak_intro_seen boolean NOT NULL DEFAULT false;
 
+-- =============================================================================
+-- 7) Quest-Kalender: task_date (heute/morgen)
+-- =============================================================================
+
+ALTER TABLE public.quests
+  ADD COLUMN IF NOT EXISTS task_date date;
+
+UPDATE public.quests
+SET task_date = (timezone('Europe/Berlin', now()))::date
+WHERE task_date IS NULL;
+
+UPDATE public.quests
+SET xp_reward = LEAST(10, GREATEST(1, xp_reward))
+WHERE xp_reward NOT BETWEEN 1 AND 10;
+
+ALTER TABLE public.quests
+  ALTER COLUMN task_date SET NOT NULL;
+
+ALTER TABLE public.quests
+  ADD COLUMN IF NOT EXISTS created_by_child_id uuid REFERENCES public.child_profiles (id) ON DELETE SET NULL;
+
+ALTER TABLE public.quests DROP CONSTRAINT IF EXISTS quests_xp_reward_check;
+ALTER TABLE public.quests
+  ADD CONSTRAINT quests_xp_reward_check CHECK (xp_reward BETWEEN 1 AND 10);
+
+CREATE INDEX IF NOT EXISTS quests_family_task_date_idx
+  ON public.quests (family_id, task_date, is_active);
+
+-- =============================================================================
+-- 8) Quest-Abschluss: Zwei-Stufen-Bestätigung (XP-Budget / Tages-XP)
+-- =============================================================================
+
+ALTER TABLE public.quest_completions
+  ADD COLUMN IF NOT EXISTS assignee_confirmed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS creator_confirmed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS creator_confirmed_by_parent_id uuid REFERENCES public.parent_profiles (id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS creator_confirmed_by_child_id uuid REFERENCES public.child_profiles (id) ON DELETE SET NULL;
+
+UPDATE public.quest_completions
+SET
+  assignee_confirmed_at = COALESCE(assignee_confirmed_at, completed_at),
+  creator_confirmed_at = COALESCE(creator_confirmed_at, completed_at)
+WHERE assignee_confirmed_at IS NULL OR creator_confirmed_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS quest_completions_pending_creator_idx
+  ON public.quest_completions (family_id, creator_confirmed_at)
+  WHERE assignee_confirmed_at IS NOT NULL AND creator_confirmed_at IS NULL;
+
 NOTIFY pgrst, 'reload schema';

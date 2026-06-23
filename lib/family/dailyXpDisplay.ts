@@ -6,7 +6,11 @@ export const MEMBER_DAILY_XP_BOOST_THRESHOLD = 20
 /** Familie gemeinsam: Happy_all-Banner ab dieser Tages-XP-Summe. */
 export const FAMILY_DAILY_XP_HAPPY_ALL_MIN = 60
 
+/** Nächste Familien-Stufe (Happy_all_2-Zyklus o. ä.) ab dieser Tages-XP-Summe. */
+export const FAMILY_DAILY_XP_NEXT_TIER_MIN = 80
+
 export const HAPPY_ALL_PORTRAIT_SRC = '/avatars/Happy_all.webp'
+export const HAPPY_ALL_2_PORTRAIT_SRC = '/avatars/Happy_all_2.webp'
 
 export function clampMemberDailyXp(value: number): number {
   return Math.min(MEMBER_DAILY_XP_MAX, Math.max(0, Math.floor(value)))

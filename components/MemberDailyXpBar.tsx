@@ -30,7 +30,7 @@ export default function MemberDailyXpBar({
   const barProgressPercent = (progress / scaleMax) * 100
   const targetPercent = Math.min(100, (target / scaleMax) * 100)
   const boostStartPercent = Math.min(100, (boostThreshold / scaleMax) * 100)
-  const boostZoneMidPercent = boostStartPercent + (100 - boostStartPercent) / 2
+  const boostLabelPercent = boostStartPercent + (100 - boostStartPercent) * 0.68
   const reachedTarget = progress >= target
 
   const fillClassName = showBoostZone
@@ -93,7 +93,7 @@ export default function MemberDailyXpBar({
             className={`absolute -translate-x-1/2 whitespace-nowrap text-center font-bold uppercase tracking-wide ${
               boostWarm ? 'text-red-700 dark:text-red-300' : 'text-orange-700 dark:text-orange-300'
             } ${boostLabelClass}`}
-            style={{ left: `${boostZoneMidPercent}%`, top: labelTop }}
+            style={{ left: `${boostLabelPercent}%`, top: labelTop }}
           >
             Boost <span aria-hidden>→</span>
           </div>

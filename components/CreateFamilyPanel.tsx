@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 
 import OnboardingProfileFields from './OnboardingProfileFields'
 import OnboardingPwaStep from './OnboardingPwaStep'
@@ -26,10 +26,15 @@ import {
   clearFamilyOnboardingDraft,
   loadFamilyOnboardingDraft,
   mergeCreateStep,
+  mergeCreateStepForwardOnly,
   type CreateOnboardingStep,
   type FamilyOnboardingDraft,
 } from '../lib/family/onboardingDraft'
-import { parseAgeInput } from '../lib/family/memberGender'
+import {
+  coerceOnboardingPortrait,
+  defaultOnboardingPortrait,
+  type AvatarPortraitId,
+} from '../lib/family/memberAvatar'
 import {
   onboardingProfileFromForm,
   type OnboardingDevicePrefs,
@@ -38,10 +43,13 @@ import {
 import { storeFamilySession, type FamilySession } from '../lib/familySession'
 import { isStandaloneDisplayMode } from '../lib/pwaInstall'
 import { FORM_FIELD_INPUT_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
-import { oneLineTextInputProps } from '../lib/formInputAutofill'
+import AutofillSafeTextInput from './AutofillSafeTextInput'
+import { familyTitleInputProps } from '../lib/formInputAutofill'
+import { resetOnboardingSheetScroll } from '../lib/slowScroll'
 
 type CreateFamilyPanelProps = {
   onBack: () => void
+  sheetScrollRef?: RefObject<HTMLElement | null>
 }
 
 type CreateState = {
@@ -49,7 +57,7 @@ type CreateState = {
   familyName: string
   displayName: string
   gender: OnboardingMemberGender
-  ageInput: string
+  portraitId: AvatarPortraitId
   recoveryCode: string
   pendingSession: FamilySession | null
   pwaInstallAcknowledged: boolean
@@ -60,10 +68,14 @@ const EMPTY_CREATE_STATE: CreateState = {
   familyName: '',
   displayName: '',
   gender: 'male',
-  ageInput: '',
+  portraitId: defaultOnboardingPortrait('male'),
   recoveryCode: '',
   pendingSession: null,
   pwaInstallAcknowledged: false,
+}
+
+function portraitFromDraft(gender: OnboardingMemberGender, draftPortraitId?: string): AvatarPortraitId {
+  return coerceOnboardingPortrait(gender, draftPortraitId ?? null)
 }
 
 function createStateFromDraft(): CreateState {
@@ -75,14 +87,14 @@ function createStateFromDraft(): CreateState {
     familyName: draft.familyName,
     displayName: draft.displayName,
     gender: draft.gender,
-    ageInput: draft.ageInput,
+    portraitId: portraitFromDraft(draft.gender, draft.portraitId),
     recoveryCode: draft.recoveryCode ?? '',
     pendingSession: draft.pendingSession ?? null,
     pwaInstallAcknowledged: draft.pwaInstallAcknowledged === true,
   }
 }
 
-export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
+export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFamilyPanelProps) {
   const router = useRouter()
   const draftHydratedRef = useRef(false)
   const submitBusyRef = useRef(false)
@@ -91,17 +103,22 @@ export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
   const genderRef = useRef<OnboardingMemberGender>('male')
   const loadingRef = useRef(false)
   const standaloneInstallResumeRef = useRef(false)
+  const abandoningRef = useRef(false)
+  const formIntroRef = useRef<HTMLDivElement>(null)
+  const backButtonRef = useRef<HTMLButtonElement>(null)
+  const familyNameBlockRef = useRef<HTMLDivElement>(null)
   const [step, setStep] = useState<CreateOnboardingStep>('form')
   const [familyName, setFamilyName] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [gender, setGender] = useState<OnboardingMemberGender>('male')
-  const [ageInput, setAgeInput] = useState('')
+  const [portraitId, setPortraitId] = useState<AvatarPortraitId>(defaultOnboardingPortrait('male'))
   const [recoveryCode, setRecoveryCode] = useState('')
   const [pendingSession, setPendingSession] = useState<FamilySession | null>(null)
   const [pwaInstallAcknowledged, setPwaInstallAcknowledged] = useState(false)
   const [showOpenPwaHint, setShowOpenPwaHint] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [recoveryBusy, setRecoveryBusy] = useState(false)
 
   stepRef.current = step
   genderRef.current = gender
@@ -117,12 +134,13 @@ export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
       familyName,
       displayName,
       gender,
-      ageInput,
+      ageInput: '',
+      portraitId,
       pwaInstallAcknowledged,
       recoveryCode: recoveryCode || undefined,
       pendingSession: pendingSession ?? undefined,
     }
-  }, [step, familyName, displayName, gender, ageInput, pwaInstallAcknowledged, recoveryCode, pendingSession])
+  }, [step, familyName, displayName, gender, portraitId, pwaInstallAcknowledged, recoveryCode, pendingSession])
 
   const saveDraftQuiet = useCallback(
     (patch?: Partial<Extract<FamilyOnboardingDraft, { mode: 'create' }>>) => {
@@ -132,35 +150,68 @@ export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
     [buildDraft],
   )
 
-  const applyDraftSnapshot = useCallback((snapshot: CreateState) => {
-    setStep((current) => mergeCreateStep(current, snapshot.step))
-    setFamilyName(snapshot.familyName)
-    setDisplayName(snapshot.displayName)
-    setGender(snapshot.gender)
-    setAgeInput(snapshot.ageInput)
-    setRecoveryCode(snapshot.recoveryCode)
-    setPendingSession(snapshot.pendingSession)
-    setPwaInstallAcknowledged(snapshot.pwaInstallAcknowledged)
-    setShowOpenPwaHint(false)
-  }, [])
+  const applyDraftSnapshot = useCallback(
+    (snapshot: CreateState, resumeMode: 'hydrate' | 'resync' = 'hydrate') => {
+      setStep((current) =>
+        resumeMode === 'resync'
+          ? mergeCreateStepForwardOnly(current, snapshot.step)
+          : mergeCreateStep(current, snapshot.step),
+      )
+      setFamilyName(snapshot.familyName)
+      setDisplayName(snapshot.displayName)
+      setGender(snapshot.gender)
+      setPortraitId(snapshot.portraitId)
+      setRecoveryCode(snapshot.recoveryCode)
+      setPendingSession(snapshot.pendingSession)
+      setPwaInstallAcknowledged(snapshot.pwaInstallAcknowledged)
+      setShowOpenPwaHint(false)
+    },
+    [],
+  )
+
+  const buildDraftRef = useRef(buildDraft)
+  buildDraftRef.current = buildDraft
+
+  const persistCreateDraft = useCallback(
+    (nextStep: CreateOnboardingStep, patch?: Partial<Extract<FamilyOnboardingDraft, { mode: 'create' }>>) => {
+      const draft = {
+        ...buildDraftRef.current(),
+        ...patch,
+        step: nextStep,
+      } as Extract<FamilyOnboardingDraft, { mode: 'create' }>
+      persistFamilyOnboardingDraft(draft)
+      flushOnboardingBridge()
+    },
+    [],
+  )
+
+  const navigateCreateStep = useCallback(
+    (nextStep: CreateOnboardingStep, patch?: Partial<Extract<FamilyOnboardingDraft, { mode: 'create' }>>) => {
+      setError(null)
+      persistCreateDraft(nextStep, patch)
+      setStep(nextStep)
+      if (patch?.familyName !== undefined) setFamilyName(patch.familyName)
+      if (patch?.displayName !== undefined) setDisplayName(patch.displayName)
+      if (patch?.gender !== undefined) setGender(patch.gender)
+      if (patch?.portraitId !== undefined) setPortraitId(patch.portraitId as AvatarPortraitId)
+      resetOnboardingSheetScroll(sheetScrollRef?.current)
+    },
+    [persistCreateDraft, sheetScrollRef],
+  )
 
   const resyncFromStorage = useCallback(() => {
-    if (submitBusyRef.current || onboardingBusyRef.current || loadingRef.current) return
-    if (stepRef.current === 'install' || stepRef.current === 'recovery') return
+    if (submitBusyRef.current || onboardingBusyRef.current || loadingRef.current || recoveryBusy) return
     bootstrapOnboardingBridge()
     const draft = loadFamilyOnboardingDraft()
     if (draft?.mode !== 'create') return
-    applyDraftSnapshot({
-      step: draft.step,
-      familyName: draft.familyName,
-      displayName: draft.displayName,
-      gender: draft.gender,
-      ageInput: draft.ageInput,
-      recoveryCode: draft.recoveryCode ?? '',
-      pendingSession: draft.pendingSession ?? null,
-      pwaInstallAcknowledged: draft.pwaInstallAcknowledged === true,
-    })
-  }, [applyDraftSnapshot])
+
+    if (draft.step === 'install' || draft.step === 'recovery') {
+      setRecoveryCode(draft.recoveryCode ?? '')
+      setPendingSession(draft.pendingSession ?? null)
+      setPwaInstallAcknowledged(draft.pwaInstallAcknowledged === true)
+      setStep((current) => mergeCreateStepForwardOnly(current, draft.step))
+    }
+  }, [recoveryBusy])
 
   useFamilyOnboardingBridge({ onResume: resyncFromStorage })
 
@@ -172,23 +223,28 @@ export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
   }, [applyDraftSnapshot])
 
   useEffect(() => {
+    resetOnboardingSheetScroll(sheetScrollRef?.current)
+  }, [step, sheetScrollRef])
+
+  useEffect(() => {
     if (!draftHydratedRef.current) return
-    if (submitBusyRef.current || onboardingBusyRef.current || loadingRef.current) return
+    if (submitBusyRef.current || onboardingBusyRef.current || loadingRef.current || recoveryBusy) return
     if (step === 'install' || step === 'recovery') return
 
     const timer = window.setTimeout(() => {
+      if (abandoningRef.current) return
       if (submitBusyRef.current || onboardingBusyRef.current || loadingRef.current) return
       persistFamilyOnboardingDraft(buildDraft())
     }, 400)
 
     return () => window.clearTimeout(timer)
-  }, [buildDraft, step])
+  }, [buildDraft, step, recoveryBusy])
 
   const applyFormSnapshot = (snapshot: CreateFormSnapshot) => {
     setFamilyName(snapshot.familyName)
     setDisplayName(snapshot.displayName)
     setGender(snapshot.gender)
-    setAgeInput(snapshot.ageInput)
+    setPortraitId(coerceOnboardingPortrait(snapshot.gender, snapshot.portraitId))
   }
 
   const finishOnboarding = () => {
@@ -225,10 +281,9 @@ export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
   }
 
   const handleBack = () => {
-    if (step === 'form') {
-      clearFamilyOnboardingDraft()
-      flushOnboardingBridge()
-    }
+    abandoningRef.current = true
+    clearFamilyOnboardingDraft()
+    flushOnboardingBridge()
     onBack()
   }
 
@@ -249,7 +304,7 @@ export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
       familyName,
       displayName,
       gender: genderRef.current,
-      ageInput,
+      portraitId,
     }
 
     if (!form.familyName.trim()) {
@@ -259,11 +314,10 @@ export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
       return null
     }
 
-    const age = parseAgeInput(form.ageInput)
     const { profile, error: profileError } = onboardingProfileFromForm({
       displayName: form.displayName,
       gender: form.gender,
-      age,
+      portraitId: form.portraitId,
     })
 
     if (profileError || !profile) {
@@ -305,7 +359,7 @@ export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
       familyName: form.familyName,
       displayName: form.displayName,
       gender: form.gender,
-      ageInput: form.ageInput,
+      portraitId: form.portraitId ?? undefined,
       pendingSession: result.session,
       recoveryCode: result.recoveryCode,
       step: 'install',
@@ -328,9 +382,24 @@ export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
   const advanceToRecovery = async (prefs?: OnboardingDevicePrefs) => {
     if (tryGoToRecovery(prefs)) return
 
-    const created = await ensureFamilyCreated()
-    if (!created) return
-    goToRecoveryStep(created.session, created.recoveryCode, prefs)
+    if (
+      stepRef.current === 'install' &&
+      !resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
+    ) {
+      setError(
+        'Dein Fortschritt ist unvollständig. Tippe oben auf „← Zurück“ und erneut auf „Weiter“, oder starte von vorn.',
+      )
+      return
+    }
+
+    setRecoveryBusy(true)
+    try {
+      const created = await ensureFamilyCreated()
+      if (!created) return
+      goToRecoveryStep(created.session, created.recoveryCode, prefs)
+    } finally {
+      setRecoveryBusy(false)
+    }
   }
 
   useEffect(() => {
@@ -359,7 +428,7 @@ export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
       familyName,
       displayName,
       gender: genderRef.current,
-      ageInput,
+      portraitId,
     })
     applyFormSnapshot(snapshot)
 
@@ -417,7 +486,7 @@ export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
         <div className="space-y-4">
           <button
             type="button"
-            onClick={() => setStep('form')}
+            onClick={() => navigateCreateStep('form')}
             className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
           >
             ← Zurück
@@ -435,7 +504,7 @@ export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
           <OnboardingPwaStep
             onInstallDone={handleInstallDone}
             onInstallLater={handleInstallLater}
-            disabled={loading}
+            disabled={recoveryBusy}
           />
         </div>
       </>
@@ -452,37 +521,66 @@ export default function CreateFamilyPanel({ onBack }: CreateFamilyPanelProps) {
     )
   }
 
+  if (step === 'recovery') {
+    return (
+      <div className="space-y-4">
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+          Recovery-Daten fehlen. Bitte gehe zurück und starte den Schritt erneut.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigateCreateStep('form')}
+          className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+        >
+          ← Zurück zum Formular
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <form noValidate onSubmit={(event) => void handleFormSubmit(event)} className="space-y-4">
-      <button
-        type="button"
-        onClick={handleBack}
-        className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
-      >
-        ← Zurück
-      </button>
-      <div>
-        <label htmlFor="create-family-name" className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-          Familienname
-        </label>
-        <input
-          id="create-family-name"
-          required
-          maxLength={80}
-          value={familyName}
-          onChange={(e) => updateFamilyName(e.target.value)}
-          placeholder="z. B. Familie Son"
-          className={FORM_FIELD_INPUT_CLASS}
-          {...oneLineTextInputProps('lifexp-create-family-name')}
-        />
+    <form noValidate autoComplete="off" onSubmit={(event) => void handleFormSubmit(event)} className="space-y-4 pb-52">
+      <div ref={formIntroRef} className="space-y-4">
+        <button
+          ref={backButtonRef}
+          type="button"
+          onClick={handleBack}
+          className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+        >
+          ← Zurück
+        </button>
+        <div ref={familyNameBlockRef}>
+          <label htmlFor="lifexp-create-family-title" className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Familienname
+          </label>
+          <AutofillSafeTextInput
+            id="lifexp-create-family-title"
+            autoFocus
+            required
+            maxLength={80}
+            value={familyName}
+            onChange={(e) => updateFamilyName(e.target.value)}
+            placeholder="z. B. Miteinander"
+            className={FORM_FIELD_INPUT_CLASS}
+            scrollBlockRef={familyNameBlockRef}
+            scrollOnFocus="slow"
+            sheetScrollRef={sheetScrollRef}
+            hideAboveRef={backButtonRef}
+            scrollTopInsetPx={12}
+            scrollExtraPx={0}
+            autofillProps={familyTitleInputProps()}
+          />
+        </div>
       </div>
       <OnboardingProfileFields
         displayName={displayName}
         onDisplayNameChange={setDisplayName}
         gender={gender}
         onGenderChange={setGender}
-        ageInput={ageInput}
-        onAgeInputChange={setAgeInput}
+        portraitId={portraitId}
+        onPortraitIdChange={setPortraitId}
+        sheetScrollRef={sheetScrollRef}
+        hideAboveRef={formIntroRef}
       />
       {error ? (
         <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">

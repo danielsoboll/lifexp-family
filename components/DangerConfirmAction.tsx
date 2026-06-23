@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   DANGER_CONFIRM_CANCEL_CLASS,
@@ -27,6 +27,21 @@ export default function DangerConfirmAction({
   error = null,
 }: DangerConfirmActionProps) {
   const [open, setOpen] = useState(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const node = panelRef.current
+    if (!node) return
+
+    const scrollPanelIntoView = () => {
+      node.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
+
+    scrollPanelIntoView()
+    requestAnimationFrame(scrollPanelIntoView)
+    window.setTimeout(scrollPanelIntoView, 150)
+  }, [open])
 
   const handleConfirm = async () => {
     const ok = await onConfirm()
@@ -35,7 +50,10 @@ export default function DangerConfirmAction({
 
   if (open) {
     return (
-      <div className={DANGER_CONFIRM_PANEL_CLASS}>
+      <div
+        ref={panelRef}
+        className={`${DANGER_CONFIRM_PANEL_CLASS} mb-[max(7rem,calc(5rem+env(safe-area-inset-bottom)))] scroll-mt-6`}
+      >
         <p className="text-sm font-bold text-red-950 dark:text-red-100">{confirmTitle}</p>
         <p className="mt-2 text-xs leading-relaxed text-red-800 dark:text-red-200">{confirmDescription}</p>
         {error ? (

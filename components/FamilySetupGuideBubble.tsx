@@ -15,15 +15,15 @@ type FamilySetupGuideBubbleProps = {
 /** Gradient-Rand mit weich auslaufenden Halo-Ringen — Hintergrund bleibt sichtbar. */
 const HINT_CARD_SHELL_CLASS =
   'pointer-events-auto relative w-full max-w-sm rounded-[1.65rem] p-[3px] ' +
-  'bg-gradient-to-br from-white/55 via-slate-300/38 to-slate-500/28 ' +
-  'shadow-[0_0_0_1px_rgba(255,255,255,0.58),0_0_0_12px_rgba(255,255,255,0.26),0_0_0_24px_rgba(203,213,225,0.11),0_0_0_40px_rgba(148,163,184,0.04)] ' +
-  'dark:from-white/28 dark:via-slate-300/18 dark:to-white/10 ' +
-  'dark:shadow-[0_0_0_1px_rgba(255,255,255,0.18),0_0_0_12px_rgba(255,255,255,0.08),0_0_0_24px_rgba(255,255,255,0.035),0_0_0_40px_rgba(255,255,255,0.01)]'
+  'bg-gradient-to-br from-white/40 via-slate-400/42 to-slate-600/32 ' +
+  'shadow-[0_0_0_1px_rgba(255,255,255,0.48),0_0_0_12px_rgba(255,255,255,0.18),0_0_0_24px_rgba(148,163,184,0.14),0_0_0_40px_rgba(100,116,139,0.06)] ' +
+  'dark:from-white/48 dark:via-slate-200/36 dark:to-white/24 ' +
+  'dark:shadow-[0_0_0_1px_rgba(255,255,255,0.32),0_0_0_12px_rgba(255,255,255,0.14),0_0_0_24px_rgba(255,255,255,0.06),0_0_0_40px_rgba(255,255,255,0.025)]'
 
 const HINT_CARD_INNER_CLASS =
   'w-full rounded-[1.45rem] px-5 py-4 text-center backdrop-blur-xl ' +
-  'bg-gradient-to-b from-slate-200/92 via-slate-100/96 to-slate-200/88 ' +
-  'dark:from-slate-500/88 dark:via-slate-400/78 dark:to-slate-500/82'
+  'bg-gradient-to-b from-slate-400/94 via-slate-300/97 to-slate-400/91 ' +
+  'dark:from-slate-200/95 dark:via-slate-100/93 dark:to-slate-200/92'
 
 export default function FamilySetupGuideBubble({
   title,

@@ -14,8 +14,8 @@ export default function AdminScrollPage({ children }: AdminScrollPageProps) {
   const { keyboardOpen, keyboardHeight } = useVisualViewportLayout()
 
   const scrollPaddingBottom = keyboardOpen
-    ? `${Math.max(keyboardHeight + 20, 80)}px`
-    : 'max(5rem, calc(3rem + env(safe-area-inset-bottom)))'
+    ? `${Math.max(keyboardHeight + 24, 96)}px`
+    : 'max(8rem, calc(5rem + env(safe-area-inset-bottom)))'
 
   return (
     <main

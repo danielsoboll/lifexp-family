@@ -3,8 +3,7 @@ import { getStoredFamilyId } from '../familySession'
 import { mapParentProfileRow } from './mapParentProfile'
 import { defaultCanAdminForParent } from './memberAdmin'
 import {
-  coercePortraitForCategory,
-  memberAvatarCategoryForParent,
+  coerceOnboardingPortrait,
   portraitSrc,
   type AvatarPortraitId,
 } from './memberAvatar'
@@ -45,8 +44,7 @@ export async function createParentForFamily(
   }
 
   const parentId = newId()
-  const category = memberAvatarCategoryForParent(input.gender)
-  const portraitId = coercePortraitForCategory(category, input.portraitId ?? null)
+  const portraitId = coerceOnboardingPortrait(input.gender, input.portraitId ?? null)
   const canAdmin = input.canAdmin ?? defaultCanAdminForParent(input.gender)
   const { accentKey, error: accentError } = await nextAccentKeyForFamily(input.familyId)
   if (accentError) return { parent: null, error: accentError }

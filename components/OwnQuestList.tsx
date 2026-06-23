@@ -42,7 +42,7 @@ export default function OwnQuestList() {
     return () => {
       cancelled = true
     }
-  }, [family, memberId, memberType])
+  }, [family?.id, memberId, memberType])
 
   const completedCount = useMemo(() => {
     if (!memberId) return 0

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import AdminScrollPage from '../../components/AdminScrollPage'
 import ChildMemberEditor from '../../components/ChildMemberEditor'
@@ -24,14 +24,14 @@ export default function AdminPage() {
   const { family, parent, activeChild, parents, children, loading, error, canAdmin, refresh } = useFamily()
   const [childDeleteError, setChildDeleteError] = useState<string | null>(null)
   const [childDeleteBusy, setChildDeleteBusy] = useState<string | null>(null)
+  const adminGuideTrackedRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!family) return
-    void (async () => {
-      await markSetupGuideAdminVisited(family)
-      notifyFamilyDataChanged()
-    })()
-  }, [family])
+    if (!family?.id) return
+    if (adminGuideTrackedRef.current === family.id) return
+    adminGuideTrackedRef.current = family.id
+    void markSetupGuideAdminVisited(family)
+  }, [family?.id])
 
   useEffect(() => {
     if (!loading && !canAdmin) {

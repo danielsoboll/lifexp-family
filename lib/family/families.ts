@@ -5,11 +5,12 @@ import { familyDbError } from './dbError'
 import { generateInviteCode } from './inviteCode'
 import { defaultCanAdminForChild, defaultCanAdminForParent } from './memberAdmin'
 import {
-  defaultPortraitForCategory,
-  memberAvatarCategoryForChild,
-  memberAvatarCategoryForParent,
-  portraitSrc,
-} from './memberAvatar'
+  childPortraitKeyForOnboarding,
+  parentAvatarUrlForOnboarding,
+  type FamilyOnboardingResult,
+  type OnboardingDevicePrefs,
+  type OnboardingMemberProfile,
+} from './onboardingMember'
 import { mapParentProfileRow } from './mapParentProfile'
 import { nextAccentKeyForFamily } from './memberAccentAssign'
 import { mapFamilyRow } from './mapFamily'
@@ -18,11 +19,6 @@ import {
   generateUniqueMemberRecoveryCode,
   memberRecoveryInsertFields,
 } from './memberRecoveryCode'
-import type {
-  FamilyOnboardingResult,
-  OnboardingDevicePrefs,
-  OnboardingMemberProfile,
-} from './onboardingMember'
 import type { Family, ParentProfile } from './types'
 
 const RLS_SETUP_HINT =
@@ -92,7 +88,7 @@ async function joinFamilyAsParent(
     return { result: null, error: error instanceof Error ? error : new Error('Recovery-Code fehlgeschlagen.') }
   }
 
-  const parentPortrait = defaultPortraitForCategory(memberAvatarCategoryForParent(profile.gender))
+  const parentPortraitUrl = parentAvatarUrlForOnboarding(profile)
   const { accentKey, error: accentError } = await nextAccentKeyForFamily(familyId)
   if (accentError) return { result: null, error: accentError }
 
@@ -101,7 +97,7 @@ async function joinFamilyAsParent(
     display_name: profile.displayName,
     gender: profile.gender,
     can_admin: defaultCanAdminForParent(profile.gender),
-    avatar_url: parentPortrait ? portraitSrc(parentPortrait) : null,
+    avatar_url: parentPortraitUrl,
     accent_key: accentKey,
     ...memberRecoveryInsertFields(recoveryCode, devicePrefs),
   })
@@ -158,8 +154,7 @@ async function joinFamilyAsChild(
     return { result: null, error: error instanceof Error ? error : new Error('Recovery-Code fehlgeschlagen.') }
   }
 
-  const childCategory = memberAvatarCategoryForChild(profile.gender, profile.age)
-  const childPortrait = defaultPortraitForCategory(childCategory)
+  const childPortrait = childPortraitKeyForOnboarding(profile)
   const { accentKey, error: accentError } = await nextAccentKeyForFamily(familyId)
   if (accentError) return { result: null, error: accentError }
 
@@ -170,7 +165,7 @@ async function joinFamilyAsChild(
     gender: profile.gender,
     age: profile.age,
     can_admin: defaultCanAdminForChild(profile.age),
-    avatar_key: childPortrait ?? profile.gender,
+    avatar_key: childPortrait,
     sort_order: sortOrder,
     is_active: true,
     total_xp: 0,
@@ -224,14 +219,14 @@ async function createFamilyAsParent(
     return { result: null, error: error instanceof Error ? error : new Error('Recovery-Code fehlgeschlagen.') }
   }
 
-  const ownerPortrait = defaultPortraitForCategory(memberAvatarCategoryForParent(profile.gender))
+  const ownerPortraitUrl = parentAvatarUrlForOnboarding(profile)
 
   const { error: parentError } = await supabase.from('parent_profiles').insert({
     id: parentId,
     display_name: profile.displayName,
     gender: profile.gender,
     can_admin: defaultCanAdminForParent(profile.gender),
-    avatar_url: ownerPortrait ? portraitSrc(ownerPortrait) : null,
+    avatar_url: ownerPortraitUrl,
     accent_key: pickAccentKeyByIndex(0),
     ...memberRecoveryInsertFields(recoveryCode, devicePrefs),
   })
@@ -299,8 +294,7 @@ async function createFamilyAsChild(
     return { result: null, error: familyDbError(familyError.message) }
   }
 
-  const creatorCategory = memberAvatarCategoryForChild(profile.gender, profile.age)
-  const creatorPortrait = defaultPortraitForCategory(creatorCategory)
+  const creatorPortrait = childPortraitKeyForOnboarding(profile)
 
   const { error: childError } = await supabase.from('child_profiles').insert({
     id: childId,
@@ -309,7 +303,7 @@ async function createFamilyAsChild(
     gender: profile.gender,
     age: profile.age,
     can_admin: true,
-    avatar_key: creatorPortrait ?? profile.gender,
+    avatar_key: creatorPortrait,
     sort_order: 1,
     is_active: true,
     total_xp: 0,

@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
-import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
+import { useFamily } from './FamilyProvider'
 import { markSetupGuideMemberVisited } from '../lib/family/setupGuide'
 
 type SetupGuideMemberVisitTrackerProps = {
@@ -12,15 +12,18 @@ type SetupGuideMemberVisitTrackerProps = {
 
 export default function SetupGuideMemberVisitTracker({ memberKind, memberId }: SetupGuideMemberVisitTrackerProps) {
   const { family, session } = useFamily()
+  const trackedRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!family || !session) return
+    if (!family?.id || !session) return
     if (session.memberKind === memberKind && session.memberId === memberId) return
-    void (async () => {
-      await markSetupGuideMemberVisited(family)
-      notifyFamilyDataChanged()
-    })()
-  }, [family, session, memberKind, memberId])
+
+    const key = `${family.id}:${memberKind}:${memberId}`
+    if (trackedRef.current === key) return
+    trackedRef.current = key
+
+    void markSetupGuideMemberVisited(family)
+  }, [family?.id, session, memberKind, memberId])
 
   return null
 }

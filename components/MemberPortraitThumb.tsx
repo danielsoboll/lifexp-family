@@ -4,11 +4,11 @@ type MemberPortraitThumbProps = {
   className?: string
 }
 
-/** Kompaktes Portrait — etwa wie auf dem Dashboard (MemberSlot). */
+/** Kompaktes Portrait in Admin-Formularen — gleiches Seitenverhältnis wie MemberSlot. */
 export default function MemberPortraitThumb({ src, error, className = '' }: MemberPortraitThumbProps) {
   return (
     <div
-      className={`relative aspect-[5/6] w-[5.25rem] shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 sm:w-[5.75rem] ${className}`.trim()}
+      className={`relative aspect-[5/6] w-[5.25rem] shrink-0 self-start overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 sm:w-[5.75rem] ${className}`.trim()}
     >
       {error ? (
         <p className="flex h-full items-center justify-center px-1 text-center text-[9px] leading-tight text-amber-800 dark:text-amber-200">

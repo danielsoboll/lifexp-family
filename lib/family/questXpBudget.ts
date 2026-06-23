@@ -13,6 +13,19 @@ export type MemberXpBudget = {
   maxXp: number
 }
 
+export function budgetAssigneesCacheKey(familyId: string, taskDate: string, assignees: QuestAssignee[]): string {
+  const memberKey = assignees
+    .map((assignee) => `${assignee.type}:${assignee.id}`)
+    .sort()
+    .join(',')
+  return `${familyId}|${normalizeDateKey(taskDate) ?? taskDate}|${memberKey}`
+}
+
+function isMissingColumnError(error: { message?: string }, column: string): boolean {
+  const message = error.message?.toLowerCase() ?? ''
+  return message.includes(column.toLowerCase()) && (message.includes('column') || message.includes('schema cache'))
+}
+
 async function fetchCompletionsOnDate(
   familyId: string,
   taskDate: string,
@@ -23,14 +36,36 @@ async function fetchCompletionsOnDate(
     .eq('family_id', familyId)
     .eq('completed_on', taskDate)
 
+  if (error && isMissingColumnError(error, 'creator_confirmed_at')) {
+    const { data: legacyRows, error: legacyError } = await supabase
+      .from('quest_completions')
+      .select('quest_id, child_id, parent_id')
+      .eq('family_id', familyId)
+      .eq('completed_on', taskDate)
+
+    if (legacyError) {
+      return { byQuestChild: new Map(), byQuestParent: new Map(), error: new Error(legacyError.message) }
+    }
+
+    return mapCompletionRows(legacyRows ?? [], true)
+  }
+
   if (error) {
     return { byQuestChild: new Map(), byQuestParent: new Map(), error: new Error(error.message) }
   }
 
+  return mapCompletionRows(data ?? [], false)
+}
+
+function mapCompletionRows(
+  rows: Array<{ quest_id: unknown; child_id: unknown; parent_id: unknown; creator_confirmed_at?: unknown }>,
+  treatAllAsConfirmed: boolean,
+): { byQuestChild: Map<string, Set<string>>; byQuestParent: Map<string, Set<string>>; error: Error | null } {
   const byQuestChild = new Map<string, Set<string>>()
   const byQuestParent = new Map<string, Set<string>>()
-  for (const row of data ?? []) {
-    if (!row.creator_confirmed_at) continue
+
+  for (const row of rows) {
+    if (!treatAllAsConfirmed && !row.creator_confirmed_at) continue
     const questId = row.quest_id as string
     const childId = row.child_id as string | null
     const parentId = row.parent_id as string | null
@@ -45,7 +80,44 @@ async function fetchCompletionsOnDate(
       byQuestParent.set(questId, set)
     }
   }
+
   return { byQuestChild, byQuestParent, error: null }
+}
+
+async function fetchActiveQuestsForDate(
+  familyId: string,
+  taskDate: string,
+): Promise<{ quests: Quest[]; error: Error | null }> {
+  const { data, error } = await supabase
+    .from('quests')
+    .select('id, child_id, xp_reward, task_date')
+    .eq('family_id', familyId)
+    .eq('is_active', true)
+    .eq('task_date', taskDate)
+
+  if (!error) {
+    return { quests: (data ?? []) as Quest[], error: null }
+  }
+
+  if (!isMissingColumnError(error, 'task_date')) {
+    return { quests: [], error: new Error(error.message) }
+  }
+
+  const { data: legacyRows, error: legacyError } = await supabase
+    .from('quests')
+    .select('id, child_id, xp_reward, task_date')
+    .eq('family_id', familyId)
+    .eq('is_active', true)
+
+  if (legacyError) {
+    return { quests: [], error: new Error(legacyError.message) }
+  }
+
+  const normalizedTaskDate = normalizeDateKey(taskDate)
+  const quests = ((legacyRows ?? []) as Quest[]).filter(
+    (quest) => normalizeDateKey(quest.task_date) === normalizedTaskDate,
+  )
+  return { quests, error: null }
 }
 
 function sumScheduledXpForMember(
@@ -92,24 +164,18 @@ export async function fetchMemberXpBudget(input: {
     }
   }
 
-  const [{ data: questRows, error: questError }, earnedResult, completionMaps] = await Promise.all([
-    supabase
-      .from('quests')
-      .select('id, child_id, xp_reward, task_date')
-      .eq('family_id', input.familyId)
-      .eq('is_active', true)
-      .eq('task_date', taskDate),
+  const [{ quests, error: questError }, earnedResult, completionMaps] = await Promise.all([
+    fetchActiveQuestsForDate(input.familyId, taskDate),
     input.memberType === 'parent'
       ? fetchTodayXpByParent(input.familyId, taskDate)
       : fetchTodayXpByChild(input.familyId, taskDate),
     fetchCompletionsOnDate(input.familyId, taskDate),
   ])
 
-  if (questError) return { budget: emptyBudget(), error: new Error(questError.message) }
+  if (questError) return { budget: emptyBudget(), error: questError }
   if (earnedResult.error) return { budget: emptyBudget(), error: earnedResult.error }
   if (completionMaps.error) return { budget: emptyBudget(), error: completionMaps.error }
 
-  const quests = (questRows ?? []) as Quest[]
   const questIds = quests.map((q) => q.id)
   const { assignmentsByQuest, error: assignError } = await fetchQuestAssignmentsForQuests(questIds)
   if (assignError) return { budget: emptyBudget(), error: assignError }

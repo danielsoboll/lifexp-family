@@ -15,6 +15,7 @@ type DraftBase = {
   displayName: string
   gender: OnboardingMemberGender
   ageInput: string
+  portraitId?: string
   pwaInstallAcknowledged?: boolean
   recoveryCode?: string
   pendingSession?: FamilySession
@@ -30,6 +31,8 @@ export type FamilyOnboardingDraft =
       mode: 'join'
       step: JoinOnboardingStep
       inviteCode: string
+      /** Wie der Nutzer in den Join-Flow kam — für korrektes Zurück ab Install. */
+      joinEntryPath?: 'code' | 'scan'
     })
 
 function isMemberGender(value: unknown): value is OnboardingMemberGender {
@@ -82,6 +85,7 @@ function parseDraft(raw: string): FamilyOnboardingDraft | null {
       displayName: parsed.displayName,
       gender: parsed.gender,
       ageInput: parsed.ageInput,
+      portraitId: typeof parsed.portraitId === 'string' ? parsed.portraitId : undefined,
       pwaInstallAcknowledged: parsed.pwaInstallAcknowledged === true,
       recoveryCode: typeof parsed.recoveryCode === 'string' ? parsed.recoveryCode : undefined,
       pendingSession: parsePendingSession(parsed.pendingSession),
@@ -105,7 +109,7 @@ function parseDraft(raw: string): FamilyOnboardingDraft | null {
         parsed.step === 'recovery'
           ? parsed.step
           : 'choice'
-      return { ...base, mode: 'join', step, inviteCode: parsed.inviteCode }
+      return { ...base, mode: 'join', step, inviteCode: parsed.inviteCode, joinEntryPath: parsed.joinEntryPath === 'scan' ? 'scan' : parsed.joinEntryPath === 'code' ? 'code' : undefined }
     }
 
     return null
@@ -157,4 +161,27 @@ export function mergeCreateStep(current: CreateOnboardingStep, restored: CreateO
 
 export function mergeJoinStep(current: JoinOnboardingStep, restored: JoinOnboardingStep): JoinOnboardingStep {
   return mergeOnboardingStep(current, restored, JOIN_STEP_ORDER)
+}
+
+export function mergeCreateStepForwardOnly(
+  current: CreateOnboardingStep,
+  restored: CreateOnboardingStep,
+): CreateOnboardingStep {
+  const currentIndex = CREATE_STEP_ORDER.indexOf(current)
+  const restoredIndex = CREATE_STEP_ORDER.indexOf(restored)
+  if (currentIndex < 0) return restored
+  if (restoredIndex < 0) return current
+  return restoredIndex > currentIndex ? restored : current
+}
+
+/** Beim Resume aus Storage: nur vorwärts springen, absichtliches Zurück nicht überschreiben. */
+export function mergeJoinStepForwardOnly(
+  current: JoinOnboardingStep,
+  restored: JoinOnboardingStep,
+): JoinOnboardingStep {
+  const currentIndex = JOIN_STEP_ORDER.indexOf(current)
+  const restoredIndex = JOIN_STEP_ORDER.indexOf(restored)
+  if (currentIndex < 0) return restored
+  if (restoredIndex < 0) return current
+  return restoredIndex > currentIndex ? restored : current
 }

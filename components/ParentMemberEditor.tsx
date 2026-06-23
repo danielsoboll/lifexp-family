@@ -1,17 +1,17 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import GenderChoice from './GenderChoice'
 import AdminAccessToggle from './AdminAccessToggle'
 import MemberAccentPicker from './MemberAccentPicker'
+import MemberAvatarPicker from './MemberAvatarPicker'
 import MemberEditorSaveBar from './MemberEditorSaveBar'
-import MemberPortraitThumb from './MemberPortraitThumb'
 import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
 import { updateParent } from '../lib/family/parents'
 import {
-  coercePortraitForCategory,
-  memberAvatarCategoryForParent,
+  coercePortraitForOptions,
+  portraitIdFromStored,
   portraitSrc,
   resolveParentAvatar,
   type AvatarPortraitId,
@@ -26,41 +26,44 @@ type ParentMemberEditorProps = {
   member: ParentMember
 }
 
+function savedParentPortraitId(member: ParentMember): AvatarPortraitId {
+  const options = resolveParentAvatar(member.gender, null).options
+  return coercePortraitForOptions(portraitIdFromStored(member.avatar_url), options)
+}
+
 export default function ParentMemberEditor({ member }: ParentMemberEditorProps) {
   const { refresh } = useFamily()
   const [displayName, setDisplayName] = useState(member.display_name)
   const [gender, setGender] = useState<ParentGender>(member.gender)
+  const [portraitId, setPortraitId] = useState<AvatarPortraitId>(() => savedParentPortraitId(member))
   const [canAdmin, setCanAdmin] = useState(member.can_admin)
   const [accentKey, setAccentKey] = useState<MemberAccentKey>(normalizeMemberAccentKey(member.accent_key))
-  const [portraitId, setPortraitId] = useState<AvatarPortraitId | null>(
-    resolveParentAvatar(member.gender, member.avatar_url).portraitId,
-  )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  const savedPortraitId = useMemo(
-    () => resolveParentAvatar(member.gender, member.avatar_url).portraitId,
-    [member.gender, member.avatar_url],
-  )
+  const avatarResolved = useMemo(() => {
+    const resolved = resolveParentAvatar(gender, null)
+    const coerced = coercePortraitForOptions(portraitId, resolved.options)
+    return {
+      ...resolved,
+      portraitId: coerced,
+      src: coerced ? portraitSrc(coerced) : null,
+    }
+  }, [gender, portraitId])
+
+  const handleGenderChange = useCallback((next: ParentGender) => {
+    setGender(next)
+    const options = resolveParentAvatar(next, null).options
+    setPortraitId((current) => coercePortraitForOptions(current, options))
+  }, [])
 
   const isDirty =
     displayName.trim() !== member.display_name ||
     gender !== member.gender ||
+    portraitId !== savedParentPortraitId(member) ||
     canAdmin !== member.can_admin ||
-    accentKey !== normalizeMemberAccentKey(member.accent_key) ||
-    portraitId !== savedPortraitId
-
-  const resolved = useMemo(
-    () => resolveParentAvatar(gender, portraitId ? portraitSrc(portraitId) : member.avatar_url),
-    [gender, portraitId, member.avatar_url],
-  )
-
-  const handleGenderChange = (next: ParentGender) => {
-    setGender(next)
-    const category = memberAvatarCategoryForParent(next)
-    setPortraitId(coercePortraitForCategory(category, portraitId))
-  }
+    accentKey !== normalizeMemberAccentKey(member.accent_key)
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -70,15 +73,13 @@ export default function ParentMemberEditor({ member }: ParentMemberEditorProps) 
     setError(null)
     setSuccess(false)
 
-    const category = memberAvatarCategoryForParent(gender)
-    const nextPortrait = coercePortraitForCategory(category, portraitId)
-
+    const nextPortrait = coercePortraitForOptions(portraitId, avatarResolved.options)
     const { error: saveError } = await updateParent(member.id, {
       displayName,
       gender,
       canAdmin,
-      avatarUrl: nextPortrait ? portraitSrc(nextPortrait) : null,
       accentKey,
+      avatarUrl: portraitSrc(nextPortrait),
     })
 
     setLoading(false)
@@ -96,28 +97,31 @@ export default function ParentMemberEditor({ member }: ParentMemberEditorProps) 
   const roleLabel = member.role === 'owner' ? `Inhaber · ${parentRoleLabel(gender)}` : parentRoleLabel(gender)
 
   return (
-    <form onSubmit={(e) => void handleSave(e)} className={`${CARD_SURFACE_CLASS} space-y-2 rounded-xl p-3`}>
+    <form autoComplete="off" onSubmit={(e) => void handleSave(e)} className={`${CARD_SURFACE_CLASS} space-y-2 rounded-xl p-3`}>
       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-400">{roleLabel}</p>
-      <div className="flex gap-3">
-        <MemberPortraitThumb src={resolved.src} error={resolved.error} />
-        <div className="min-w-0 flex-1 space-y-2">
-          <div>
-            <label htmlFor={`parent-name-${member.id}`} className="mb-0.5 block text-xs font-semibold">
-              Name
-            </label>
-            <input
-              id={`parent-name-${member.id}`}
-              required
-              maxLength={80}
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className={FORM_FIELD_INPUT_COMPACT_CLASS}
-              {...displayNameInputProps()}
-            />
-          </div>
-          <GenderChoice kind="parent" compact value={gender} onChange={handleGenderChange} />
+      <div className="space-y-2">
+        <div>
+          <label htmlFor={`parent-name-${member.id}`} className="mb-0.5 block text-xs font-semibold">
+            Name
+          </label>
+          <input
+            id={`parent-name-${member.id}`}
+            required
+            maxLength={80}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            className={FORM_FIELD_INPUT_COMPACT_CLASS}
+            {...displayNameInputProps()}
+          />
         </div>
+        <GenderChoice kind="parent" compact value={gender} onChange={handleGenderChange} />
       </div>
+      <MemberAvatarPicker
+        resolved={avatarResolved}
+        value={portraitId}
+        onChange={setPortraitId}
+        legend="Avatar wählen"
+      />
       <AdminAccessToggle checked={canAdmin} onChange={setCanAdmin} />
       <MemberAccentPicker value={accentKey} onChange={setAccentKey} />
       {error ? (

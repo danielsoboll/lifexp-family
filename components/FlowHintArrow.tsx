@@ -38,7 +38,7 @@ export default function FlowHintArrow({ className = '', direction = 'down' }: Fl
       className={`lifexp-streak-hint flex justify-center py-0.5 ${className}`.trim()}
       aria-hidden
     >
-      <span className="text-xl leading-none text-yellow-500 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] dark:text-yellow-300">
+      <span className="text-2xl font-black leading-none text-yellow-500 [-webkit-text-stroke:0.65px_currentColor] drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] dark:text-yellow-300">
         {glyph}
       </span>
     </div>

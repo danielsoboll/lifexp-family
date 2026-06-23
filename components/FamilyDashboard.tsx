@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 
 import { notifyFamilyDataChanged, useFamily, FAMILY_DATA_CHANGED_EVENT } from './FamilyProvider'
 import DashboardButton from './DashboardButton'
@@ -11,6 +11,8 @@ import FamilyHappyAllBanner from './FamilyHappyAllBanner'
 import LifeXpBrandMark from './LifeXpBrandMark'
 import MemberSlot from './MemberSlot'
 import {
+  portraitIdFromStored,
+  portraitSrc,
   resolveChildAvatar,
   resolveParentAvatar,
 } from '../lib/family/memberAvatar'
@@ -26,16 +28,22 @@ import {
   persistMemberStreakIntroSeen,
 } from '../lib/family/streakIntroHint'
 import { firstOtherMemberHref, markSetupGuideAdminVisited, setupGuideTargetAttr } from '../lib/family/setupGuide'
+import {
+  ONBOARDING_PREVIEW_FAMILY_SET_1,
+  ONBOARDING_PREVIEW_FAMILY_SET_2,
+} from '../lib/family/onboardingPreviewFamily'
 import { cetFormatLongDateDe, cetToday } from '../lib/cetDate'
 import { HOME_PAGE_INSET_CLASS, MAIN_SHELL_CLASS } from '../lib/appShell'
 import { slowScrollToElement, slowScrollToRevealElement } from '../lib/slowScroll'
 import { useSetupGuide, isSetupGuideTargetActive } from '../hooks/useSetupGuide'
+import { useHappyAllPreviewCycle } from '../hooks/useHappyAllPreviewCycle'
 
 type FamilyDashboardProps = {
   preview?: boolean
+  previewScrollContainerRef?: RefObject<HTMLElement | null>
 }
 
-export default function FamilyDashboard({ preview = false }: FamilyDashboardProps) {
+export default function FamilyDashboard({ preview = false, previewScrollContainerRef }: FamilyDashboardProps) {
   const familyCtx = useFamily()
 
   const family = preview ? null : familyCtx.family
@@ -50,61 +58,13 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
   const activeChild = preview ? null : familyCtx.activeChild
 
   const todayLabel = cetFormatLongDateDe(cetToday())
-  const familyHeading = preview ? formatFamilyHeading('Sonnenschein') : formatFamilyHeading(family?.name)
+  const familyHeading = preview ? formatFamilyHeading('Miteinander') : formatFamilyHeading(family?.name)
 
-  const previewParents = [
-    { id: 'p1', display_name: 'Daniel', gender: 'male' as const, role: 'parent' as const, can_admin: true, todayXp: 22, avatar_url: '/avatars/Mann_1_1.webp', accent_key: 'rose', rec_code: null, rec_code_ok: false, app_installed: false, app_later: false, created_at: '', updated_at: '' },
-    { id: 'p2', display_name: 'Anna', gender: 'female' as const, role: 'parent' as const, can_admin: true, todayXp: 16, avatar_url: '/avatars/Frau_1_1.webp', accent_key: 'amber', rec_code: null, rec_code_ok: false, app_installed: false, app_later: false, created_at: '', updated_at: '' },
-  ]
-  const previewChildren = [
-    {
-      id: 'c1',
-      display_name: 'Kind 1',
-      gender: 'boy' as const,
-      age: 8,
-      can_admin: false,
-      todayXp: 14,
-      family_id: '',
-      portrait_id: 'Junge_2_1',
-      total_xp: 0,
-      level: 1,
-      is_active: true,
-      sort_order: 0,
-      notes: null,
-      accent_key: 'sky',
-      rec_code: null,
-      rec_code_ok: false,
-      app_installed: false,
-      app_later: false,
-      created_at: '',
-      updated_at: '',
-    },
-    {
-      id: 'c2',
-      display_name: 'Kind 2',
-      gender: 'girl' as const,
-      age: 10,
-      can_admin: false,
-      todayXp: 14,
-      family_id: '',
-      portrait_id: 'Mädchen_1_1',
-      total_xp: 0,
-      level: 1,
-      is_active: true,
-      sort_order: 0,
-      notes: null,
-      accent_key: 'sky',
-      rec_code: null,
-      rec_code_ok: false,
-      app_installed: false,
-      app_later: false,
-      created_at: '',
-      updated_at: '',
-    },
-  ]
+  const previewAlternate = useHappyAllPreviewCycle(preview, previewScrollContainerRef)
+  const previewFamily = previewAlternate ? ONBOARDING_PREVIEW_FAMILY_SET_2 : ONBOARDING_PREVIEW_FAMILY_SET_1
 
-  const parentRows = preview ? previewParents : parents
-  const childRows = preview ? previewChildren : children
+  const parentRows = preview ? previewFamily.parents : parents
+  const childRows = preview ? previewFamily.children : children
   const familyTodayXp = sumFamilyTodayXp(parentRows, childRows)
   const showHappyAll = !loading && familyReachedHappyAllToday(parentRows, childRows)
 
@@ -285,7 +245,13 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
 
   return (
     <main className={`${MAIN_SHELL_CLASS} ${HOME_PAGE_INSET_CLASS} mx-auto flex w-full max-w-lg flex-col gap-6 px-4`}>
-      {showHappyAll ? <FamilyHappyAllBanner familyTodayXp={familyTodayXp} /> : null}
+      {showHappyAll ? (
+        <FamilyHappyAllBanner
+          familyTodayXp={familyTodayXp}
+          cycleImages={preview}
+          showAlternate={previewAlternate}
+        />
+      ) : null}
 
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -336,9 +302,12 @@ export default function FamilyDashboard({ preview = false }: FamilyDashboardProp
           {childRows.length > 0 ? (
             <div className="grid grid-cols-2 gap-3">
               {childRows.map((child) => {
-                const avatar = resolveChildAvatar(child.gender, child.age, child.portrait_id, {
-                  todayXp: child.todayXp,
-                })
+                const previewPortraitId = preview ? portraitIdFromStored(child.portrait_id) : null
+                const avatar = previewPortraitId
+                  ? { src: portraitSrc(previewPortraitId), error: null }
+                  : resolveChildAvatar(child.gender, child.age, child.portrait_id, {
+                      todayXp: child.todayXp,
+                    })
                 return (
                   <MemberSlot
                     key={child.id}

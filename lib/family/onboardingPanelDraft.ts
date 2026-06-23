@@ -1,4 +1,5 @@
 import type { OnboardingMemberGender } from './onboardingMember'
+import type { AvatarPortraitId } from './memberAvatar'
 import type { FamilySession } from '../familySession'
 import { flushOnboardingBridge } from './onboardingBridge'
 import { loadFamilyOnboardingDraft } from './onboardingDraft'
@@ -6,7 +7,7 @@ import { loadFamilyOnboardingDraft } from './onboardingDraft'
 export type OnboardingFormSnapshot = {
   displayName: string
   gender: OnboardingMemberGender
-  ageInput: string
+  portraitId: AvatarPortraitId | null
 }
 
 export type CreateFormSnapshot = OnboardingFormSnapshot & {
@@ -31,19 +32,19 @@ function readInputValue(id: string, fallback: string): string {
 
 export function readCreateFormSnapshot(fallback: CreateFormSnapshot): CreateFormSnapshot {
   return {
-    familyName: readInputValue('create-family-name', fallback.familyName),
-    displayName: readInputValue('onboarding-name', fallback.displayName),
+    familyName: readInputValue('lifexp-create-family-title', fallback.familyName),
+    displayName: readInputValue('lifexp-onboarding-who', fallback.displayName),
     gender: fallback.gender,
-    ageInput: readInputValue('onboarding-age', fallback.ageInput),
+    portraitId: fallback.portraitId,
   }
 }
 
 export function readJoinFormSnapshot(fallback: JoinFormSnapshot): JoinFormSnapshot {
   return {
     inviteCode: readInputValue('join-invite-code', fallback.inviteCode),
-    displayName: readInputValue('onboarding-name', fallback.displayName),
+    displayName: readInputValue('lifexp-onboarding-who', fallback.displayName),
     gender: fallback.gender,
-    ageInput: readInputValue('onboarding-age', fallback.ageInput),
+    portraitId: fallback.portraitId,
   }
 }
 

@@ -43,6 +43,13 @@ export default function QrCodeScanner({ onCode, onError }: QrCodeScannerProps) {
         )
         if (!cancelled) setStatus('ready')
       } catch {
+        if (scanner) {
+          try {
+            scanner.clear()
+          } catch {
+            /* ignore */
+          }
+        }
         if (!cancelled) {
           setStatus('error')
           onErrorRef.current('Kamera konnte nicht geöffnet werden. Bitte Berechtigung prüfen oder Code manuell eingeben.')

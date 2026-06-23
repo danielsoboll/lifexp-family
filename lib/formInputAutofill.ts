@@ -1,23 +1,51 @@
-import type { InputHTMLAttributes } from 'react'
+import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react'
 
-/** Gemeinsame Input-Attribute gegen iOS-Passwort-Autofill auf Nicht-Login-Feldern. */
-type AutofillInputProps = Pick<
+/**
+ * iOS/iPadOS: „Autofill Contact“-Leiste bei Textfeldern unterdrücken.
+ * `off` reicht oft nicht — `new-password` bei type=text ist der zuverlässige Trick.
+ */
+const IOS_SUPPRESS_CONTACT_AUTOCOMPLETE = 'new-password' as const
+
+/** Gemeinsame Input-Attribute gegen iOS-Kontakt-/Passwort-Autofill auf Nicht-Login-Feldern. */
+export type AutofillInputProps = Pick<
   InputHTMLAttributes<HTMLInputElement>,
   'type' | 'inputMode' | 'autoComplete' | 'autoCorrect' | 'autoCapitalize' | 'spellCheck' | 'name'
 >
 
-/** Anzeigename / „Wie heißt du?“ – kein Login-/Kontakt-Autofill (iOS). */
-export function displayNameInputProps(): AutofillInputProps {
+type AutofillTextareaProps = Pick<
+  TextareaHTMLAttributes<HTMLTextAreaElement>,
+  'autoComplete' | 'autoCorrect' | 'autoCapitalize' | 'spellCheck' | 'name'
+>
+
+/** Anzeigename im Onboarding — neutrale Attribute (iOS Kontakt-Leiste). */
+export function personLabelInputProps(): AutofillInputProps {
   return {
     type: 'text',
     inputMode: 'text',
-    // iOS: „nickname“/„name“ öffnet Kontakt-Autofill; „new-password“ unterdrückt die Leiste bei type=text.
-    autoComplete: 'new-password',
+    autoComplete: 'one-time-code',
     autoCorrect: 'off',
     autoCapitalize: 'words',
     spellCheck: false,
-    name: 'lifexp-onboarding-display-name-field',
+    name: 'lifexp-who-label-field',
   }
+}
+
+/** Familientitel beim Anlegen — neutrale `name`/id ohne „family-name“. */
+export function familyTitleInputProps(): AutofillInputProps {
+  return {
+    type: 'text',
+    inputMode: 'text',
+    autoComplete: IOS_SUPPRESS_CONTACT_AUTOCOMPLETE,
+    autoCorrect: 'off',
+    autoCapitalize: 'words',
+    spellCheck: false,
+    name: 'lifexp-family-title-field',
+  }
+}
+
+/** Anzeigename / „Wie heißt du?“ – kein Kontakt-Autofill (iOS). */
+export function displayNameInputProps(): AutofillInputProps {
+  return personLabelInputProps()
 }
 
 /** Namens-Korrektur nach Konflikt — ohne Kontakt-/Autofill-Leiste (iOS). */
@@ -25,8 +53,7 @@ export function displayNameConflictInputProps(): AutofillInputProps {
   return {
     type: 'text',
     inputMode: 'text',
-    // iOS: „new-password“ unterdrückt Kontakt-/Autofill-Leiste bei type=text.
-    autoComplete: 'new-password',
+    autoComplete: IOS_SUPPRESS_CONTACT_AUTOCOMPLETE,
     autoCorrect: 'off',
     autoCapitalize: 'words',
     spellCheck: false,
@@ -34,12 +61,12 @@ export function displayNameConflictInputProps(): AutofillInputProps {
   }
 }
 
-/** Freitext (Aufgaben, Gerichte, Zieltext …). */
+/** Freitext einzeilig (Familienname, Quest-Titel, Codes …). */
 export function oneLineTextInputProps(fieldName: string): AutofillInputProps {
   return {
     type: 'text',
     inputMode: 'text',
-    autoComplete: 'off',
+    autoComplete: IOS_SUPPRESS_CONTACT_AUTOCOMPLETE,
     autoCorrect: 'off',
     autoCapitalize: 'sentences',
     spellCheck: false,
@@ -47,12 +74,23 @@ export function oneLineTextInputProps(fieldName: string): AutofillInputProps {
   }
 }
 
-/** Ganzzahlen (Alter, kcal, XP …). */
+/** Mehrzeiliger Freitext (Quest-Notiz …). */
+export function multilineTextInputProps(fieldName: string): AutofillTextareaProps {
+  return {
+    autoComplete: IOS_SUPPRESS_CONTACT_AUTOCOMPLETE,
+    autoCorrect: 'off',
+    autoCapitalize: 'sentences',
+    spellCheck: false,
+    name: fieldName,
+  }
+}
+
+/** Ganzzahlen (Alter, kcal, XP …) — type=tel würde auf iOS Telefon/Kontakte anbieten. */
 export function integerInputProps(fieldName: string): AutofillInputProps {
   return {
-    type: 'tel',
+    type: 'text',
     inputMode: 'numeric',
-    autoComplete: 'off',
+    autoComplete: IOS_SUPPRESS_CONTACT_AUTOCOMPLETE,
     autoCorrect: 'off',
     autoCapitalize: 'off',
     spellCheck: false,
@@ -65,7 +103,7 @@ export function decimalInputProps(fieldName: string): AutofillInputProps {
   return {
     type: 'text',
     inputMode: 'decimal',
-    autoComplete: 'off',
+    autoComplete: IOS_SUPPRESS_CONTACT_AUTOCOMPLETE,
     autoCorrect: 'off',
     autoCapitalize: 'off',
     spellCheck: false,
@@ -73,11 +111,11 @@ export function decimalInputProps(fieldName: string): AutofillInputProps {
   }
 }
 
-/** Datumsauswahl (kein Geburtstags-Autofill). */
+/** Datumsauswahl (kein Geburtstags-/Kontakt-Autofill). */
 export function dateInputProps(): AutofillInputProps {
   return {
     type: 'date',
-    autoComplete: 'off',
+    autoComplete: IOS_SUPPRESS_CONTACT_AUTOCOMPLETE,
     name: 'lifexp-date',
   }
 }

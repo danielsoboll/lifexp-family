@@ -1,8 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-
-import { notifyFamilyDataChanged } from '../components/FamilyProvider'
 import type { Family } from '../lib/family/types'
 import {
   dismissSetupGuideStep,
@@ -26,7 +24,6 @@ export function useSetupGuide({ family, parentCount, childCount, canAdmin }: Use
   useEffect(() => {
     const onChange = () => {
       setTick((value) => value + 1)
-      notifyFamilyDataChanged()
     }
     window.addEventListener('lifexp-setup-guide-changed', onChange)
     return () => window.removeEventListener('lifexp-setup-guide-changed', onChange)
