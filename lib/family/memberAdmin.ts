@@ -3,7 +3,7 @@ import type { ChildGender, ParentGender } from './memberGender'
 /** Ab diesem Alter dürfen Kinder standardmäßig Admin sein. */
 export const ADMIN_AGE_THRESHOLD = 18
 
-/** Eltern (Papa/Mama/Opa/Oma): Admin standardmäßig ein. */
+/** Eltern (Papa/Mama): Admin standardmäßig ein. */
 export function defaultCanAdminForParent(_gender?: ParentGender): boolean {
   return true
 }

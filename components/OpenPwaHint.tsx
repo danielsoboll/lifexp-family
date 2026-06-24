@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import { isIosDevice } from '../lib/pwaInstall'
+import { isAndroidDevice, isIosDevice } from '../lib/pwaInstall'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 type OpenPwaHintProps = {
@@ -34,17 +34,23 @@ export default function OpenPwaHint({ onContinueInBrowser, onCloseTab }: OpenPwa
           className="text-balance text-center text-lg font-bold text-slate-900 dark:text-slate-100"
         >
           {closeBlocked
-            ? 'Wechsle zum Home-Bildschirm'
+            ? 'Wechsle zum Startbildschirm'
             : isIosDevice()
               ? 'LifeXP Family vom Home-Bildschirm öffnen'
-              : 'LifeXP Family als App öffnen'}
+              : isAndroidDevice()
+                ? 'LifeXP Family vom Startbildschirm öffnen'
+                : 'LifeXP Family als App öffnen'}
         </h2>
         <p className="mt-3 text-balance text-center text-sm leading-relaxed text-slate-950 dark:text-slate-300">
           {closeBlocked
-            ? 'Safari kann diesen Tab nicht automatisch schließen. Tippe auf das LifeXP-Family-Symbol auf deinem Home-Bildschirm — alle Eingaben sind gespeichert.'
+            ? isIosDevice()
+              ? 'Safari kann diesen Tab nicht automatisch schließen. Tippe auf das LifeXP-Family-Symbol auf deinem Home-Bildschirm — alle Eingaben sind gespeichert.'
+              : 'Dieser Tab bleibt offen. Öffne LifeXP Family über das Symbol auf deinem Startbildschirm — alle Eingaben sind gespeichert.'
             : isIosDevice()
               ? 'Tippe auf das LifeXP-Family-Symbol auf deinem Home-Bildschirm. Alle Eingaben bleiben gespeichert.'
-              : 'Öffne LifeXP Family über das Symbol auf deinem Startbildschirm. Alle Eingaben bleiben gespeichert.'}
+              : isAndroidDevice()
+                ? 'Öffne LifeXP Family über das App-Symbol auf deinem Startbildschirm. Alle Eingaben bleiben gespeichert.'
+                : 'Öffne LifeXP Family über das Symbol auf deinem Startbildschirm. Alle Eingaben bleiben gespeichert.'}
         </p>
         <div className="mt-5 flex flex-col gap-2">
           <button

@@ -157,6 +157,86 @@ export function slowScrollContainerToTop(
   return animateScrollParentTo(container, 0, durationMs)
 }
 
+/** Langsam um delta scrollen — z. B. Promo-Banner: Backdrop einmal nach unten. */
+export function slowScrollContainerBy(
+  container: HTMLElement | null | undefined,
+  options: { delta?: number; durationMs?: number } = {},
+): Promise<void> {
+  if (!container) return Promise.resolve()
+  const delta = options.delta ?? 0
+  if (Math.abs(delta) < 4) return Promise.resolve()
+  const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight)
+  const targetScrollTop = Math.min(maxScroll, Math.max(0, container.scrollTop + delta))
+  const durationMs = options.durationMs ?? 950
+  if (prefersReducedMotion()) {
+    container.scrollTop = targetScrollTop
+    return Promise.resolve()
+  }
+  return animateScrollParentTo(container, targetScrollTop, durationMs)
+}
+
+/** Element im Scroll-Container oben ausrichten — z. B. Eltern-Grid in der Onboarding-Vorschau. */
+export function slowScrollContainerToElement(
+  container: HTMLElement | null | undefined,
+  element: HTMLElement | null | undefined,
+  options: { topInsetPx?: number; durationMs?: number } = {},
+): Promise<void> {
+  if (!container || !element) return Promise.resolve()
+  const topInsetPx = options.topInsetPx ?? 0
+  const durationMs = options.durationMs ?? 1900
+  const containerRect = container.getBoundingClientRect()
+  const elementRect = element.getBoundingClientRect()
+  const desiredScrollTop = container.scrollTop + (elementRect.top - containerRect.top) - topInsetPx
+  const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight)
+  const targetScrollTop = Math.min(maxScroll, Math.max(0, desiredScrollTop))
+  if (prefersReducedMotion()) {
+    container.scrollTop = targetScrollTop
+    return Promise.resolve()
+  }
+  return animateScrollParentTo(container, targetScrollTop, durationMs)
+}
+
+/** Nur so weit scrollen, bis das Element im Container vollständig sichtbar ist. */
+export function slowScrollContainerToRevealElement(
+  container: HTMLElement | null | undefined,
+  element: HTMLElement | null | undefined,
+  options: RevealScrollOptions = {},
+): Promise<void> {
+  if (!container || !element) return Promise.resolve()
+
+  const durationMs = options.durationMs ?? 1900
+  const bottomInsetPx = options.bottomInsetPx ?? 96
+  const topInsetPx = options.topInsetPx ?? 16
+
+  const containerRect = container.getBoundingClientRect()
+  const elementRect = element.getBoundingClientRect()
+  const visibleTop = containerRect.top + topInsetPx
+  const visibleBottom = containerRect.bottom - bottomInsetPx
+
+  if (elementRect.top >= visibleTop && elementRect.bottom <= visibleBottom) {
+    return Promise.resolve()
+  }
+
+  let delta = 0
+  if (elementRect.bottom > visibleBottom) {
+    delta = elementRect.bottom - visibleBottom
+  } else if (elementRect.top < visibleTop) {
+    delta = elementRect.top - visibleTop
+  }
+
+  const targetScrollTop = Math.min(
+    Math.max(0, container.scrollTop + delta),
+    Math.max(0, container.scrollHeight - container.clientHeight),
+  )
+
+  if (prefersReducedMotion()) {
+    container.scrollTop = targetScrollTop
+    return Promise.resolve()
+  }
+
+  return animateScrollParentTo(container, targetScrollTop, durationMs)
+}
+
 function animateScrollParentTo(
   scrollParent: HTMLElement,
   targetScrollTop: number,

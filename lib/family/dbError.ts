@@ -7,13 +7,8 @@ export function familyDbError(message: string): Error {
     message.includes('parent_profiles_gender_check')
 
   if (needsMigration) {
-    if (message.includes('parent_profiles_gender_check')) {
-      return new Error(
-        'Opa/Oma sind in der Datenbank noch nicht freigeschaltet. Bitte supabase/pending_migrations.sql (Abschnitt 3) im Supabase SQL Editor ausführen.',
-      )
-    }
     return new Error(
-      'Datenbank-Schema passt noch nicht zur App. Im SQL Editor einmal supabase/migrate_to_mvp_no_auth.sql ausführen.',
+      'Datenbank-Schema passt noch nicht zur App. Im SQL Editor einmal supabase/pending_migrations.sql ausführen.',
     )
   }
   return new Error(message)

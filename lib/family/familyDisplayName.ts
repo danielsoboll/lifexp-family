@@ -1,4 +1,5 @@
 import type { ParentGender } from './memberGender'
+import { parentRoleLabel } from './memberGender'
 
 /** Anzeigename auf dem Dashboard: immer mit „Familie “ davor. */
 export function formatFamilyHeading(name: string | null | undefined): string {
@@ -8,10 +9,14 @@ export function formatFamilyHeading(name: string | null | undefined): string {
   return `Familie ${trimmed}`
 }
 
-/** Papa/Mama vor dem Namen — nur für male/female; Opa/Oma und Kinder unverändert. */
+/** Papa/Mama vor dem Namen — Opa/Oma und Kinder unverändert. */
 export function formatParentDisplayName(displayName: string, gender: ParentGender): string {
   const name = displayName.trim()
-  if (!name) return gender === 'male' ? 'Papa' : gender === 'female' ? 'Mama' : name
+  if (!name) {
+    if (gender === 'male') return 'Papa'
+    if (gender === 'female') return 'Mama'
+    return parentRoleLabel(gender)
+  }
 
   if (gender === 'male') {
     if (/^papa\s/i.test(name)) return name

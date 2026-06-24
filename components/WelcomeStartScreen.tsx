@@ -1,20 +1,24 @@
 'use client'
 
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import CreateFamilyPanel from './CreateFamilyPanel'
 import FamilyDashboard from './FamilyDashboard'
 import JoinFamilyPanel from './JoinFamilyPanel'
 import OnboardingPromoBanner from './OnboardingPromoBanner'
+import OnboardingRecoveryRestorePanel from './OnboardingRecoveryRestorePanel'
 import SheetPortal from './SheetPortal'
 import { useFamilyOnboardingBridge } from '../hooks/useFamilyOnboardingBridge'
-import { useOnboardingPromoIdleCycle } from '../hooks/useOnboardingPromoIdleCycle'
+import { useHappyAllPreviewCycle } from '../hooks/useHappyAllPreviewCycle'
 import { bootstrapOnboardingBridge, flushOnboardingBridge, persistFamilyOnboardingDraft } from '../lib/family/onboardingBridge'
 import { clearFamilyOnboardingDraft, loadFamilyOnboardingDraft } from '../lib/family/onboardingDraft'
-import { ONBOARDING_PROMO_AFTER_SHEET_MS } from '../lib/family/onboardingPromoBanner'
+import {
+  ONBOARDING_PREVIEW_FAMILY_2_PROMO_DELAY_MS,
+  onboardingPreviewFamily2PromoHideMs,
+} from '../lib/family/onboardingPreviewFamily'
 import { CARD_SURFACE_CLASS, ONBOARDING_BACKDROP_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 
-type SheetView = 'welcome' | 'join' | 'create'
+type SheetView = 'welcome' | 'join' | 'create' | 'restore'
 
 function readResumeDraftView(): { view: SheetView; panelKey: number } {
   bootstrapOnboardingBridge()
@@ -33,10 +37,18 @@ export default function WelcomeStartScreen() {
   const [panelKey, setPanelKey] = useState(0)
   const [resumeChecked, setResumeChecked] = useState(false)
   const [promoVisible, setPromoVisible] = useState(false)
+  const [family2PromoEligible, setFamily2PromoEligible] = useState(false)
 
   const sheetCloseTimerRef = useRef<number | undefined>(undefined)
+  const promoDismissedForFamily2Ref = useRef(false)
+  const promoHideTimerRef = useRef<number | undefined>(undefined)
 
   const dismissPromo = useCallback(() => {
+    if (promoHideTimerRef.current !== undefined) {
+      window.clearTimeout(promoHideTimerRef.current)
+      promoHideTimerRef.current = undefined
+    }
+    promoDismissedForFamily2Ref.current = true
     setPromoVisible(false)
   }, [])
 
@@ -59,7 +71,6 @@ export default function WelcomeStartScreen() {
     const resume = readResumeDraftView()
     setSheetView(resume.view)
     setPanelKey(resume.panelKey)
-    setPromoVisible(true)
     setResumeChecked(true)
     return () => {
       if (sheetCloseTimerRef.current !== undefined) {
@@ -93,27 +104,60 @@ export default function WelcomeStartScreen() {
     setSheetOpen(true)
   }, [dismissPromo, promoVisible])
 
+  const openRestoreSheet = useCallback(() => {
+    if (sheetCloseTimerRef.current !== undefined) {
+      window.clearTimeout(sheetCloseTimerRef.current)
+      sheetCloseTimerRef.current = undefined
+    }
+    if (promoVisible) dismissPromo()
+    setSheetView('restore')
+    setSheetOpen(true)
+  }, [dismissPromo, promoVisible])
+
   const closeSheet = useCallback(() => {
     setSheetOpen(false)
     if (sheetCloseTimerRef.current !== undefined) {
       window.clearTimeout(sheetCloseTimerRef.current)
-    }
-    sheetCloseTimerRef.current = window.setTimeout(() => {
       sheetCloseTimerRef.current = undefined
-      setPromoVisible(true)
-    }, ONBOARDING_PROMO_AFTER_SHEET_MS)
+    }
   }, [])
 
-  const promoEligible = resumeChecked && !sheetOpen
+  const previewActive = resumeChecked && !sheetOpen
+  const previewAlternate = useHappyAllPreviewCycle(previewActive, backdropScrollRef)
 
-  useOnboardingPromoIdleCycle({
-    enabled: promoEligible,
-    promoVisible,
-    onShow: () => setPromoVisible(true),
-    activityRootRef: backdropScrollRef,
-  })
+  useEffect(() => {
+    if (!previewAlternate) {
+      setFamily2PromoEligible(false)
+      return
+    }
+    const showTimer = window.setTimeout(() => setFamily2PromoEligible(true), ONBOARDING_PREVIEW_FAMILY_2_PROMO_DELAY_MS)
+    promoHideTimerRef.current = window.setTimeout(() => {
+      dismissPromo()
+    }, onboardingPreviewFamily2PromoHideMs())
+    return () => {
+      window.clearTimeout(showTimer)
+      if (promoHideTimerRef.current !== undefined) {
+        window.clearTimeout(promoHideTimerRef.current)
+        promoHideTimerRef.current = undefined
+      }
+      setFamily2PromoEligible(false)
+    }
+  }, [previewAlternate, dismissPromo])
 
-  const showBackdropHint = promoEligible && loadFamilyOnboardingDraft()?.incomplete
+  useEffect(() => {
+    if (!previewAlternate) {
+      promoDismissedForFamily2Ref.current = false
+    }
+    if (!previewActive || !family2PromoEligible) {
+      setPromoVisible(false)
+      return
+    }
+    if (!promoDismissedForFamily2Ref.current) {
+      setPromoVisible(true)
+    }
+  }, [previewActive, family2PromoEligible, previewAlternate])
+
+  const showBackdropHint = previewActive && loadFamilyOnboardingDraft()?.incomplete
 
   return (
     <>
@@ -140,12 +184,27 @@ export default function WelcomeStartScreen() {
         aria-label="Tippen zum Starten"
       >
         <div className="pointer-events-none select-none">
-          <FamilyDashboard preview previewScrollContainerRef={backdropScrollRef} />
+          <FamilyDashboard
+            preview
+            previewScrollContainerRef={backdropScrollRef}
+            previewAlternate={previewAlternate}
+          />
         </div>
         {showBackdropHint ? (
           <p className="pointer-events-none fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-0 right-0 text-center text-xs font-medium text-emerald-800/90 dark:text-emerald-200/90">
             Tippen zum Fortsetzen
           </p>
+        ) : !sheetOpen && resumeChecked ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              openRestoreSheet()
+            }}
+            className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-0 right-0 text-center text-xs font-semibold text-slate-700/90 underline decoration-slate-500/50 underline-offset-2 hover:text-emerald-700 dark:text-slate-300/90 dark:hover:text-emerald-300"
+          >
+            Mit Code wiederherstellen
+          </button>
         ) : null}
       </div>
 
@@ -158,7 +217,11 @@ export default function WelcomeStartScreen() {
           >
             <div
               className={`lifexp-bottom-sheet ${CARD_SURFACE_CLASS} flex ${
-                sheetView === 'welcome' ? 'max-h-[50dvh] min-h-[50dvh]' : 'max-h-[85dvh] min-h-[70dvh]'
+                sheetView === 'welcome'
+                  ? 'max-h-[50dvh] min-h-[50dvh]'
+                  : sheetView === 'restore'
+                    ? 'max-h-[70dvh] min-h-[60dvh]'
+                    : 'max-h-[85dvh] min-h-[70dvh]'
               } flex-col rounded-t-3xl px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl`}
               onClick={(event) => event.stopPropagation()}
               role="dialog"
@@ -236,8 +299,17 @@ export default function WelcomeStartScreen() {
                     >
                       Mit meiner Familie verbinden
                     </button>
+                    <button
+                      type="button"
+                      onClick={openRestoreSheet}
+                      className="w-full pt-1 text-center text-xs font-semibold text-slate-600 underline decoration-slate-400/70 underline-offset-2 hover:text-emerald-700 dark:text-slate-400 dark:hover:text-emerald-300"
+                    >
+                      Mit Code wiederherstellen
+                    </button>
                   </div>
                 </div>
+              ) : sheetView === 'restore' ? (
+                <OnboardingRecoveryRestorePanel onBack={backToWelcome} />
               ) : sheetView === 'join' ? (
                 <div
                   ref={sheetScrollRef}

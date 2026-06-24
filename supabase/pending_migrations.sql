@@ -115,7 +115,7 @@ COMMENT ON COLUMN public.parent_profiles.rec_code IS 'Recovery-Code (LIFE-XXXX-X
 COMMENT ON COLUMN public.child_profiles.rec_code IS 'Recovery-Code (LIFE-XXXX-XXXX) fuer Profil-Wiederherstellung.';
 
 -- =============================================================================
--- 3) Opa / Oma als Eltern-Rollen (parent_profiles.gender)
+-- 3) Eltern-Rollen: Papa/Mama/Opa/Oma
 -- =============================================================================
 
 ALTER TABLE public.parent_profiles

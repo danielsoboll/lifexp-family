@@ -4,6 +4,8 @@ import { useEffect } from 'react'
 
 import PwaInstallPanel from './PwaInstallPanel'
 import {
+  getPwaInstallPlatform,
+  isStandaloneDisplayMode,
   recordPwaInstallLaterChoice,
   savePwaInstallLater,
 } from '../lib/pwaInstall'
@@ -17,6 +19,9 @@ type OnboardingPwaStepProps = {
 }
 
 export default function OnboardingPwaStep({ onInstallDone, onInstallLater, disabled = false }: OnboardingPwaStepProps) {
+  const platform = getPwaInstallPlatform()
+  const isIos = platform === 'iphone' || platform === 'ipad'
+
   useEffect(() => {
     applyAppIcons()
   }, [])
@@ -27,6 +32,12 @@ export default function OnboardingPwaStep({ onInstallDone, onInstallLater, disab
     onInstallLater()
   }
 
+  const handleNativeInstalled = () => {
+    if (isStandaloneDisplayMode()) {
+      onInstallDone()
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -34,11 +45,15 @@ export default function OnboardingPwaStep({ onInstallDone, onInstallLater, disab
           LifeXP Family zum Home-Bildschirm
         </h2>
         <p className="mt-1 text-sm leading-relaxed text-slate-950 dark:text-slate-400">
-          So startest du die App wie auf dem Home-Bildschirm — ohne Browser-Leiste.
+          {isIos
+            ? 'So startest du die App wie auf dem Home-Bildschirm — ohne Browser-Leiste.'
+            : platform === 'android'
+              ? 'Installiere LifeXP Family auf deinem Startbildschirm — oder folge den Hinweisen in Chrome.'
+              : 'So startest du die App schneller vom Home-Bildschirm oder Startmenü.'}
         </p>
       </div>
 
-      <PwaInstallPanel compact />
+      <PwaInstallPanel compact onInstalled={handleNativeInstalled} />
 
       <div className="flex gap-2">
         <button

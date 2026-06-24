@@ -440,16 +440,17 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
   }
 
   const handleInstallDone = () => {
-    if (
-      tryGoToRecovery({
-        appInstalled: isStandaloneDisplayMode(),
-        appLater: false,
-      })
-    ) {
+    const prefs = { appInstalled: isStandaloneDisplayMode(), appLater: false }
+    setPwaInstallAcknowledged(true)
+    saveDraftQuiet({ pwaInstallAcknowledged: true })
+
+    if (isStandaloneDisplayMode()) {
+      if (tryGoToRecovery(prefs)) return
+      void advanceToRecovery(prefs)
       return
     }
 
-    void advanceToRecovery({ appInstalled: isStandaloneDisplayMode(), appLater: false })
+    setShowOpenPwaHint(true)
   }
 
   const handleInstallLater = () => {
@@ -458,8 +459,10 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
   }
 
   const handleContinueInBrowserFromPwaHint = () => {
-    if (tryGoToRecovery({ appInstalled: true, appLater: false })) return
-    void advanceToRecovery({ appInstalled: true, appLater: false })
+    setShowOpenPwaHint(false)
+    const prefs = { appInstalled: true, appLater: false }
+    if (tryGoToRecovery(prefs)) return
+    void advanceToRecovery(prefs)
   }
 
   const handleCloseTabFromPwaHint = () => {

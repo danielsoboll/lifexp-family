@@ -11,8 +11,6 @@ import FamilyHappyAllBanner from './FamilyHappyAllBanner'
 import LifeXpBrandMark from './LifeXpBrandMark'
 import MemberSlot from './MemberSlot'
 import {
-  portraitIdFromStored,
-  portraitSrc,
   resolveChildAvatar,
   resolveParentAvatar,
 } from '../lib/family/memberAvatar'
@@ -31,19 +29,28 @@ import { firstOtherMemberHref, markSetupGuideAdminVisited, setupGuideTargetAttr 
 import {
   ONBOARDING_PREVIEW_FAMILY_SET_1,
   ONBOARDING_PREVIEW_FAMILY_SET_2,
+  ONBOARDING_PREVIEW_FAMILY_1_INTRO_MS,
+  ONBOARDING_PREVIEW_SCROLL_MS,
 } from '../lib/family/onboardingPreviewFamily'
+import { ONBOARDING_PREVIEW_STEP_MS, previewMemberTodayXp, sumPreviewFamilyTodayXp } from '../lib/family/onboardingPreviewXpTimeline'
 import { cetFormatLongDateDe, cetToday } from '../lib/cetDate'
 import { HOME_PAGE_INSET_CLASS, MAIN_SHELL_CLASS } from '../lib/appShell'
-import { slowScrollToElement, slowScrollToRevealElement } from '../lib/slowScroll'
+import { slowScrollContainerToElement, slowScrollToElement, slowScrollToRevealElement } from '../lib/slowScroll'
 import { useSetupGuide, isSetupGuideTargetActive } from '../hooks/useSetupGuide'
-import { useHappyAllPreviewCycle } from '../hooks/useHappyAllPreviewCycle'
+import { useOnboardingPreviewXpStep } from '../hooks/useOnboardingPreviewXpStep'
 
 type FamilyDashboardProps = {
   preview?: boolean
   previewScrollContainerRef?: RefObject<HTMLElement | null>
+  previewAlternate?: boolean
 }
 
-export default function FamilyDashboard({ preview = false, previewScrollContainerRef }: FamilyDashboardProps) {
+export default function FamilyDashboard({
+  preview = false,
+  previewScrollContainerRef,
+  previewAlternate = false,
+}: FamilyDashboardProps) {
+  const previewParentsRef = useRef<HTMLDivElement>(null)
   const familyCtx = useFamily()
 
   const family = preview ? null : familyCtx.family
@@ -60,13 +67,22 @@ export default function FamilyDashboard({ preview = false, previewScrollContaine
   const todayLabel = cetFormatLongDateDe(cetToday())
   const familyHeading = preview ? formatFamilyHeading('Miteinander') : formatFamilyHeading(family?.name)
 
-  const previewAlternate = useHappyAllPreviewCycle(preview, previewScrollContainerRef)
+  const previewXpStep = useOnboardingPreviewXpStep(preview, previewAlternate)
   const previewFamily = previewAlternate ? ONBOARDING_PREVIEW_FAMILY_SET_2 : ONBOARDING_PREVIEW_FAMILY_SET_1
+
+  const previewTodayXp = useCallback(
+    (memberId: string, fallback: number) =>
+      preview ? (previewMemberTodayXp(memberId, previewXpStep, previewAlternate) ?? fallback) : fallback,
+    [preview, previewXpStep, previewAlternate],
+  )
 
   const parentRows = preview ? previewFamily.parents : parents
   const childRows = preview ? previewFamily.children : children
-  const familyTodayXp = sumFamilyTodayXp(parentRows, childRows)
-  const showHappyAll = !loading && familyReachedHappyAllToday(parentRows, childRows)
+  const familyTodayXp = preview
+    ? sumPreviewFamilyTodayXp(previewXpStep, previewAlternate)
+    : sumFamilyTodayXp(parentRows, childRows)
+  const showHappyAll =
+    !loading && (preview || familyReachedHappyAllToday(parentRows, childRows))
 
   const guide = useSetupGuide({
     family,
@@ -200,6 +216,23 @@ export default function FamilyDashboard({ preview = false, previewScrollContaine
     }
   }, [showSetupGuide, guide.step])
 
+  useEffect(() => {
+    if (!preview) return
+    const container = previewScrollContainerRef?.current
+    const parentsEl = previewParentsRef.current
+    if (!container || !parentsEl) return
+
+    const scrollDelayMs = previewAlternate ? ONBOARDING_PREVIEW_STEP_MS : ONBOARDING_PREVIEW_FAMILY_1_INTRO_MS
+    const timer = window.setTimeout(() => {
+      void slowScrollContainerToElement(container, parentsEl, {
+        topInsetPx: 12,
+        durationMs: ONBOARDING_PREVIEW_SCROLL_MS,
+      })
+    }, scrollDelayMs)
+
+    return () => window.clearTimeout(timer)
+  }, [preview, previewAlternate, previewScrollContainerRef])
+
   const firstMemberHref = useMemo(
     () =>
       firstOtherMemberHref({
@@ -250,6 +283,7 @@ export default function FamilyDashboard({ preview = false, previewScrollContaine
           familyTodayXp={familyTodayXp}
           cycleImages={preview}
           showAlternate={previewAlternate}
+          previewXpStep={preview ? previewXpStep : undefined}
         />
       ) : null}
 
@@ -278,16 +312,15 @@ export default function FamilyDashboard({ preview = false, previewScrollContaine
       ) : (
         <section className="space-y-3">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Familienmitglieder</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div ref={preview ? previewParentsRef : undefined} className="grid grid-cols-2 gap-3">
             {parentRows.map((parent) => {
-              const avatar = resolveParentAvatar(parent.gender, parent.avatar_url, {
-                todayXp: parent.todayXp ?? 0,
-              })
+              const todayXp = previewTodayXp(parent.id, parent.todayXp ?? 0)
+              const avatar = resolveParentAvatar(parent.gender, parent.avatar_url, { todayXp })
               return (
                 <MemberSlot
                   key={parent.id}
                   name={formatParentDisplayName(parent.display_name, parent.gender)}
-                  todayXp={parent.todayXp ?? 0}
+                  todayXp={todayXp}
                   avatarSrc={avatar.src}
                   avatarError={avatar.error}
                   href={preview ? undefined : `/parents/${parent.id}`}
@@ -302,25 +335,26 @@ export default function FamilyDashboard({ preview = false, previewScrollContaine
           {childRows.length > 0 ? (
             <div className="grid grid-cols-2 gap-3">
               {childRows.map((child) => {
-                const previewPortraitId = preview ? portraitIdFromStored(child.portrait_id) : null
-                const avatar = previewPortraitId
-                  ? { src: portraitSrc(previewPortraitId), error: null }
-                  : resolveChildAvatar(child.gender, child.age, child.portrait_id, {
-                      todayXp: child.todayXp,
-                    })
+                const todayXp = previewTodayXp(child.id, child.todayXp)
+                const avatar = resolveChildAvatar(child.gender, child.age, child.portrait_id, { todayXp })
+                const memberKey = preview ? `${child.id}-${previewXpStep}-${avatar.portraitId}` : child.id
                 return (
-                  <MemberSlot
-                    key={child.id}
-                    name={child.display_name}
-                    todayXp={child.todayXp}
-                    avatarSrc={avatar.src}
-                    avatarError={avatar.error}
-                    href={preview ? undefined : `/children/${child.id}`}
-                    preview={preview}
-                    highlightClass={renderMemberHighlight('child', child.id)}
-                    setupGuideTarget={memberSetupGuideTarget('child', child.id)}
-                    onNavigate={memberOwnProfileNavigate('child', child.id)}
-                  />
+                  <div
+                    key={memberKey}
+                    {...(preview && child.id === 'c3' ? { 'data-onboarding-preview-fritz': '' } : {})}
+                  >
+                    <MemberSlot
+                      name={child.display_name}
+                      todayXp={todayXp}
+                      avatarSrc={avatar.src}
+                      avatarError={avatar.error}
+                      href={preview ? undefined : `/children/${child.id}`}
+                      preview={preview}
+                      highlightClass={renderMemberHighlight('child', child.id)}
+                      setupGuideTarget={memberSetupGuideTarget('child', child.id)}
+                      onNavigate={memberOwnProfileNavigate('child', child.id)}
+                    />
+                  </div>
                 )
               })}
             </div>

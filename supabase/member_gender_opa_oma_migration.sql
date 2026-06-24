@@ -1,5 +1,5 @@
--- Opa / Oma als Geschlechts-Rolle für parent_profiles
--- Einmal im Supabase SQL Editor ausführen (nach member_gender_age_migration.sql).
+-- Opa/Oma als eigene Eltern-Rollen (neben Papa/Mama).
+-- Idempotent.
 
 ALTER TABLE public.parent_profiles
   DROP CONSTRAINT IF EXISTS parent_profiles_gender_check;

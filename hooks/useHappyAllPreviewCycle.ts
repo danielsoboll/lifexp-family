@@ -1,22 +1,29 @@
 'use client'
 
-import { useEffect, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 
 import {
-  HAPPY_ALL_PREVIEW_CYCLE_MS,
+  ONBOARDING_PREVIEW_FAMILY_SET_1_MS,
+  ONBOARDING_PREVIEW_FAMILY_SET_2_MS,
+  ONBOARDING_PREVIEW_END_PAUSE_MS,
+  ONBOARDING_PREVIEW_FAMILY_1_FRITZ_HOLD_MS,
+  ONBOARDING_PREVIEW_FAMILY_1_FRITZ_SCROLL_MS,
+  ONBOARDING_PREVIEW_FRITZ_SELECTOR,
   ONBOARDING_PREVIEW_SCROLL_MS,
 } from '../lib/family/onboardingPreviewFamily'
-import { slowScrollContainerToTop } from '../lib/slowScroll'
+import { slowScrollContainerToRevealElement, slowScrollContainerToTop } from '../lib/slowScroll'
 
-/** Onboarding-Vorschau: nach Intervall erst hochscrollen, dann Set 1 ↔ 2 wechseln. */
+/** Onboarding-Vorschau: Set 1 (10 s) ↔ Set 2 (10 s), dazwischen hochscrollen. */
 export function useHappyAllPreviewCycle(
   active: boolean,
   scrollContainerRef?: RefObject<HTMLElement | null>,
 ): boolean {
   const [showAlternate, setShowAlternate] = useState(false)
+  const showAlternateRef = useRef(false)
 
   useEffect(() => {
     if (!active) {
+      showAlternateRef.current = false
       setShowAlternate(false)
       return
     }
@@ -25,19 +32,48 @@ export function useHappyAllPreviewCycle(
     let waitTimer: number | undefined
 
     const scheduleNextCycle = () => {
+      const durationMs = showAlternateRef.current
+        ? ONBOARDING_PREVIEW_FAMILY_SET_2_MS
+        : ONBOARDING_PREVIEW_FAMILY_SET_1_MS
+
       waitTimer = window.setTimeout(async () => {
         if (cancelled) return
 
-        await slowScrollContainerToTop(scrollContainerRef?.current, {
+        const container = scrollContainerRef?.current
+        const leavingFamily1 = !showAlternateRef.current
+
+        if (leavingFamily1 && container) {
+          const fritzEl = container.querySelector(ONBOARDING_PREVIEW_FRITZ_SELECTOR)
+          if (fritzEl instanceof HTMLElement) {
+            await slowScrollContainerToRevealElement(container, fritzEl, {
+              topInsetPx: 12,
+              bottomInsetPx: 24,
+              durationMs: ONBOARDING_PREVIEW_FAMILY_1_FRITZ_SCROLL_MS,
+            })
+            if (cancelled) return
+            await new Promise<void>((resolve) => {
+              window.setTimeout(resolve, ONBOARDING_PREVIEW_FAMILY_1_FRITZ_HOLD_MS)
+            })
+            if (cancelled) return
+          }
+        }
+
+        await slowScrollContainerToTop(container, {
           durationMs: ONBOARDING_PREVIEW_SCROLL_MS,
         })
         if (cancelled) return
 
-        setShowAlternate((current) => !current)
+        setShowAlternate((current) => {
+          const next = !current
+          showAlternateRef.current = next
+          return next
+        })
         scheduleNextCycle()
-      }, HAPPY_ALL_PREVIEW_CYCLE_MS)
+      }, durationMs + ONBOARDING_PREVIEW_END_PAUSE_MS)
     }
 
+    showAlternateRef.current = false
+    setShowAlternate(false)
     scheduleNextCycle()
 
     return () => {

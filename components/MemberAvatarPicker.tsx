@@ -53,7 +53,12 @@ export default function MemberAvatarPicker({
         {canChange ? (
           <button
             type="button"
-            onClick={() => setScreenOpen(true)}
+            onClick={() => {
+              if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur()
+              }
+              setScreenOpen(true)
+            }}
             aria-label={`${legend} ändern`}
             className={`${PRESSABLE_3D_CLASS} group flex flex-col items-start gap-1 rounded-xl border-2 border-transparent p-0.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600`}
           >
@@ -71,6 +76,7 @@ export default function MemberAvatarPicker({
         open={screenOpen}
         onClose={closeScreen}
         options={resolved.options}
+        optionGroups={resolved.optionGroups}
         value={selected}
         onChange={onChange}
         title={legend}

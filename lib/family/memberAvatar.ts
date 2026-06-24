@@ -13,7 +13,6 @@ export type MemberAvatarCategory =
   | 'parent_male'
   | 'parent_female'
   | 'parent_opa'
-  | 'parent_oma'
   | 'child_boy_teen'
   | 'child_boy_young'
   | 'child_girl_teen'
@@ -22,24 +21,64 @@ export type MemberAvatarCategory =
 
 /** Pro Alters-/Rollen-Kategorie wählbare Portrait-Stämme (_1 = Happy-Basis). */
 export const PORTRAIT_OPTIONS_BY_CATEGORY: Record<Exclude<MemberAvatarCategory, 'unavailable'>, AvatarPortraitId[]> = {
-  parent_male: ['Mann_1_1', 'Mann_2_1'],
-  parent_female: ['Frau_1_1', 'Frau_2_1'],
-  parent_opa: ['Opa_1_1'],
-  parent_oma: ['Oma_1_1'],
+  parent_male: ['Mann_1_1', 'Mann_1_1b', 'Mann_2_1', 'Mann_2_1b', 'Mann_3_1'],
+  parent_female: ['Frau_1_1', 'Frau_1_1b', 'Frau_2_1', 'Frau_2_1b'],
+  parent_opa: ['Opa_1_1', 'Opa_2_1'],
   child_boy_teen: ['Junge_1_1', 'Junge_3_1'],
   child_boy_young: ['Junge_2_1', 'Junge_4_1'],
   child_girl_teen: ['Mädchen_1_1', 'Mädchen_3_1'],
   child_girl_young: ['Mädchen_2_1', 'Mädchen_4_1'],
 }
 
-const PORTRAIT_ID_PATTERN = /^(Mann|Frau|Opa|Oma|Junge|Mädchen)_\d+_\d+t?$/
-const PORTRAIT_ID_PARTS_PATTERN = /^(Mann|Frau|Opa|Oma|Junge|Mädchen)_(\d+)_(\d+)(t?)$/
+const PORTRAIT_ID_PATTERN = /^(Mann|Frau|Junge|Mädchen|Opa|Oma)_\d+_\d+t?$/
+const PORTRAIT_ID_PARTS_PATTERN = /^(Mann|Frau|Junge|Mädchen|Opa|Oma)_(\d+)_(\d+)(t?)$/
 
-/** Vorhandene Dateien unter /public/avatars/ — fehlende Stufen fallen auf die letzte verfügbare zurück. */
+/** Alternativer Mann_1-Start (anderer Beruf) — Stufe _2 … _4 wie Mann_1_1. */
+export const MANN_1_ALT_START_PORTRAIT_ID = 'Mann_1_1b' as const
+/** Alternativer Mann_2-Start — Stufe _2 … _4 wie Mann_2_1. */
+export const MANN_2_ALT_START_PORTRAIT_ID = 'Mann_2_1b' as const
+/** Alternativer Frau_1-Start — Stufe _2 … _4 wie Frau_1_1. */
+export const FRAU_1_ALT_START_PORTRAIT_ID = 'Frau_1_1b' as const
+/** Alternativer Frau_2-Start — Stufe _2 … _4 wie Frau_2_1. */
+export const FRAU_2_ALT_START_PORTRAIT_ID = 'Frau_2_1b' as const
+export const OPA_1_START_PORTRAIT_ID = 'Opa_1_1' as const
+
+const ALT_START_PORTRAIT_IDS = new Set<AvatarPortraitId>([
+  MANN_1_ALT_START_PORTRAIT_ID,
+  MANN_2_ALT_START_PORTRAIT_ID,
+  FRAU_1_ALT_START_PORTRAIT_ID,
+  FRAU_2_ALT_START_PORTRAIT_ID,
+])
+
+const PARENT_MALE_PORTRAIT_OPTIONS: readonly AvatarPortraitId[] = [
+  'Mann_1_1',
+  MANN_1_ALT_START_PORTRAIT_ID,
+  'Mann_2_1',
+  MANN_2_ALT_START_PORTRAIT_ID,
+  'Mann_3_1',
+]
+
+const PARENT_FEMALE_PORTRAIT_OPTIONS: readonly AvatarPortraitId[] = [
+  'Frau_1_1',
+  FRAU_1_ALT_START_PORTRAIT_ID,
+  'Frau_2_1',
+  FRAU_2_ALT_START_PORTRAIT_ID,
+]
+
+const PARENT_OPA_PORTRAIT_OPTIONS: readonly AvatarPortraitId[] = ['Opa_1_1', 'Opa_2_1']
+
+/** Vorhandene Dateien unter /public/avatars/ — via `npm run optimize:avatars` synchronisiert. */
 export const AVAILABLE_PORTRAIT_IDS = new Set<AvatarPortraitId>([
   'Frau_1_1',
+  'Frau_1_1b',
   'Frau_1_2',
+  'Frau_1_3',
+  'Frau_1_4',
   'Frau_2_1',
+  'Frau_2_1b',
+  'Frau_2_2',
+  'Frau_2_3',
+  'Frau_2_4',
   'Junge_1_1',
   'Junge_1_2',
   'Junge_1_3t',
@@ -53,9 +92,23 @@ export const AVAILABLE_PORTRAIT_IDS = new Set<AvatarPortraitId>([
   'Junge_3_1',
   'Junge_4_1',
   'Mann_1_1',
+  'Mann_1_1b',
   'Mann_1_2',
   'Mann_1_3',
+  'Mann_1_4',
   'Mann_2_1',
+  'Mann_2_1b',
+  'Mann_2_2',
+  'Mann_2_3',
+  'Mann_2_4',
+  'Mann_3_1',
+  'Mann_3_2',
+  'Mann_3_3',
+  'Mann_3_4',
+  'Opa_1_1',
+  'Opa_1_2',
+  'Opa_2_1',
+  'Opa_2_2',
   'Mädchen_1_1',
   'Mädchen_1_2',
   'Mädchen_1_3',
@@ -63,12 +116,15 @@ export const AVAILABLE_PORTRAIT_IDS = new Set<AvatarPortraitId>([
   'Mädchen_1_5',
   'Mädchen_1_6',
   'Mädchen_2_1',
+  'Mädchen_2_2',
+  'Mädchen_2_3',
+  'Mädchen_2_4',
   'Mädchen_3_1',
   'Mädchen_4_1',
 ])
 
 export function isPortraitId(value: string): boolean {
-  return PORTRAIT_ID_PATTERN.test(value)
+  return PORTRAIT_ID_PATTERN.test(value) || ALT_START_PORTRAIT_IDS.has(value)
 }
 
 export function portraitSrc(portraitId: AvatarPortraitId): string {
@@ -86,6 +142,35 @@ function parsePortraitStem(portraitId: AvatarPortraitId): { stem: string; suffix
   return { stem: `${match[1]}_${match[2]}`, suffix: match[4] ?? '' }
 }
 
+type PortraitXpBase = {
+  stem: string
+  tier1PortraitId: AvatarPortraitId
+  suffix: string
+}
+
+/** Mann_1_1b / Mann_2_1b / Frau_1_1b / Frau_2_1b teilen XP-Stufen _2 … _N mit dem jeweiligen _1-Stamm. */
+function portraitXpBase(portraitId: AvatarPortraitId): PortraitXpBase | null {
+  if (portraitId === MANN_1_ALT_START_PORTRAIT_ID) {
+    return { stem: 'Mann_1', tier1PortraitId: MANN_1_ALT_START_PORTRAIT_ID, suffix: '' }
+  }
+  if (portraitId === MANN_2_ALT_START_PORTRAIT_ID) {
+    return { stem: 'Mann_2', tier1PortraitId: MANN_2_ALT_START_PORTRAIT_ID, suffix: '' }
+  }
+  if (portraitId === FRAU_1_ALT_START_PORTRAIT_ID) {
+    return { stem: 'Frau_1', tier1PortraitId: FRAU_1_ALT_START_PORTRAIT_ID, suffix: '' }
+  }
+  if (portraitId === FRAU_2_ALT_START_PORTRAIT_ID) {
+    return { stem: 'Frau_2', tier1PortraitId: FRAU_2_ALT_START_PORTRAIT_ID, suffix: '' }
+  }
+  const parsed = parsePortraitStem(portraitId)
+  if (!parsed) return null
+  return {
+    stem: parsed.stem,
+    tier1PortraitId: `${parsed.stem}_1${parsed.suffix}` as AvatarPortraitId,
+    suffix: parsed.suffix,
+  }
+}
+
 /** Gespeichertes Portrait (evtl. XP-Stufe) auf wählbare Basis-Option mappen. */
 export function basePortraitOptionForOptions(
   portraitId: AvatarPortraitId | null | undefined,
@@ -93,6 +178,9 @@ export function basePortraitOptionForOptions(
 ): AvatarPortraitId | null {
   if (options.length === 0) return null
   if (portraitId && options.includes(portraitId)) return portraitId
+  if (portraitId && ALT_START_PORTRAIT_IDS.has(portraitId) && options.includes(portraitId)) {
+    return portraitId
+  }
   const parsed = portraitId ? parsePortraitStem(portraitId) : null
   if (parsed) {
     for (const option of options) {
@@ -117,46 +205,145 @@ function portraitIdCandidates(stem: string, tier: number, suffix: string): Avata
   return primary === withTeenSuffix ? [primary] : [primary, withTeenSuffix]
 }
 
+function maxPortraitTierForStem(stem: string, availableIds: ReadonlySet<string>): number {
+  let max = 1
+  for (let tier = 2; tier <= 6; tier++) {
+    const plain = `${stem}_${tier}` as AvatarPortraitId
+    const teen = `${stem}_${tier}t` as AvatarPortraitId
+    if (availableIds.has(plain) || availableIds.has(teen)) max = tier
+  }
+  return max
+}
+
+/** Feste Stufenzahl pro Stamm — verhindert 2-Stufen-Fallback wenn nur _1/_2 erkannt werden. */
+const PORTRAIT_STEM_MAX_TIER: Readonly<Record<string, number>> = {
+  Junge_1: 6,
+  Mädchen_1: 6,
+  Mann_1: 4,
+  Mann_2: 4,
+  Mann_3: 4,
+  Frau_1: 4,
+  Frau_2: 4,
+  Junge_2: 4,
+  Mädchen_2: 4,
+  Opa_1: 2,
+  Opa_2: 2,
+}
+
+function resolveMaxPortraitTier(stem: string, availableIds: ReadonlySet<string>): number {
+  const detected = maxPortraitTierForStem(stem, availableIds)
+  const expected = PORTRAIT_STEM_MAX_TIER[stem]
+  if (expected === undefined) return detected
+  return Math.max(detected, expected)
+}
+
 export function portraitIdForDailyXp(
   basePortraitId: AvatarPortraitId,
   todayXp: number,
   availableIds: ReadonlySet<string> = AVAILABLE_PORTRAIT_IDS,
 ): AvatarPortraitId {
-  const parsed = parsePortraitStem(basePortraitId)
-  if (!parsed) return basePortraitId
+  const xpBase = portraitXpBase(basePortraitId)
+  if (!xpBase) return basePortraitId
 
-  const targetTier = memberPortraitTierFromDailyXp(todayXp)
-  for (let tier = targetTier; tier >= 1; tier--) {
-    for (const candidate of portraitIdCandidates(parsed.stem, tier, parsed.suffix)) {
+  const { stem, tier1PortraitId, suffix } = xpBase
+  const maxTier = resolveMaxPortraitTier(stem, availableIds)
+  const targetTier = memberPortraitTierFromDailyXp(todayXp, maxTier)
+
+  if (targetTier === 1 && availableIds.has(tier1PortraitId)) {
+    return tier1PortraitId
+  }
+
+  for (let tier = targetTier; tier >= 2; tier--) {
+    for (const candidate of portraitIdCandidates(stem, tier, suffix)) {
       if (availableIds.has(candidate)) return candidate
     }
   }
 
-  return basePortraitId
+  return availableIds.has(tier1PortraitId) ? tier1PortraitId : basePortraitId
 }
 
 export function portraitIdFromStored(value: string | null | undefined): AvatarPortraitId | null {
   if (!value || typeof value !== 'string') return null
   const raw = value
   if (isPortraitId(raw)) return raw
+  if (ALT_START_PORTRAIT_IDS.has(raw)) return raw
   if (raw.startsWith(`${AVATAR_BASE}/`)) {
     const base = raw.slice(AVATAR_BASE.length + 1).replace(/\.webp$/i, '')
+    if (ALT_START_PORTRAIT_IDS.has(base)) return base
     return isPortraitId(base) ? base : null
   }
   return null
 }
 
 export function memberAvatarCategoryForParent(gender: ParentGender): MemberAvatarCategory {
-  switch (gender) {
-    case 'male':
-      return 'parent_male'
-    case 'female':
-      return 'parent_female'
-    case 'opa':
-      return 'parent_opa'
-    case 'oma':
-      return 'parent_oma'
+  if (gender === 'female' || gender === 'oma') return 'parent_female'
+  if (gender === 'opa') return 'parent_opa'
+  return 'parent_male'
+}
+
+/** Opa: Opa 1 & 2 oben, darunter alle Papa-Portraits — Papa/Mama unverändert. */
+export function portraitOptionGroupsForParent(
+  gender: ParentGender,
+): readonly (readonly AvatarPortraitId[])[] {
+  if (gender === 'opa') {
+    return [PARENT_OPA_PORTRAIT_OPTIONS, PARENT_MALE_PORTRAIT_OPTIONS]
   }
+  if (gender === 'male') {
+    return [PARENT_MALE_PORTRAIT_OPTIONS]
+  }
+  return [PARENT_FEMALE_PORTRAIT_OPTIONS]
+}
+
+export function portraitOptionsForParent(gender: ParentGender): AvatarPortraitId[] {
+  return portraitOptionGroupsForParent(gender).flatMap((group) => [...group])
+}
+
+export function defaultPortraitForParent(gender: ParentGender): AvatarPortraitId | null {
+  if (gender === 'female' || gender === 'oma') return 'Frau_2_1'
+  if (gender === 'opa') return OPA_1_START_PORTRAIT_ID
+  return portraitOptionGroupsForParent(gender)[0]?.[0] ?? null
+}
+
+function parentPortraitOptionGroupsUi(
+  groups: readonly (readonly AvatarPortraitId[])[],
+): readonly (readonly AvatarPortraitId[])[] | undefined {
+  return groups.length > 1 ? groups : undefined
+}
+
+const CHILD_BOY_TEEN_PORTRAITS: readonly AvatarPortraitId[] = ['Junge_1_1', 'Junge_3_1']
+const CHILD_BOY_YOUNG_PORTRAITS: readonly AvatarPortraitId[] = ['Junge_2_1', 'Junge_4_1']
+const CHILD_GIRL_TEEN_PORTRAITS: readonly AvatarPortraitId[] = ['Mädchen_1_1', 'Mädchen_3_1']
+const CHILD_GIRL_YOUNG_PORTRAITS: readonly AvatarPortraitId[] = ['Mädchen_2_1', 'Mädchen_4_1']
+
+function childPortraitAgeYears(age: number | null | undefined): number | null {
+  if (age === null || age === undefined || !Number.isFinite(age)) return null
+  return Math.floor(age)
+}
+
+/** Jungen & Mädchen: ab 9 Jahren Stämme 1 & 3 oben, 2 & 4 darunter — unter 9 umgekehrt. Alle vier wählbar. */
+export function portraitOptionGroupsForChild(
+  gender: ChildGender,
+  age: number | null | undefined,
+): readonly (readonly AvatarPortraitId[])[] {
+  const teen = gender === 'boy' ? CHILD_BOY_TEEN_PORTRAITS : CHILD_GIRL_TEEN_PORTRAITS
+  const young = gender === 'boy' ? CHILD_BOY_YOUNG_PORTRAITS : CHILD_GIRL_YOUNG_PORTRAITS
+  const years = childPortraitAgeYears(age)
+  const preferTeen = years === null ? true : years >= 9
+  return preferTeen ? [teen, young] : [young, teen]
+}
+
+export function portraitOptionsForChild(
+  gender: ChildGender,
+  age: number | null | undefined,
+): AvatarPortraitId[] {
+  return portraitOptionGroupsForChild(gender, age).flatMap((group) => [...group])
+}
+
+export function defaultPortraitForChild(
+  gender: ChildGender,
+  age: number | null | undefined,
+): AvatarPortraitId | null {
+  return portraitOptionGroupsForChild(gender, age)[0]?.[0] ?? null
 }
 
 export function memberAvatarCategoryForChild(
@@ -193,25 +380,30 @@ export type ResolvedMemberAvatar = {
   portraitId: AvatarPortraitId | null
   src: string | null
   options: AvatarPortraitId[]
+  /** Alters-/Opa-Gruppen: passende Portraits oben, weitere darunter — alle wählbar. */
+  optionGroups?: readonly (readonly AvatarPortraitId[])[]
   error: string | null
 }
 
-/** Onboarding: Auswahl ohne Alter — Opa/Oma nutzen dieselben Stämme wie Papa/Mama. */
-export const ONBOARDING_PORTRAIT_OPTIONS_BY_GENDER: Record<OnboardingPortraitGender, AvatarPortraitId[]> = {
-  male: ['Mann_1_1', 'Mann_2_1'],
-  female: ['Frau_1_1', 'Frau_2_1'],
-  opa: ['Mann_1_1', 'Mann_2_1'],
-  oma: ['Frau_1_1', 'Frau_2_1'],
+/** Onboarding: Kinder ohne Alter — Eltern über portraitOptionsForParent. */
+const ONBOARDING_CHILD_PORTRAIT_OPTIONS: Record<ChildGender, AvatarPortraitId[]> = {
   boy: ['Junge_1_1', 'Junge_2_1', 'Junge_3_1', 'Junge_4_1'],
   girl: ['Mädchen_1_1', 'Mädchen_2_1', 'Mädchen_3_1', 'Mädchen_4_1'],
 }
 
+function isParentPortraitGender(gender: OnboardingPortraitGender): gender is ParentGender {
+  return gender === 'male' || gender === 'female' || gender === 'opa' || gender === 'oma'
+}
+
 export function portraitOptionsForOnboardingGender(gender: OnboardingPortraitGender): AvatarPortraitId[] {
-  return ONBOARDING_PORTRAIT_OPTIONS_BY_GENDER[gender]
+  if (isParentPortraitGender(gender)) return portraitOptionsForParent(gender)
+  return ONBOARDING_CHILD_PORTRAIT_OPTIONS[gender]
 }
 
 export function defaultOnboardingPortrait(gender: OnboardingPortraitGender): AvatarPortraitId {
-  return ONBOARDING_PORTRAIT_OPTIONS_BY_GENDER[gender][0]
+  if (gender === 'female' || gender === 'oma') return 'Frau_2_1'
+  if (gender === 'opa') return OPA_1_START_PORTRAIT_ID
+  return portraitOptionsForOnboardingGender(gender)[0]
 }
 
 export function coerceOnboardingPortrait(
@@ -219,7 +411,10 @@ export function coerceOnboardingPortrait(
   portraitId: AvatarPortraitId | null | undefined,
 ): AvatarPortraitId {
   const options = portraitOptionsForOnboardingGender(gender)
-  if (portraitId && options.includes(portraitId)) return portraitId
+  const matched = basePortraitOptionForOptions(portraitId, options)
+  if (matched) return matched
+  if (gender === 'female' || gender === 'oma') return 'Frau_2_1'
+  if (gender === 'opa') return OPA_1_START_PORTRAIT_ID
   return options[0]
 }
 
@@ -229,11 +424,15 @@ export function resolveOnboardingAvatar(
 ): ResolvedMemberAvatar {
   const options = portraitOptionsForOnboardingGender(gender)
   const resolvedId = coerceOnboardingPortrait(gender, portraitId)
+  const optionGroups = isParentPortraitGender(gender)
+    ? parentPortraitOptionGroupsUi(portraitOptionGroupsForParent(gender))
+    : undefined
   return {
     category: 'unavailable',
     portraitId: resolvedId,
     src: portraitSrc(resolvedId),
     options,
+    optionGroups,
     error: null,
   }
 }
@@ -244,10 +443,11 @@ export function resolveParentAvatar(
   resolveOptions?: ResolveMemberAvatarOptions,
 ): ResolvedMemberAvatar {
   const category = memberAvatarCategoryForParent(gender)
-  const options = portraitOptionsForCategory(category)
+  const optionGroups = portraitOptionGroupsForParent(gender)
+  const options = portraitOptionsForParent(gender)
   const stored = portraitIdFromStored(storedAvatarUrl)
   let portraitId =
-    stored && options.includes(stored) ? stored : defaultPortraitForCategory(category)
+    basePortraitOptionForOptions(stored, options) ?? defaultPortraitForParent(gender)
 
   if (portraitId && resolveOptions?.todayXp !== undefined) {
     portraitId = portraitIdForDailyXp(portraitId, resolveOptions.todayXp)
@@ -258,6 +458,7 @@ export function resolveParentAvatar(
     portraitId,
     src: portraitId ? portraitSrc(portraitId) : null,
     options,
+    optionGroups: parentPortraitOptionGroupsUi(optionGroups),
     error: null,
   }
 }
@@ -268,22 +469,34 @@ export function resolveChildAvatar(
   storedPortraitId: string | null | undefined,
   resolveOptions?: ResolveMemberAvatarOptions,
 ): ResolvedMemberAvatar {
+  const years = childPortraitAgeYears(age)
   const category = memberAvatarCategoryForChild(gender, age)
-  const options = portraitOptionsForCategory(category)
 
-  if (category === 'unavailable') {
+  if (years === null) {
     return {
-      category,
+      category: 'unavailable',
       portraitId: null,
       src: null,
       options: [],
-      error: age === null || age === undefined ? 'Bitte Alter angeben für ein Portrait.' : null,
+      error: 'Bitte Alter angeben für ein Portrait.',
     }
   }
 
+  if (years < 2) {
+    return {
+      category: 'unavailable',
+      portraitId: null,
+      src: null,
+      options: [],
+      error: null,
+    }
+  }
+
+  const optionGroups = portraitOptionGroupsForChild(gender, age)
+  const options = portraitOptionsForChild(gender, age)
   const stored = portraitIdFromStored(storedPortraitId)
   let portraitId =
-    stored && options.includes(stored) ? stored : defaultPortraitForCategory(category)
+    basePortraitOptionForOptions(stored, options) ?? defaultPortraitForChild(gender, age)
 
   if (portraitId && resolveOptions?.todayXp !== undefined) {
     portraitId = portraitIdForDailyXp(portraitId, resolveOptions.todayXp)
@@ -294,6 +507,7 @@ export function resolveChildAvatar(
     portraitId,
     src: portraitId ? portraitSrc(portraitId) : null,
     options,
+    optionGroups,
     error: null,
   }
 }

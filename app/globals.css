@@ -515,6 +515,26 @@ html.lifexp-keyboard-open.dark body::before {
   }
 }
 
+@keyframes lifexp-onboarding-promo-settle {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 11dvh, 0);
+  }
+}
+
+.lifexp-onboarding-promo-settle {
+  animation: lifexp-onboarding-promo-settle 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lifexp-onboarding-promo-settle {
+    animation: none;
+    transform: translate3d(0, 11dvh, 0);
+  }
+}
+
 @keyframes lifexp-celebrate-emoji-static {
   0%,
   78% {

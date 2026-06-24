@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import {
   canShowNativeInstallPrompt,
   getPwaInstallPlatform,
+  isIosDevice,
   isStandaloneDisplayMode,
   LIFEXP_PWA_INSTALL_PROMPT_READY_EVENT,
   requestPwaInstall,
@@ -181,6 +182,8 @@ export default function PwaInstallPanel({
       }
       if (platform === 'android' && !canShowNativeInstallPrompt()) {
         setHint('Öffne LifeXP Family in Chrome und warte kurz — dann erscheint „Installieren“.')
+      } else if (!isIosDevice() && !canShowNativeInstallPrompt()) {
+        setHint('Warte kurz — der Installieren-Button erscheint gleich.')
       }
     } finally {
       setInstalling(false)
@@ -228,7 +231,7 @@ export default function PwaInstallPanel({
         </button>
       ) : null}
 
-      {canInstall && platform === 'android' ? (
+      {canInstall && !isIosDevice() ? (
         <button
           type="button"
           disabled={installing}

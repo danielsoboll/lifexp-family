@@ -1,6 +1,12 @@
 import type { ChildProfile } from './types'
 import { canAdminForChildProfile } from './memberAdmin'
-import { defaultPortraitForCategory, isPortraitId, memberAvatarCategoryForChild, portraitIdFromStored, portraitOptionsForCategory } from './memberAvatar'
+import {
+  defaultPortraitForChild,
+  isPortraitId,
+  portraitIdFromStored,
+  portraitOptionsForChild,
+  basePortraitOptionForOptions,
+} from './memberAvatar'
 import { normalizeMemberAccentKey } from './memberAccentColor'
 import { normalizeChildGender } from './memberGender'
 
@@ -41,12 +47,15 @@ function resolvePortraitId(
   age: number | null,
   rawKey: string,
 ): string | null {
-  const category = memberAvatarCategoryForChild(gender, age)
+  if (age === null || age < 2) return null
+
+  const options = portraitOptionsForChild(gender, age)
   const stored = portraitIdFromStored(rawKey)
-  if (stored && isPortraitId(stored) && portraitOptionsForCategory(category).includes(stored)) {
-    return stored
+  if (stored && isPortraitId(stored)) {
+    const matched = basePortraitOptionForOptions(stored, options)
+    if (matched) return matched
   }
-  return defaultPortraitForCategory(category)
+  return defaultPortraitForChild(gender, age)
 }
 
 export function mapChildProfileRow(row: ChildProfileRow): ChildProfile | null {
