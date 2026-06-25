@@ -29,10 +29,10 @@ import { firstOtherMemberHref, markSetupGuideAdminVisited, setupGuideTargetAttr 
 import {
   ONBOARDING_PREVIEW_FAMILY_SET_1,
   ONBOARDING_PREVIEW_FAMILY_SET_2,
-  ONBOARDING_PREVIEW_FAMILY_1_INTRO_MS,
+  ONBOARDING_PREVIEW_FAMILY_INTRO_MS,
   ONBOARDING_PREVIEW_SCROLL_MS,
 } from '../lib/family/onboardingPreviewFamily'
-import { ONBOARDING_PREVIEW_STEP_MS, previewMemberTodayXp, sumPreviewFamilyTodayXp } from '../lib/family/onboardingPreviewXpTimeline'
+import { previewMemberTodayXp, sumPreviewFamilyTodayXp } from '../lib/family/onboardingPreviewXpTimeline'
 import { cetFormatLongDateDe, cetToday } from '../lib/cetDate'
 import { HOME_PAGE_INSET_CLASS, MAIN_SHELL_CLASS } from '../lib/appShell'
 import { slowScrollContainerToElement, slowScrollToElement, slowScrollToRevealElement } from '../lib/slowScroll'
@@ -222,13 +222,12 @@ export default function FamilyDashboard({
     const parentsEl = previewParentsRef.current
     if (!container || !parentsEl) return
 
-    const scrollDelayMs = previewAlternate ? ONBOARDING_PREVIEW_STEP_MS : ONBOARDING_PREVIEW_FAMILY_1_INTRO_MS
     const timer = window.setTimeout(() => {
       void slowScrollContainerToElement(container, parentsEl, {
         topInsetPx: 12,
         durationMs: ONBOARDING_PREVIEW_SCROLL_MS,
       })
-    }, scrollDelayMs)
+    }, ONBOARDING_PREVIEW_FAMILY_INTRO_MS)
 
     return () => window.clearTimeout(timer)
   }, [preview, previewAlternate, previewScrollContainerRef])

@@ -4,12 +4,31 @@ export type FamilyMemberRole = 'owner' | 'parent' | 'child'
 export type QuestRecurrence = 'once' | 'daily' | 'weekly'
 export type XpEntrySource = 'quest' | 'bonus' | 'challenge' | 'manual' | 'redemption_adjustment' | 'streak'
 
+export type FamilyPlan = 'free' | 'plus'
+
+export type FamilySubscriptionStatus =
+  | 'active'
+  | 'trialing'
+  | 'past_due'
+  | 'canceled'
+  | 'unpaid'
+  | 'incomplete'
+  | 'incomplete_expired'
+  | 'paused'
+  | string
+
 export type Family = {
   id: string
   name: string
   invite_code: string | null
   timezone: string
   accent_key: string
+  plan: FamilyPlan
+  subscription_status: FamilySubscriptionStatus | null
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  plus_until: string | null
+  trial_ends_at: string | null
   guide_welcome_seen: boolean
   guide_quest_seen: boolean
   guide_invite_seen: boolean

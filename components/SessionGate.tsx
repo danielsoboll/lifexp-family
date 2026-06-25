@@ -4,7 +4,13 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 import { useFamily } from './FamilyProvider'
+import {
+  bootstrapFamilySessionAfterExternalRedirect,
+  isBillingReturnPath,
+  notifyFamilySessionRestoredIfNeeded,
+} from '../lib/family/billingReturn'
 import { HOME_PATH, isPublicLegalPath } from '../lib/legalRoutes'
+import { hasFamilySession } from '../lib/familySession'
 import { runProductionDomainFreshStartIfNeeded } from '../lib/productionDomainFreshStart'
 import { MAIN_SHELL_CLASS } from '../lib/appShell'
 
@@ -23,15 +29,26 @@ export default function SessionGate({ children }: { children: React.ReactNode })
     if (!hydrated) return
 
     runProductionDomainFreshStartIfNeeded()
+    const storedSession = bootstrapFamilySessionAfterExternalRedirect()
+    notifyFamilySessionRestoredIfNeeded(storedSession, hasSession)
 
     if (isPublicLegalPath(pathname)) {
       setRedirecting(false)
       return
     }
 
+    if (isBillingReturnPath(pathname)) {
+      if (familyLoading && (hasSession || storedSession || hasFamilySession())) {
+        return
+      }
+      setRedirecting(false)
+      return
+    }
+
     if (familyLoading) return
 
-    if (!hasSession && pathname !== HOME_PATH) {
+    const sessionKnown = hasSession || hasFamilySession()
+    if (!sessionKnown && pathname !== HOME_PATH) {
       setRedirecting(true)
       router.replace(HOME_PATH)
       return
@@ -45,7 +62,8 @@ export default function SessionGate({ children }: { children: React.ReactNode })
   }
 
   const showLoader =
-    redirecting || (familyLoading && hasSession && !isPublicLegalPath(pathname))
+    redirecting ||
+    (familyLoading && (hasSession || hasFamilySession() || isBillingReturnPath(pathname)) && !isPublicLegalPath(pathname))
 
   if (showLoader) {
     return (

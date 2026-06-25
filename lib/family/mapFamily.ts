@@ -1,8 +1,16 @@
 import { normalizeMemberAccentKey } from './memberAccentColor'
-import type { Family } from './types'
+import type { Family, FamilyPlan, FamilySubscriptionStatus } from './types'
 
 function boolValue(value: unknown, fallback = false): boolean {
   return typeof value === 'boolean' ? value : fallback
+}
+
+function planValue(value: unknown): FamilyPlan {
+  return value === 'plus' ? 'plus' : 'free'
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null
 }
 
 export function mapFamilyRow(row: Record<string, unknown>): Family {
@@ -12,6 +20,12 @@ export function mapFamilyRow(row: Record<string, unknown>): Family {
     invite_code: typeof row.invite_code === 'string' ? row.invite_code : null,
     timezone: typeof row.timezone === 'string' ? row.timezone : 'Europe/Berlin',
     accent_key: normalizeMemberAccentKey(row.accent_key),
+    plan: planValue(row.plan),
+    subscription_status: nullableString(row.subscription_status) as FamilySubscriptionStatus | null,
+    stripe_customer_id: nullableString(row.stripe_customer_id),
+    stripe_subscription_id: nullableString(row.stripe_subscription_id),
+    plus_until: nullableString(row.plus_until),
+    trial_ends_at: nullableString(row.trial_ends_at),
     guide_welcome_seen: boolValue(row.guide_welcome_seen),
     guide_quest_seen: boolValue(row.guide_quest_seen),
     guide_invite_seen: boolValue(row.guide_invite_seen),

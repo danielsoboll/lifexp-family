@@ -6,13 +6,14 @@ import { useEffect, useRef, useState } from 'react'
 import AdminScrollPage from '../../../components/AdminScrollPage'
 import DangerConfirmAction from '../../../components/DangerConfirmAction'
 import FamilyQuestAccentEditor from '../../../components/FamilyQuestAccentEditor'
+import FamilyPlusBillingControls from '../../../components/FamilyPlusBillingControls'
 import MemberRecoveryAdminSection from '../../../components/MemberRecoveryAdminSection'
 import PageHeaderBar from '../../../components/PageHeaderBar'
 import { useFamily } from '../../../components/FamilyProvider'
 import { deleteFamilyById } from '../../../lib/family/admin'
 import { markSetupGuideAdminVisited } from '../../../lib/family/setupGuide'
 import { resetLifeXpFamilyClientState } from '../../../lib/familySession'
-import { MUTED_BODY_TEXT_CLASS } from '../../../lib/appShell'
+import { CARD_SURFACE_CLASS, MUTED_BODY_TEXT_CLASS } from '../../../lib/appShell'
 
 export default function AdminSettingsPage() {
   const router = useRouter()
@@ -73,6 +74,18 @@ export default function AdminSettingsPage() {
         <p className={MUTED_BODY_TEXT_CLASS}>Wird geladen …</p>
       ) : (
         <div className="space-y-4">
+          {family ? (
+            <section className={`${CARD_SURFACE_CLASS} space-y-3 rounded-2xl p-4`}>
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">LifeXP Family PLUS</h2>
+                <p className={`mt-1 ${MUTED_BODY_TEXT_CLASS}`}>
+                  Ein Abo für die ganze Familie — 4,99 €/Monat, alle Mitglieder freigeschaltet.
+                </p>
+              </div>
+              <FamilyPlusBillingControls family={family} />
+            </section>
+          ) : null}
+
           {family ? (
             <FamilyQuestAccentEditor family={family} />
           ) : null}

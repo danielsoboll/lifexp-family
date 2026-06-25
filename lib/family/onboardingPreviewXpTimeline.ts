@@ -1,4 +1,4 @@
-import { ONBOARDING_PREVIEW_FAMILY_SET_2_MS } from './onboardingPreviewFamily'
+import { ONBOARDING_PREVIEW_FAMILY_INTRO_MS } from './onboardingPreviewFamily'
 
 /** XP-Sprünge — Mitglieder und Banner-Unterschrift gemeinsam alle 2 s (5 Schritte / 10 s). */
 export const ONBOARDING_PREVIEW_STEP_MS = 2000
@@ -45,11 +45,8 @@ export function onboardingPreviewXpTimeline(alternateFamily: boolean): readonly 
   return alternateFamily ? ONBOARDING_PREVIEW_XP_TIMELINE_SET_2 : ONBOARDING_PREVIEW_XP_TIMELINE_SET_1
 }
 
-export function onboardingPreviewXpStepMs(alternateFamily: boolean): number {
-  if (!alternateFamily) return ONBOARDING_PREVIEW_STEP_MS
-  const timeline = onboardingPreviewXpTimeline(alternateFamily)
-  const setMs = ONBOARDING_PREVIEW_FAMILY_SET_2_MS
-  return Math.max(500, Math.floor(setMs / timeline.length))
+export function onboardingPreviewXpStepMs(_alternateFamily: boolean): number {
+  return ONBOARDING_PREVIEW_STEP_MS
 }
 
 export function sumPreviewFamilyTodayXp(step: number, alternateFamily: boolean): number {

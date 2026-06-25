@@ -1,13 +1,16 @@
 import type { ChildGender } from './memberGender'
 
-/** Familie 1: Happy-Banner zuerst, danach Scroll + XP-Takt (nur Flow, gleiche 2-s-Schritte). */
-export const ONBOARDING_PREVIEW_FAMILY_1_INTRO_MS = 2000
+/** Beide Familien: Happy-Banner zuerst, danach Scroll + XP-Takt. */
+export const ONBOARDING_PREVIEW_FAMILY_INTRO_MS = 2000
+
+/** @deprecated Nutze ONBOARDING_PREVIEW_FAMILY_INTRO_MS */
+export const ONBOARDING_PREVIEW_FAMILY_1_INTRO_MS = ONBOARDING_PREVIEW_FAMILY_INTRO_MS
 
 /** Familie 1 in der Onboarding-Vorschau — Intro 2 s + 4×2 s XP + 2 s Haltephase. */
 export const ONBOARDING_PREVIEW_FAMILY_SET_1_MS = 12000
 
-/** Familie 2 — gleiche Anzeigedauer wie Set 1; Promo-Banner in den letzten 4 s. */
-export const ONBOARDING_PREVIEW_FAMILY_SET_2_MS = 10000
+/** Familie 2 — Intro 2 s + 4×2 s XP + 2 s Haltephase; Promo in den letzten 4 s der XP-Phase. */
+export const ONBOARDING_PREVIEW_FAMILY_SET_2_MS = 12000
 
 /** Promo-Banner erscheint so viele ms nach Start von Familie 2. */
 export const ONBOARDING_PREVIEW_FAMILY_2_PROMO_DELAY_MS = 5000
