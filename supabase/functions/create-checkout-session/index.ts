@@ -55,6 +55,8 @@ serve(async (req) => {
       client_reference_id: familyId,
       metadata: {
         family_id: familyId,
+        member_kind: memberKind,
+        member_id: memberId,
       },
       subscription_data: {
         metadata: {

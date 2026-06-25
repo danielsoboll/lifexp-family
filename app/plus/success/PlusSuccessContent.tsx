@@ -13,35 +13,44 @@ export default function PlusSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
-  const { family, refresh, loading, hasSession } = useFamily()
+  const { family, refresh } = useFamily()
   const [polls, setPolls] = useState(0)
 
-  const { bootstrapped } = useBillingReturnRecovery({ redirectWhenReady: false })
+  const { bootstrapped, recovering, hasSession: sessionActive, loading: recoveryLoading } =
+    useBillingReturnRecovery({
+      redirectWhenReady: false,
+      stripeSessionId: sessionId,
+    })
+
+  const waiting = !bootstrapped || recovering || recoveryLoading
 
   useEffect(() => {
-    if (!bootstrapped || loading || !hasSession) return
+    if (waiting || !sessionActive) return
     void refresh().then(() => notifyFamilyDataChanged())
-  }, [bootstrapped, loading, hasSession, refresh])
+  }, [waiting, sessionActive, refresh])
 
   useEffect(() => {
-    if (!bootstrapped || loading || !hasSession) return
-    if (isFamilyPlus(family) || polls >= 6) return
+    if (waiting || !sessionActive) return
+    if (isFamilyPlus(family) || polls >= 8) return
     const timer = window.setTimeout(() => {
       setPolls((count) => count + 1)
       void refresh().then(() => notifyFamilyDataChanged())
     }, 1500)
     return () => window.clearTimeout(timer)
-  }, [bootstrapped, loading, hasSession, family, polls, refresh])
+  }, [waiting, sessionActive, family, polls, refresh])
 
   useEffect(() => {
-    if (!bootstrapped || loading || !hasSession) return
+    if (waiting || !sessionActive) return
+    const plusReady = isFamilyPlus(family)
+    const pollsDone = polls >= 8
+    if (!plusReady && !pollsDone) return
     const timer = window.setTimeout(() => {
       router.replace(BILLING_RETURN_TARGET_PATH)
-    }, isFamilyPlus(family) ? 400 : 1200)
+    }, plusReady ? 400 : 800)
     return () => window.clearTimeout(timer)
-  }, [bootstrapped, loading, hasSession, family, router])
+  }, [waiting, sessionActive, family, polls, router])
 
-  if (bootstrapped && !loading && !hasSession) {
+  if (bootstrapped && !recovering && !recoveryLoading && !sessionActive) {
     return (
       <main className={`${MAIN_SHELL_CLASS} ${HOME_PAGE_INSET_CLASS} mx-auto flex w-full max-w-lg flex-col gap-4 px-4`}>
         <div className={`${CARD_SURFACE_CLASS} rounded-2xl p-5`}>
@@ -50,6 +59,13 @@ export default function PlusSuccessContent() {
             Die Zahlung war erfolgreich — bitte mit deinem Recovery-Code wieder verbinden. PLUS wird danach automatisch
             aktiv.
           </p>
+          <button
+            type="button"
+            onClick={() => router.replace('/')}
+            className={`${PRESSABLE_3D_CLASS} mt-5 w-full rounded-xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-400 to-emerald-600 px-4 py-3 text-sm font-bold text-white`}
+          >
+            Zur Startseite
+          </button>
         </div>
       </main>
     )
@@ -64,15 +80,21 @@ export default function PlusSuccessContent() {
           {sessionId ? ' …' : '.'}
         </p>
         <p className="mt-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-          {isFamilyPlus(family) ? 'LifeXP Family PLUS ist aktiv.' : 'Weiterleitung zu den Einstellungen …'}
+          {waiting
+            ? 'Familie wird wieder verbunden …'
+            : isFamilyPlus(family)
+              ? 'LifeXP Family PLUS ist aktiv.'
+              : 'Weiterleitung zu den Einstellungen …'}
         </p>
-        <button
-          type="button"
-          onClick={() => router.replace(BILLING_RETURN_TARGET_PATH)}
-          className={`${PRESSABLE_3D_CLASS} mt-5 w-full rounded-xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-400 to-emerald-600 px-4 py-3 text-sm font-bold text-white`}
-        >
-          Zu den Einstellungen
-        </button>
+        {!waiting ? (
+          <button
+            type="button"
+            onClick={() => router.replace(BILLING_RETURN_TARGET_PATH)}
+            className={`${PRESSABLE_3D_CLASS} mt-5 w-full rounded-xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-400 to-emerald-600 px-4 py-3 text-sm font-bold text-white`}
+          >
+            Zu den Einstellungen
+          </button>
+        ) : null}
       </div>
     </main>
   )

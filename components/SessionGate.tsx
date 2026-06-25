@@ -5,10 +5,11 @@ import { useEffect, useState } from 'react'
 
 import { useFamily } from './FamilyProvider'
 import {
-  bootstrapFamilySessionAfterExternalRedirect,
   isBillingReturnPath,
   notifyFamilySessionRestoredIfNeeded,
+  recoverFamilySessionAfterBillingRedirect,
 } from '../lib/family/billingReturn'
+import { bootstrapPwaClientStorage } from '../lib/pwaClientStorage'
 import { HOME_PATH, isPublicLegalPath } from '../lib/legalRoutes'
 import { hasFamilySession } from '../lib/familySession'
 import { runProductionDomainFreshStartIfNeeded } from '../lib/productionDomainFreshStart'
@@ -29,8 +30,14 @@ export default function SessionGate({ children }: { children: React.ReactNode })
     if (!hydrated) return
 
     runProductionDomainFreshStartIfNeeded()
-    const storedSession = bootstrapFamilySessionAfterExternalRedirect()
-    notifyFamilySessionRestoredIfNeeded(storedSession, hasSession)
+    bootstrapPwaClientStorage()
+
+    const storedSession = isBillingReturnPath(pathname)
+      ? recoverFamilySessionAfterBillingRedirect()
+      : null
+    if (storedSession) {
+      notifyFamilySessionRestoredIfNeeded(storedSession, hasSession)
+    }
 
     if (isPublicLegalPath(pathname)) {
       setRedirecting(false)

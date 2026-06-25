@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 
 import PwaInstallPanel from './PwaInstallPanel'
+import { flushOnboardingBridge } from '../lib/family/onboardingBridge'
 import {
   getPwaInstallPlatform,
   isStandaloneDisplayMode,
@@ -24,6 +25,7 @@ export default function OnboardingPwaStep({ onInstallDone, onInstallLater, disab
 
   useEffect(() => {
     applyAppIcons()
+    flushOnboardingBridge()
   }, [])
 
   const handleLater = () => {

@@ -17,10 +17,7 @@ import { migrateLegacySetupGuideIfNeeded } from '../lib/family/setupGuide'
 import { sessionHasAdminAccess } from '../lib/family/memberAdmin'
 import { fetchMemberRoleForParent, fetchParentsForFamily, isAdminRole, type ParentMember } from '../lib/family/members'
 import { fetchTodayXpTotalsForFamily } from '../lib/family/xp'
-import {
-  bootstrapClientStorageFromCookies,
-  mirrorBridgedStorageToCookies,
-} from '../lib/clientStorageBootstrap'
+import { bootstrapPwaClientStorage } from '../lib/pwaClientStorage'
 import {
   FAMILY_SESSION_CHANGED_EVENT,
   clearFamilySession,
@@ -67,8 +64,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const loadedOnceRef = useRef(false)
 
   const refresh = useCallback(async () => {
-    bootstrapClientStorageFromCookies()
-    mirrorBridgedStorageToCookies()
+    bootstrapPwaClientStorage()
     const stored = readFamilySession()
     setSessionState(stored)
 

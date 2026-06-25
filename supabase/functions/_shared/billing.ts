@@ -22,7 +22,7 @@ export function requireStripePriceId(): string {
 }
 
 export function planFromSubscriptionStatus(status: string): 'free' | 'plus' {
-  return status === 'active' || status === 'trialing' ? 'plus' : 'free'
+  return status === 'active' || status === 'trialing' || status === 'past_due' ? 'plus' : 'free'
 }
 
 type BillingFamilyRow = {

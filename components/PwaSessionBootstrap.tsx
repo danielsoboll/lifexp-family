@@ -3,10 +3,7 @@
 import { useEffect } from 'react'
 
 import { applyAppIcons } from '../lib/appIcon'
-import {
-  bootstrapClientStorageFromCookies,
-  mirrorBridgedStorageToCookies,
-} from '../lib/clientStorageBootstrap'
+import { bootstrapPwaClientStorage } from '../lib/pwaClientStorage'
 import { attachOnboardingBridgeFlushListeners } from '../lib/family/onboardingBridge'
 import { clearFamilyOnboardingDraft } from '../lib/family/onboardingDraft'
 import { runProductionDomainFreshStartIfNeeded } from '../lib/productionDomainFreshStart'
@@ -17,8 +14,7 @@ import { FAMILY_SESSION_CHANGED_EVENT, hasFamilySession } from '../lib/familySes
 export default function PwaSessionBootstrap() {
   useEffect(() => {
     runProductionDomainFreshStartIfNeeded()
-    bootstrapClientStorageFromCookies()
-    mirrorBridgedStorageToCookies()
+    bootstrapPwaClientStorage()
 
     if (hasFamilySession()) {
       clearFamilyOnboardingDraft()
@@ -35,8 +31,7 @@ export default function PwaSessionBootstrap() {
 
       const hadSession = hasFamilySession()
       runProductionDomainFreshStartIfNeeded()
-      bootstrapClientStorageFromCookies()
-      mirrorBridgedStorageToCookies()
+      bootstrapPwaClientStorage()
 
       if (hasFamilySession()) {
         clearFamilyOnboardingDraft()

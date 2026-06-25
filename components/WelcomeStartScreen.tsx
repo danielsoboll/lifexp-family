@@ -16,17 +16,21 @@ import {
   ONBOARDING_PREVIEW_FAMILY_2_PROMO_DELAY_MS,
   onboardingPreviewFamily2PromoHideMs,
 } from '../lib/family/onboardingPreviewFamily'
+import { bootstrapPwaClientStorage } from '../lib/pwaClientStorage'
+import { isStandaloneDisplayMode } from '../lib/pwaInstall'
 import { CARD_SURFACE_CLASS, ONBOARDING_BACKDROP_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 type SheetView = 'welcome' | 'join' | 'create' | 'restore'
 
-function readResumeDraftView(): { view: SheetView; panelKey: number } {
+function readResumeState(): { open: boolean; view: SheetView; panelKey: number } {
+  bootstrapPwaClientStorage()
   bootstrapOnboardingBridge()
   const draft = loadFamilyOnboardingDraft()
   if (draft?.incomplete) {
-    return { view: draft.mode, panelKey: 1 }
+    const shouldOpen = isStandaloneDisplayMode()
+    return { open: shouldOpen, view: draft.mode, panelKey: 1 }
   }
-  return { view: 'welcome', panelKey: 0 }
+  return { open: false, view: 'welcome', panelKey: 0 }
 }
 
 export default function WelcomeStartScreen() {
@@ -53,9 +57,10 @@ export default function WelcomeStartScreen() {
   }, [])
 
   const applyResumeFromBridge = useCallback(() => {
-    const draft = loadFamilyOnboardingDraft()
-    if (!draft?.incomplete) return
-    setSheetView((current) => (current === 'welcome' ? draft.mode : current))
+    const next = readResumeState()
+    if (!next.open) return
+    setSheetView(next.view)
+    setSheetOpen(true)
   }, [])
 
   useFamilyOnboardingBridge({ onResume: applyResumeFromBridge })
@@ -68,9 +73,12 @@ export default function WelcomeStartScreen() {
   }, [])
 
   useLayoutEffect(() => {
-    const resume = readResumeDraftView()
+    const resume = readResumeState()
     setSheetView(resume.view)
     setPanelKey(resume.panelKey)
+    if (resume.open) {
+      setSheetOpen(true)
+    }
     setResumeChecked(true)
     return () => {
       if (sheetCloseTimerRef.current !== undefined) {

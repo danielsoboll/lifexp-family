@@ -10,6 +10,23 @@ import { resolveChildAvatar, resolveParentAvatar } from '../lib/family/memberAva
 import { buildAllFamilyAssignees, buildOrderedAssigneeOptions } from '../lib/family/questMemberGroups'
 import { CARD_SURFACE_CLASS } from '../lib/appShell'
 
+const ASSIGNEE_SELECTED_CLASS =
+  'border-2 border-emerald-600 bg-gradient-to-b from-emerald-400 via-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-900/25 ring-2 ring-emerald-300/60 dark:border-emerald-500 dark:from-emerald-600 dark:via-emerald-700 dark:to-emerald-800 dark:ring-emerald-600/50'
+
+const ASSIGNEE_UNSELECTED_CLASS =
+  'border-2 border-transparent hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+
+function AssigneeSelectedBadge() {
+  return (
+    <span
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/25 text-lg font-bold leading-none text-white ring-2 ring-white/50"
+      aria-hidden
+    >
+      ✓
+    </span>
+  )
+}
+
 export type QuestAssigneeChoice =
   | { mode: 'one'; assignee: QuestAssignee }
   | { mode: 'all' }
@@ -77,20 +94,23 @@ export default function QuestAssigneePicker({
               <button
                 key={`${option.type}:${option.id}`}
                 type="button"
+                aria-pressed={selected}
                 onClick={() => onChange({ mode: 'one', assignee })}
-                className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm transition-colors ${
-                  selected
-                    ? 'bg-emerald-100/90 dark:bg-emerald-950/50'
-                    : 'hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-sm transition-[border-color,background-color,box-shadow,color] ${
+                  selected ? ASSIGNEE_SELECTED_CLASS : ASSIGNEE_UNSELECTED_CLASS
                 }`}
               >
-                <MemberPortraitMini src={avatar.src} error={avatar.error} className="!w-9" />
-                <span className="min-w-0 flex-1 font-semibold text-slate-900 dark:text-slate-100">{option.label}</span>
-                {selected ? (
-                  <span className="shrink-0 text-xs font-bold text-emerald-700 dark:text-emerald-300" aria-hidden>
-                    ✓
-                  </span>
-                ) : null}
+                <MemberPortraitMini
+                  src={avatar.src}
+                  error={avatar.error}
+                  className={`!w-9 ${selected ? 'ring-2 ring-white/70' : ''}`}
+                />
+                <span
+                  className={`min-w-0 flex-1 font-semibold ${selected ? 'text-white' : 'text-slate-900 dark:text-slate-100'}`}
+                >
+                  {option.label}
+                </span>
+                {selected ? <AssigneeSelectedBadge /> : null}
               </button>
             )
           })
@@ -99,25 +119,28 @@ export default function QuestAssigneePicker({
         {showAllOption ? (
           <button
             type="button"
+            aria-pressed={value?.mode === 'all'}
             onClick={() => onChange({ mode: 'all' })}
-            className={`flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
-              value?.mode === 'all'
-                ? 'bg-emerald-100/90 dark:bg-emerald-950/50'
-                : 'hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+            className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition-[border-color,background-color,box-shadow,color] ${
+              value?.mode === 'all' ? ASSIGNEE_SELECTED_CLASS : ASSIGNEE_UNSELECTED_CLASS
             }`}
           >
-            <FamilyGroupPortrait className="w-[4.5rem] shrink-0" />
+            <FamilyGroupPortrait
+              className={`w-[4.5rem] shrink-0 ${value?.mode === 'all' ? 'ring-2 ring-white/70' : ''}`}
+            />
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold text-slate-900 dark:text-slate-100">Alle</span>
-              <span className="mt-0.5 block text-xs text-slate-950 dark:text-slate-400">
+              <span
+                className={`block text-sm font-bold ${value?.mode === 'all' ? 'text-white' : 'text-slate-900 dark:text-slate-100'}`}
+              >
+                Alle
+              </span>
+              <span
+                className={`mt-0.5 block text-xs ${value?.mode === 'all' ? 'text-emerald-50/95' : 'text-slate-950 dark:text-slate-400'}`}
+              >
                 Gleiche Quest für die ganze Familie — dich eingeschlossen
               </span>
             </span>
-            {value?.mode === 'all' ? (
-              <span className="shrink-0 text-xs font-bold text-emerald-700 dark:text-emerald-300" aria-hidden>
-                ✓
-              </span>
-            ) : null}
+            {value?.mode === 'all' ? <AssigneeSelectedBadge /> : null}
           </button>
         ) : null}
       </div>

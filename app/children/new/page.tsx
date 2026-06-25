@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation'
 import AdminScrollPage from '../../../components/AdminScrollPage'
 import FamilyMemberAddForm from '../../../components/FamilyMemberAddForm'
 import PageHeaderBar from '../../../components/PageHeaderBar'
-import { useFamily } from '../../../components/FamilyProvider'
+import { useRequireAdmin } from '../../../hooks/useRequireAdmin'
 import { MAIN_SHELL_CLASS } from '../../../lib/appShell'
 
 export default function NewChildPage() {
   const router = useRouter()
-  const { family, loading, error } = useFamily()
+  const { family, loading, error, ready } = useRequireAdmin()
 
   if (loading) {
     return (
@@ -18,6 +18,10 @@ export default function NewChildPage() {
         <p className="text-sm text-slate-950 dark:text-slate-400">Familie wird geladen …</p>
       </main>
     )
+  }
+
+  if (!ready) {
+    return null
   }
 
   if (!family) {

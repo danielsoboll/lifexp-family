@@ -51,7 +51,7 @@ export async function fetchMemberByRecoveryCode(code: string): Promise<{
       .from('family_members')
       .select('family_id')
       .eq('parent_id', parentId)
-      .eq('role', 'parent')
+      .in('role', ['owner', 'parent'])
       .maybeSingle()
 
     if (memberError) {
