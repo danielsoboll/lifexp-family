@@ -27,8 +27,8 @@ export const ONBOARDING_PREVIEW_SCROLL_MS = 2000
 /** Familie 1: kurzer Scroll zu Fritz direkt vor dem Hochscrollen. */
 export const ONBOARDING_PREVIEW_FAMILY_1_FRITZ_SCROLL_MS = 800
 
-/** Familie 1: kurz Fritz vollständig zeigen, dann hochscrollen. */
-export const ONBOARDING_PREVIEW_FAMILY_1_FRITZ_HOLD_MS = 500
+/** Familie 1: Fritz mit Krone sichtbar — volle 2 s, nachdem er im Bild ist (Scroll + Haltephase). */
+export const ONBOARDING_PREVIEW_FAMILY_1_FRITZ_HOLD_MS = 2000
 
 export const ONBOARDING_PREVIEW_FRITZ_SELECTOR = '[data-onboarding-preview-fritz]'
 

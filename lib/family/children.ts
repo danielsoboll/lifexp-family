@@ -5,6 +5,10 @@ import { defaultCanAdminForChild } from './memberAdmin'
 import { isChildLimitReached } from './memberLimits'
 import { coerceOnboardingPortrait, type AvatarPortraitId } from './memberAvatar'
 import { nextAccentKeyForFamily } from './memberAccentAssign'
+import {
+  generateUniqueMemberRecoveryCode,
+  memberRecoveryInsertFields,
+} from './memberRecoveryCode'
 import type { ChildGender } from './memberGender'
 import type { ChildProfile } from './types'
 
@@ -78,6 +82,16 @@ export async function createChild(input: CreateChildInput): Promise<{ child: Chi
     return { child: null, error: accentError }
   }
 
+  let recoveryCode: string
+  try {
+    recoveryCode = await generateUniqueMemberRecoveryCode(supabase)
+  } catch (error) {
+    return {
+      child: null,
+      error: error instanceof Error ? error : new Error('Recovery-Code konnte nicht erzeugt werden.'),
+    }
+  }
+
   const { data, error } = await supabase
     .from('child_profiles')
     .insert({
@@ -92,6 +106,7 @@ export async function createChild(input: CreateChildInput): Promise<{ child: Chi
       total_xp: 0,
       level: 1,
       accent_key: accentKey,
+      ...memberRecoveryInsertFields(recoveryCode),
     })
     .select('*')
     .single()

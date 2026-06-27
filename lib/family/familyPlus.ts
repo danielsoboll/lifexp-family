@@ -30,3 +30,9 @@ export function familyPlusStatusLabel(
   if (family.subscription_status === 'past_due') return 'Zahlung offen'
   return 'Free'
 }
+
+export function familyPlusTarifLine(
+  family: Pick<Family, 'plan' | 'plus_until' | 'subscription_status'> | null | undefined,
+): string {
+  return `Dein Tarif: ${familyPlusStatusLabel(family)}`
+}

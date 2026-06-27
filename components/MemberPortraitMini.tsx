@@ -8,7 +8,9 @@ type MemberPortraitMiniProps = {
 export default function MemberPortraitMini({ src, error, className = '' }: MemberPortraitMiniProps) {
   return (
     <div
-      className={`relative aspect-[5/6] w-10 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800 ${className}`.trim()}
+      className={`relative aspect-[5/6] shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800 ${
+        className.includes('w-') ? '' : 'w-10'
+      } ${className}`.trim()}
     >
       {error ? (
         <p className="flex h-full items-center justify-center px-0.5 text-center text-[7px] leading-tight text-amber-800 dark:text-amber-200">

@@ -17,6 +17,8 @@ type MemberAvatarPickerProps = {
   onChange: (portraitId: AvatarPortraitId) => void
   disabled?: boolean
   legend?: string
+  /** Kein Label über dem Portrait (z. B. linke Spalte in Admin-Formularen). */
+  hideLegend?: boolean
 }
 
 export default function MemberAvatarPicker({
@@ -25,6 +27,7 @@ export default function MemberAvatarPicker({
   onChange,
   disabled = false,
   legend = 'Portrait',
+  hideLegend = false,
 }: MemberAvatarPickerProps) {
   const [screenOpen, setScreenOpen] = useState(false)
   const closeScreen = useCallback(() => setScreenOpen(false), [])
@@ -48,8 +51,10 @@ export default function MemberAvatarPicker({
 
   return (
     <>
-      <div>
-        <p className="mb-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200">{legend}</p>
+      <div className="shrink-0 self-start">
+        {!hideLegend ? (
+          <p className="mb-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200">{legend}</p>
+        ) : null}
         {canChange ? (
           <button
             type="button"

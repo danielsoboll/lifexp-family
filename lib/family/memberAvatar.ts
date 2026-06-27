@@ -279,6 +279,19 @@ export function portraitIdFromStored(value: string | null | undefined): AvatarPo
   return null
 }
 
+export function maxPortraitTierForPortraitId(portraitId: string | null | undefined): number {
+  if (!portraitId || !isPortraitId(portraitId as AvatarPortraitId)) {
+    if (portraitId && ALT_START_PORTRAIT_IDS.has(portraitId)) {
+      const xpBase = portraitXpBase(portraitId as AvatarPortraitId)
+      if (xpBase) return resolveMaxPortraitTier(xpBase.stem, AVAILABLE_PORTRAIT_IDS)
+    }
+    return 6
+  }
+  const xpBase = portraitXpBase(portraitId as AvatarPortraitId)
+  if (!xpBase) return 6
+  return resolveMaxPortraitTier(xpBase.stem, AVAILABLE_PORTRAIT_IDS)
+}
+
 export function memberAvatarCategoryForParent(gender: ParentGender): MemberAvatarCategory {
   if (gender === 'female' || gender === 'oma') return 'parent_female'
   if (gender === 'opa') return 'parent_opa'

@@ -1,3 +1,4 @@
+import { isMemberJoinReadySeen, markMemberJoinReadySeen } from './memberJoinGuide'
 import type { Family } from './types'
 import {
   familyHasAnyGuideProgress,
@@ -12,11 +13,15 @@ import type { SetupGuideDbPatch } from './setupGuideFamily'
 
 const LEGACY_STORAGE_KEY = 'lifexp_family_setup_guide_v1'
 
+/** Pause vor erstem Assistenten-Hinweis und vor jedem neuen Schritt. */
+export const SETUP_GUIDE_STEP_REVEAL_DELAY_MS = 1000
+
 export type SetupGuideStep =
   | 'welcome_members'
   | 'first_quest'
   | 'invite_code'
   | 'member_profile'
+  | 'member_ready'
   | 'complete'
 
 export type SetupGuideTarget = 'admin' | 'new_quest' | 'first_member' | 'own_profile'
@@ -66,6 +71,7 @@ async function persistGuidePatch(familyId: string, patch: SetupGuideDbPatch): Pr
 }
 
 export { setupGuideStateFromFamily } from './setupGuideFamily'
+export { markMemberJoinReadySeen, isMemberJoinReadySeen } from './memberJoinGuide'
 
 export function totalFamilyMembers(parentCount: number, childCount: number): number {
   return parentCount + childCount
@@ -76,8 +82,15 @@ export function resolveSetupGuideStep(input: {
   parentCount: number
   childCount: number
   canAdmin: boolean
+  memberId?: string | null
 }): SetupGuideStep | null {
-  if (!input.canAdmin || input.state.finished) return null
+  if (input.state.finished) return null
+
+  if (!input.canAdmin) {
+    if (!input.state.visitedQuestNew) return 'first_quest'
+    if (!isMemberJoinReadySeen(input.memberId)) return 'member_ready'
+    return null
+  }
 
   const members = totalFamilyMembers(input.parentCount, input.childCount)
   if (members < 2 && !input.state.welcomeMembersIntroSeen) return 'welcome_members'
@@ -112,6 +125,12 @@ export function setupGuideCopy(step: SetupGuideStep): { title: string; body: str
         title: 'Fast geschafft',
         body: 'Nun kann jedes Familienmitglied Aufgaben einstellen und seine Aufgaben verfolgen',
         target: 'first_member',
+      }
+    case 'member_ready':
+      return {
+        title: 'Bin dabei!',
+        body: 'Lege eine Aufgabe für ein anderes Familienmitglied an — oder erledige deine eigenen Quests auf dem Dashboard.',
+        target: 'new_quest',
       }
     case 'complete':
       return {

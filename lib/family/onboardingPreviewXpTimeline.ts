@@ -20,7 +20,7 @@ export const ONBOARDING_PREVIEW_XP_TIMELINE_SET_1: readonly OnboardingPreviewXpS
   { p1: 5, p2: 5, c1: 7, c2: 2, c3: 5 },
   { p1: 5, p2: 10, c1: 7, c2: 7, c3: 10 },
   { p1: 10, p2: 10, c1: 12, c2: 7, c3: 15 },
-  { p1: 10, p2: 22, c1: 12, c2: 15, c3: 22 },
+  { p1: 10, p2: 20, c1: 18, c2: 19, c3: 22 },
 ]
 
 /** Vorberechnete Familien-Summen pro Schritt — sync mit Timeline-Zeile. */

@@ -19,6 +19,7 @@ import {
   generateUniqueMemberRecoveryCode,
   memberRecoveryInsertFields,
 } from './memberRecoveryCode'
+import type { ClaimableMember, ClaimMemberInput } from './claimableMembers'
 import type { Family, ParentProfile } from './types'
 
 const RLS_SETUP_HINT =
@@ -383,6 +384,67 @@ async function familyApiFallback(
   return {
     result: { session: payload.result, recoveryCode: payload.recoveryCode },
     error: null,
+  }
+}
+
+export async function fetchClaimableMembers(
+  inviteCode: string,
+): Promise<{ members: ClaimableMember[]; error: Error | null }> {
+  const code = inviteCode.trim()
+  if (!code) return { members: [], error: new Error('Bitte einen Einladungscode eingeben.') }
+
+  try {
+    const response = await fetch('/api/family/join/slots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inviteCode: code }),
+    })
+    const payload = (await response.json()) as { members?: ClaimableMember[]; error?: string }
+    if (!response.ok) {
+      return { members: [], error: new Error(payload.error ?? 'Profile konnten nicht geladen werden.') }
+    }
+    return { members: payload.members ?? [], error: null }
+  } catch {
+    return { members: [], error: new Error('Profile konnten nicht geladen werden.') }
+  }
+}
+
+export async function claimFamilyMember(
+  inviteCode: string,
+  claim: ClaimMemberInput,
+  devicePrefs?: OnboardingDevicePrefs,
+): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
+  try {
+    const response = await fetch('/api/family/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inviteCode, claim, devicePrefs }),
+    })
+    const payload = (await response.json()) as {
+      result?: FamilySession
+      recoveryCode?: string
+      error?: string
+    }
+    if (!response.ok) {
+      const apiMessage = payload.error ?? ''
+      const needsRlsFix =
+        response.status === 503 ||
+        apiMessage.includes('SUPABASE_SERVICE_ROLE_KEY') ||
+        apiMessage.toLowerCase().includes('row-level security')
+      return {
+        result: null,
+        error: new Error(needsRlsFix ? RLS_SETUP_HINT : apiMessage || 'Verbindung fehlgeschlagen.'),
+      }
+    }
+    if (!payload.result || !payload.recoveryCode) {
+      return { result: null, error: new Error('Familie konnte nicht verbunden werden.') }
+    }
+    return {
+      result: { session: payload.result, recoveryCode: payload.recoveryCode },
+      error: null,
+    }
+  } catch {
+    return { result: null, error: new Error('Verbindung fehlgeschlagen.') }
   }
 }
 

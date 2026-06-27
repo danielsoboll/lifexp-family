@@ -7,10 +7,14 @@ import AdminScrollPage from '../../../components/AdminScrollPage'
 import DangerConfirmAction from '../../../components/DangerConfirmAction'
 import FamilyQuestAccentEditor from '../../../components/FamilyQuestAccentEditor'
 import FamilyPlusBillingControls from '../../../components/FamilyPlusBillingControls'
+import FamilyPlusFeaturesSheet from '../../../components/FamilyPlusFeaturesSheet'
 import MemberRecoveryAdminSection from '../../../components/MemberRecoveryAdminSection'
 import PageHeaderBar from '../../../components/PageHeaderBar'
+import PlusLockHeaderButton from '../../../components/PlusLockHeaderButton'
 import { useFamily } from '../../../components/FamilyProvider'
 import { deleteFamilyById } from '../../../lib/family/admin'
+import { familyPlusTarifLine, isFamilyPlus } from '../../../lib/family/familyPlus'
+import { FAMILY_PLUS_ABO_NOTE, FAMILY_PLUS_CTA_LABEL, FAMILY_PLUS_TAGLINE } from '../../../lib/family/familyPlusFeatures'
 import { markSetupGuideAdminVisited } from '../../../lib/family/setupGuide'
 import { resetLifeXpFamilyClientState } from '../../../lib/familySession'
 import { CARD_SURFACE_CLASS, MUTED_BODY_TEXT_CLASS } from '../../../lib/appShell'
@@ -20,6 +24,7 @@ export default function AdminSettingsPage() {
   const { family, parent, activeChild, loading, error, canAdmin } = useFamily()
   const [deleteFamilyError, setDeleteFamilyError] = useState<string | null>(null)
   const [deleteFamilyBusy, setDeleteFamilyBusy] = useState(false)
+  const [plusSheetOpen, setPlusSheetOpen] = useState(false)
   const adminGuideTrackedRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -38,6 +43,8 @@ export default function AdminSettingsPage() {
   if (!loading && !canAdmin) {
     return null
   }
+
+  const plusActive = isFamilyPlus(family)
 
   const handleDeleteFamily = async (): Promise<boolean> => {
     if (!family) return false
@@ -78,11 +85,28 @@ export default function AdminSettingsPage() {
             <section className={`${CARD_SURFACE_CLASS} space-y-3 rounded-2xl p-4`}>
               <div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">LifeXP Family PLUS</h2>
-                <p className={`mt-1 ${MUTED_BODY_TEXT_CLASS}`}>
-                  Ein Abo für die ganze Familie — 4,99 €/Monat, alle Mitglieder freigeschaltet.
+                <p className={`mt-1 text-sm leading-relaxed text-slate-950 dark:text-slate-300`}>
+                  {FAMILY_PLUS_TAGLINE}
                 </p>
+                <p className={`mt-2 ${MUTED_BODY_TEXT_CLASS}`}>{FAMILY_PLUS_ABO_NOTE}</p>
               </div>
-              <FamilyPlusBillingControls family={family} />
+              {plusActive ? (
+                <FamilyPlusBillingControls family={family} compact />
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {familyPlusTarifLine(family)}
+                  </p>
+                  <PlusLockHeaderButton
+                    fullWidth
+                    showLock={false}
+                    label={`${FAMILY_PLUS_CTA_LABEL} — LifeXP Family PLUS entdecken`}
+                    onClick={() => setPlusSheetOpen(true)}
+                  >
+                    {FAMILY_PLUS_CTA_LABEL}
+                  </PlusLockHeaderButton>
+                </div>
+              )}
             </section>
           ) : null}
 
@@ -122,6 +146,8 @@ export default function AdminSettingsPage() {
           </section>
         </div>
       )}
+
+      {plusSheetOpen ? <FamilyPlusFeaturesSheet onClose={() => setPlusSheetOpen(false)} /> : null}
     </AdminScrollPage>
   )
 }

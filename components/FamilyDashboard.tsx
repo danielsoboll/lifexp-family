@@ -33,7 +33,15 @@ import {
   ONBOARDING_PREVIEW_SCROLL_MS,
 } from '../lib/family/onboardingPreviewFamily'
 import { previewMemberTodayXp, sumPreviewFamilyTodayXp } from '../lib/family/onboardingPreviewXpTimeline'
-import { cetFormatLongDateDe, cetToday } from '../lib/cetDate'
+import {
+  buildDailyCrownCandidates,
+  resolveDailyCrownForMember,
+  resolveDailyCrownWinner,
+  type DailyCrownMember,
+} from '../lib/family/dailyCrown'
+import { resolveOnboardingPreviewCrownWinner } from '../lib/family/onboardingPreviewCrown'
+import { cetFormatLongDateDe, cetToday, cetYesterday } from '../lib/cetDate'
+import { fetchTodayXpTotalsForFamily } from '../lib/family/xp'
 import { HOME_PAGE_INSET_CLASS, MAIN_SHELL_CLASS } from '../lib/appShell'
 import { slowScrollContainerToElement, slowScrollToElement, slowScrollToRevealElement } from '../lib/slowScroll'
 import { useSetupGuide, isSetupGuideTargetActive } from '../hooks/useSetupGuide'
@@ -43,12 +51,14 @@ type FamilyDashboardProps = {
   preview?: boolean
   previewScrollContainerRef?: RefObject<HTMLElement | null>
   previewAlternate?: boolean
+  previewFritzCrown?: boolean
 }
 
 export default function FamilyDashboard({
   preview = false,
   previewScrollContainerRef,
   previewAlternate = false,
+  previewFritzCrown = false,
 }: FamilyDashboardProps) {
   const previewParentsRef = useRef<HTMLDivElement>(null)
   const familyCtx = useFamily()
@@ -89,6 +99,7 @@ export default function FamilyDashboard({
     parentCount: parentRows.length,
     childCount: childRows.length,
     canAdmin,
+    memberId: session?.memberId ?? null,
   })
 
   const [sessionStreakClaimed, setSessionStreakClaimed] = useState<boolean | null>(null)
@@ -249,6 +260,117 @@ export default function FamilyDashboard({
     return match ? `${match[1] === 'parents' ? 'parent' : 'child'}:${match[2]}` : null
   }, [firstMemberHref])
 
+  const crownCandidates = useMemo(() => {
+    if (preview) return []
+    const parentXp: Record<string, number> = {}
+    const childXp: Record<string, number> = {}
+    for (const row of parentRows) {
+      parentXp[row.id] = previewTodayXp(row.id, row.todayXp ?? 0)
+    }
+    for (const row of childRows) {
+      childXp[row.id] = previewTodayXp(row.id, row.todayXp ?? 0)
+    }
+    return buildDailyCrownCandidates({ parents: parentRows, children: childRows, parentXp, childXp })
+  }, [preview, parentRows, childRows, previewTodayXp])
+
+  const todayCrownWinner = useMemo(
+    () => (preview ? null : resolveDailyCrownWinner(crownCandidates)),
+    [preview, crownCandidates],
+  )
+
+  const previewCrownWinner = useMemo(
+    () =>
+      preview
+        ? resolveOnboardingPreviewCrownWinner({
+            alternateFamily: previewAlternate,
+            xpStep: previewXpStep,
+            fritzCrownMoment: previewFritzCrown,
+          })
+        : null,
+    [preview, previewAlternate, previewXpStep, previewFritzCrown],
+  )
+
+  const prevPreviewFritzCrownRef = useRef(false)
+  const prevPreviewXpStepRef = useRef(-1)
+  const [crownPlingMemberId, setCrownPlingMemberId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!preview) {
+      setCrownPlingMemberId(null)
+      prevPreviewFritzCrownRef.current = false
+      prevPreviewXpStepRef.current = -1
+      return
+    }
+
+    if (!previewAlternate && previewFritzCrown && !prevPreviewFritzCrownRef.current) {
+      setCrownPlingMemberId('c3')
+    } else if (previewAlternate && previewXpStep >= 4 && prevPreviewXpStepRef.current < 4) {
+      setCrownPlingMemberId('p2')
+    }
+
+    prevPreviewFritzCrownRef.current = previewFritzCrown
+    prevPreviewXpStepRef.current = previewXpStep
+  }, [preview, previewAlternate, previewFritzCrown, previewXpStep])
+
+  useEffect(() => {
+    if (!preview || !crownPlingMemberId) return
+    const timer = window.setTimeout(() => setCrownPlingMemberId(null), 600)
+    return () => window.clearTimeout(timer)
+  }, [preview, crownPlingMemberId])
+
+  const [yesterdayCrownWinner, setYesterdayCrownWinner] = useState<DailyCrownMember | null>(null)
+
+  useEffect(() => {
+    if (preview || !family) {
+      setYesterdayCrownWinner(null)
+      return
+    }
+
+    let cancelled = false
+    const loadYesterdayCrown = async () => {
+      const { childTotals, parentTotals, error: xpError } = await fetchTodayXpTotalsForFamily(
+        family.id,
+        cetYesterday(),
+      )
+      if (cancelled || xpError) return
+
+      const winner = resolveDailyCrownWinner(
+        buildDailyCrownCandidates({
+          parents,
+          children,
+          parentXp: parentTotals,
+          childXp: childTotals,
+        }),
+      )
+      setYesterdayCrownWinner(winner)
+    }
+
+    void loadYesterdayCrown()
+    const onRefresh = () => void loadYesterdayCrown()
+    window.addEventListener(FAMILY_DATA_CHANGED_EVENT, onRefresh)
+    return () => {
+      cancelled = true
+      window.removeEventListener(FAMILY_DATA_CHANGED_EVENT, onRefresh)
+    }
+  }, [preview, family, parents, children])
+
+  const memberCrown = useCallback(
+    (type: 'parent' | 'child', id: string) => {
+      if (preview) {
+        const winner = previewCrownWinner
+        if (!winner || winner.type !== type || winner.id !== id) return null
+        return 'today' as const
+      }
+      return resolveDailyCrownForMember({ type, id }, todayCrownWinner, yesterdayCrownWinner)
+    },
+    [preview, previewCrownWinner, todayCrownWinner, yesterdayCrownWinner],
+  )
+
+  const memberCrownPling = useCallback(
+    (id: string) => preview && crownPlingMemberId === id,
+    [preview, crownPlingMemberId],
+  )
+
   const memberOwnProfileNavigate = (type: 'parent' | 'child', id: string) =>
     showStreakProfileHint && ownMemberTargetId === `${type}:${id}` ? handleOwnProfileNavigate : undefined
 
@@ -327,6 +449,8 @@ export default function FamilyDashboard({
                   highlightClass={renderMemberHighlight('parent', parent.id)}
                   setupGuideTarget={memberSetupGuideTarget('parent', parent.id)}
                   onNavigate={memberOwnProfileNavigate('parent', parent.id)}
+                  crown={memberCrown('parent', parent.id)}
+                  crownPling={memberCrownPling(parent.id)}
                 />
               )
             })}
@@ -352,6 +476,8 @@ export default function FamilyDashboard({
                       highlightClass={renderMemberHighlight('child', child.id)}
                       setupGuideTarget={memberSetupGuideTarget('child', child.id)}
                       onNavigate={memberOwnProfileNavigate('child', child.id)}
+                      crown={memberCrown('child', child.id)}
+                      crownPling={memberCrownPling(child.id)}
                     />
                   </div>
                 )

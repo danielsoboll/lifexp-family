@@ -5,21 +5,26 @@ import type { Family } from '../lib/family/types'
 import {
   dismissSetupGuideStep,
   resolveSetupGuideStep,
+  SETUP_GUIDE_STEP_REVEAL_DELAY_MS,
   setupGuideCopy,
   setupGuideStateFromFamily,
   type SetupGuideStep,
   type SetupGuideTarget,
 } from '../lib/family/setupGuide'
+import { markMemberJoinReadySeen } from '../lib/family/memberJoinGuide'
 
 type UseSetupGuideInput = {
   family: Family | null | undefined
   parentCount: number
   childCount: number
   canAdmin: boolean
+  memberId?: string | null
 }
 
-export function useSetupGuide({ family, parentCount, childCount, canAdmin }: UseSetupGuideInput) {
+export function useSetupGuide({ family, parentCount, childCount, canAdmin, memberId }: UseSetupGuideInput) {
   const [tick, setTick] = useState(0)
+  const [displayStep, setDisplayStep] = useState<SetupGuideStep | null>(null)
+  const [visible, setVisible] = useState(false)
 
   useEffect(() => {
     const onChange = () => {
@@ -36,21 +41,40 @@ export function useSetupGuide({ family, parentCount, childCount, canAdmin }: Use
 
   const step = useMemo(() => {
     if (!state) return null
-    return resolveSetupGuideStep({ state, parentCount, childCount, canAdmin })
-  }, [state, parentCount, childCount, canAdmin])
+    return resolveSetupGuideStep({ state, parentCount, childCount, canAdmin, memberId })
+  }, [state, parentCount, childCount, canAdmin, memberId])
 
-  const copy = step ? setupGuideCopy(step) : null
-  const visible = Boolean(step && copy)
+  useEffect(() => {
+    if (!step) {
+      setVisible(false)
+      setDisplayStep(null)
+      return
+    }
+
+    setVisible(false)
+    const timer = window.setTimeout(() => {
+      setDisplayStep(step)
+      setVisible(true)
+    }, SETUP_GUIDE_STEP_REVEAL_DELAY_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [step])
+
+  const copy = displayStep ? setupGuideCopy(displayStep) : null
 
   const dismiss = useCallback(() => {
-    if (!family || !step) return
-    void dismissSetupGuideStep(family, step)
-  }, [family, step])
+    if (!family || !displayStep) return
+    if (displayStep === 'member_ready' && memberId) {
+      markMemberJoinReadySeen(memberId)
+      return
+    }
+    void dismissSetupGuideStep(family, displayStep)
+  }, [family, displayStep, memberId])
 
-  const activeTarget: SetupGuideTarget | null = visible ? (copy?.target ?? null) : null
+  const activeTarget: SetupGuideTarget | null = visible && copy ? (copy.target ?? null) : null
 
   return {
-    step,
+    step: displayStep,
     copy,
     visible,
     activeTarget,

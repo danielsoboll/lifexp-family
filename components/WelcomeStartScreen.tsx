@@ -18,6 +18,7 @@ import {
 } from '../lib/family/onboardingPreviewFamily'
 import { bootstrapPwaClientStorage } from '../lib/pwaClientStorage'
 import { isStandaloneDisplayMode } from '../lib/pwaInstall'
+import { normalizeInviteCodeInput, parseInviteCodeFromQr } from '../lib/parseInviteCode'
 import { CARD_SURFACE_CLASS, ONBOARDING_BACKDROP_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 type SheetView = 'welcome' | 'join' | 'create' | 'restore'
@@ -46,6 +47,9 @@ export default function WelcomeStartScreen() {
   const sheetCloseTimerRef = useRef<number | undefined>(undefined)
   const promoDismissedForFamily2Ref = useRef(false)
   const promoHideTimerRef = useRef<number | undefined>(undefined)
+  const inviteUrlHandledRef = useRef(false)
+
+  const [inviteFromUrl, setInviteFromUrl] = useState<string | null>(null)
 
   const dismissPromo = useCallback(() => {
     if (promoHideTimerRef.current !== undefined) {
@@ -86,6 +90,23 @@ export default function WelcomeStartScreen() {
       }
     }
   }, [])
+
+  useLayoutEffect(() => {
+    if (!resumeChecked || inviteUrlHandledRef.current) return
+
+    const params = new URLSearchParams(window.location.search)
+    const raw = params.get('code') ?? params.get('invite')
+    if (!raw?.trim()) return
+
+    const code = normalizeInviteCodeInput(parseInviteCodeFromQr(raw) || raw)
+    if (!code) return
+
+    inviteUrlHandledRef.current = true
+    setInviteFromUrl(code)
+    setSheetView('join')
+    setSheetOpen(true)
+    window.history.replaceState(null, '', window.location.pathname)
+  }, [resumeChecked])
 
   const openWelcomeFromPromo = useCallback(() => {
     if (sheetCloseTimerRef.current !== undefined) {
@@ -131,7 +152,10 @@ export default function WelcomeStartScreen() {
   }, [])
 
   const previewActive = resumeChecked && !sheetOpen
-  const previewAlternate = useHappyAllPreviewCycle(previewActive, backdropScrollRef)
+  const { showAlternate: previewAlternate, fritzCrownActive: previewFritzCrown } = useHappyAllPreviewCycle(
+    previewActive,
+    backdropScrollRef,
+  )
 
   useEffect(() => {
     if (!previewAlternate) {
@@ -196,6 +220,7 @@ export default function WelcomeStartScreen() {
             preview
             previewScrollContainerRef={backdropScrollRef}
             previewAlternate={previewAlternate}
+            previewFritzCrown={previewFritzCrown}
           />
         </div>
         {showBackdropHint ? (
@@ -324,7 +349,12 @@ export default function WelcomeStartScreen() {
                   data-lifexp-onboarding-scroll
                   className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
                 >
-                  <JoinFamilyPanel key={`join-${panelKey}`} onBack={backToWelcome} sheetScrollRef={sheetScrollRef} />
+                  <JoinFamilyPanel
+                    key={`join-${panelKey}`}
+                    onBack={backToWelcome}
+                    sheetScrollRef={sheetScrollRef}
+                    initialInviteCode={inviteFromUrl}
+                  />
                 </div>
               ) : (
                 <div

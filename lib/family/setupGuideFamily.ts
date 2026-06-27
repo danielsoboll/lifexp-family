@@ -35,6 +35,8 @@ export function setupGuidePatchForStep(step: SetupGuideStep): SetupGuideDbPatch 
       return { guide_invite_seen: true }
     case 'member_profile':
       return { guide_profile_seen: true }
+    case 'member_ready':
+      return {}
     case 'complete':
       return { guide_finished: true }
   }

@@ -7,6 +7,7 @@ import { notifyFamilyDataChanged, useFamily } from '@/components/FamilyProvider'
 import { useBillingReturnRecovery } from '@/hooks/useBillingReturnRecovery'
 import { BILLING_RETURN_TARGET_PATH } from '@/lib/family/billingReturn'
 import { isFamilyPlus } from '@/lib/family/familyPlus'
+import { FAMILY_PLUS_TAGLINE } from '@/lib/family/familyPlusFeatures'
 import { CARD_SURFACE_CLASS, HOME_PAGE_INSET_CLASS, MAIN_SHELL_CLASS, PRESSABLE_3D_CLASS } from '@/lib/appShell'
 
 export default function PlusSuccessContent() {
@@ -75,7 +76,8 @@ export default function PlusSuccessContent() {
     <main className={`${MAIN_SHELL_CLASS} ${HOME_PAGE_INSET_CLASS} mx-auto flex w-full max-w-lg flex-col gap-4 px-4`}>
       <div className={`${CARD_SURFACE_CLASS} rounded-2xl p-5`}>
         <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Danke — PLUS wird aktiviert</h1>
-        <p className="mt-2 text-sm text-slate-950 dark:text-slate-300">
+        <p className="mt-2 text-sm leading-relaxed text-slate-950 dark:text-slate-300">{FAMILY_PLUS_TAGLINE}</p>
+        <p className="mt-3 text-sm text-slate-950 dark:text-slate-300">
           Stripe hat die Zahlung angenommen. Wir synchronisieren jetzt euer Familien-Abo
           {sessionId ? ' …' : '.'}
         </p>

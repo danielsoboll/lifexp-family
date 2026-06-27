@@ -3,7 +3,8 @@
 import { useState } from 'react'
 
 import { useFamily } from './FamilyProvider'
-import { familyPlusStatusLabel, isFamilyPlus } from '../lib/family/familyPlus'
+import { familyPlusTarifLine, isFamilyPlus } from '../lib/family/familyPlus'
+import { FAMILY_PLUS_CTA_LABEL, FAMILY_PLUS_TAGLINE } from '../lib/family/familyPlusFeatures'
 import { createPlusCheckoutSession, createPlusPortalSession } from '../lib/family/stripeBilling'
 import type { Family } from '../lib/family/types'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
@@ -22,7 +23,6 @@ export default function FamilyPlusBillingControls({ family: familyProp, compact 
   if (!family) return null
 
   const plusActive = isFamilyPlus(family)
-  const statusLabel = familyPlusStatusLabel(family)
 
   const startCheckout = async () => {
     setError(null)
@@ -60,17 +60,25 @@ export default function FamilyPlusBillingControls({ family: familyProp, compact 
 
   if (!canAdmin) {
     return (
-      <p className="text-sm text-slate-950 dark:text-slate-400">
-        {plusActive
-          ? 'LifeXP Family PLUS ist für eure Familie aktiv.'
-          : 'PLUS ist noch nicht aktiv — ein Admin kann es in den Einstellungen aktivieren.'}
-      </p>
+      <div className="space-y-2">
+        {!plusActive ? (
+          <p className="text-sm leading-relaxed text-slate-950 dark:text-slate-300">{FAMILY_PLUS_TAGLINE}</p>
+        ) : null}
+        <p className="text-sm text-slate-950 dark:text-slate-400">
+          {plusActive
+            ? 'LifeXP Family PLUS ist für eure Familie aktiv.'
+            : 'PLUS ist noch nicht aktiv — ein Admin kann es in den Einstellungen aktivieren.'}
+        </p>
+      </div>
     )
   }
 
   return (
     <div className={compact ? 'space-y-2' : 'space-y-3'}>
-      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Status: {statusLabel}</p>
+      {!plusActive && !compact ? (
+        <p className="text-sm leading-relaxed text-slate-950 dark:text-slate-300">{FAMILY_PLUS_TAGLINE}</p>
+      ) : null}
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{familyPlusTarifLine(family)}</p>
 
       {plusActive ? (
         <button
@@ -88,9 +96,13 @@ export default function FamilyPlusBillingControls({ family: familyProp, compact 
           onClick={() => void startCheckout()}
           className={`${PRESSABLE_3D_CLASS} w-full rounded-xl border-2 border-amber-500 bg-gradient-to-b from-amber-300 to-amber-500 px-4 py-3 text-sm font-bold text-amber-950 disabled:opacity-60`}
         >
-          {busy === 'checkout' ? 'Weiter zu Stripe …' : 'PLUS aktivieren – 4,99 €/Monat'}
+          {busy === 'checkout' ? 'Weiter zu Stripe …' : FAMILY_PLUS_CTA_LABEL}
         </button>
       )}
+
+      {!plusActive ? (
+        <p className="text-center text-xs text-slate-700 dark:text-slate-400">4,99 €/Monat</p>
+      ) : null}
 
       {plusActive ? (
         <button

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import GenderChoice from './GenderChoice'
 import AdminAccessToggle from './AdminAccessToggle'
@@ -10,9 +10,8 @@ import MemberEditorSaveBar from './MemberEditorSaveBar'
 import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
 import { updateChild } from '../lib/family/children'
 import {
-  coercePortraitForOptions,
-  portraitIdFromStored,
-  portraitSrc,
+  coercePortraitForCategory,
+  memberAvatarCategoryForChild,
   resolveChildAvatar,
   type AvatarPortraitId,
 } from '../lib/family/memberAvatar'
@@ -26,9 +25,8 @@ type ChildMemberEditorProps = {
   child: ChildWithTodayXp
 }
 
-function savedChildPortraitId(child: ChildWithTodayXp): AvatarPortraitId {
-  const options = resolveChildAvatar(child.gender, child.age, null).options
-  return coercePortraitForOptions(portraitIdFromStored(child.portrait_id), options)
+function savedChildPortraitId(child: ChildWithTodayXp): AvatarPortraitId | null {
+  return coercePortraitForCategory(memberAvatarCategoryForChild(child.gender, child.age), child.portrait_id)
 }
 
 export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
@@ -36,53 +34,38 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
   const [displayName, setDisplayName] = useState(child.display_name)
   const [ageInput, setAgeInput] = useState(child.age !== null ? String(child.age) : '')
   const [gender, setGender] = useState<ChildGender>(child.gender)
-  const [portraitId, setPortraitId] = useState<AvatarPortraitId>(() => savedChildPortraitId(child))
   const [canAdmin, setCanAdmin] = useState(child.can_admin)
   const [accentKey, setAccentKey] = useState<MemberAccentKey>(normalizeMemberAccentKey(child.accent_key))
+  const [portraitId, setPortraitId] = useState<AvatarPortraitId | null>(() => savedChildPortraitId(child))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
   const parsedAge = parseAgeInput(ageInput)
 
-  const avatarResolved = useMemo(() => {
-    const resolved = resolveChildAvatar(gender, parsedAge, null)
-    const coerced = coercePortraitForOptions(portraitId, resolved.options)
-    return {
-      ...resolved,
-      portraitId: coerced,
-      src: coerced ? portraitSrc(coerced) : null,
-    }
-  }, [gender, parsedAge, portraitId])
-
-  const syncPortraitForProfile = useCallback((nextGender: ChildGender, nextAge: number | null) => {
-    const options = resolveChildAvatar(nextGender, nextAge, null).options
-    setPortraitId((current) => coercePortraitForOptions(current, options))
-  }, [])
-
-  const handleGenderChange = useCallback(
-    (next: ChildGender) => {
-      setGender(next)
-      syncPortraitForProfile(next, parsedAge)
-    },
-    [parsedAge, syncPortraitForProfile],
+  const avatarResolved = useMemo(
+    () => resolveChildAvatar(gender, parsedAge ?? child.age, portraitId),
+    [gender, parsedAge, child.age, portraitId],
   )
 
-  const handleAgeChange = useCallback(
-    (value: string) => {
-      setAgeInput(value)
-      syncPortraitForProfile(gender, parseAgeInput(value))
-    },
-    [gender, syncPortraitForProfile],
+  const effectivePortraitId = useMemo(
+    () => coercePortraitForCategory(memberAvatarCategoryForChild(gender, parsedAge ?? child.age), portraitId),
+    [gender, parsedAge, child.age, portraitId],
   )
 
   const isDirty =
     displayName.trim() !== child.display_name ||
     gender !== child.gender ||
-    portraitId !== savedChildPortraitId(child) ||
     canAdmin !== child.can_admin ||
     accentKey !== normalizeMemberAccentKey(child.accent_key) ||
-    (parsedAge ?? null) !== child.age
+    (parsedAge ?? null) !== child.age ||
+    effectivePortraitId !== savedChildPortraitId(child)
+
+  const syncPortrait = (nextGender: ChildGender, nextAge: number | null) => {
+    setPortraitId((current) =>
+      coercePortraitForCategory(memberAvatarCategoryForChild(nextGender, nextAge), current),
+    )
+  }
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -99,14 +82,13 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
       return
     }
 
-    const nextPortrait = coercePortraitForOptions(portraitId, avatarResolved.options)
     const { error: saveError } = await updateChild(child.id, {
       display_name: displayName.trim(),
       gender,
       age,
       can_admin: canAdmin,
       accent_key: accentKey,
-      portrait_id: nextPortrait,
+      portrait_id: effectivePortraitId,
     })
 
     setLoading(false)
@@ -115,7 +97,6 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
       return
     }
 
-    setPortraitId(nextPortrait)
     setSuccess(true)
     notifyFamilyDataChanged()
     await refresh()
@@ -127,45 +108,58 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
   return (
     <form autoComplete="off" onSubmit={(e) => void handleSave(e)} className={`${CARD_SURFACE_CLASS} space-y-2 rounded-xl p-3`}>
       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-400">{subtitle}</p>
-      <div className="space-y-2">
-        <div>
-          <label htmlFor={`child-name-${child.id}`} className="mb-0.5 block text-xs font-semibold">
-            Name
-          </label>
-          <input
-            id={`child-name-${child.id}`}
-            required
-            maxLength={80}
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            className={FORM_FIELD_INPUT_COMPACT_CLASS}
-            {...displayNameInputProps()}
+      <div className="flex gap-2">
+        <MemberAvatarPicker
+          resolved={avatarResolved}
+          value={portraitId}
+          onChange={setPortraitId}
+          hideLegend
+        />
+        <div className="min-w-0 flex-1 space-y-2">
+          <div>
+            <label htmlFor={`child-name-${child.id}`} className="mb-0.5 block text-xs font-semibold">
+              Name
+            </label>
+            <input
+              id={`child-name-${child.id}`}
+              required
+              maxLength={80}
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className={FORM_FIELD_INPUT_COMPACT_CLASS}
+              {...displayNameInputProps()}
+            />
+          </div>
+          <div>
+            <label htmlFor={`child-age-${child.id}`} className="mb-0.5 block text-xs font-semibold">
+              Alter
+            </label>
+            <input
+              id={`child-age-${child.id}`}
+              required
+              min={0}
+              max={99}
+              value={ageInput}
+              onChange={(e) => {
+                setAgeInput(e.target.value)
+                syncPortrait(gender, parseAgeInput(e.target.value))
+              }}
+              placeholder="z. B. 8"
+              className={FORM_FIELD_INPUT_COMPACT_CLASS}
+              {...integerInputProps('lifexp-child-age')}
+            />
+          </div>
+          <GenderChoice
+            kind="child"
+            compact
+            value={gender}
+            onChange={(next) => {
+              setGender(next)
+              syncPortrait(next, parsedAge)
+            }}
           />
         </div>
-        <div>
-          <label htmlFor={`child-age-${child.id}`} className="mb-0.5 block text-xs font-semibold">
-            Alter
-          </label>
-          <input
-            id={`child-age-${child.id}`}
-            required
-            min={0}
-            max={99}
-            value={ageInput}
-            onChange={(e) => handleAgeChange(e.target.value)}
-            placeholder="z. B. 8"
-            className={FORM_FIELD_INPUT_COMPACT_CLASS}
-            {...integerInputProps('lifexp-child-age')}
-          />
-        </div>
-        <GenderChoice kind="child" compact value={gender} onChange={handleGenderChange} />
       </div>
-      <MemberAvatarPicker
-        resolved={avatarResolved}
-        value={portraitId}
-        onChange={setPortraitId}
-        legend="Avatar wählen"
-      />
       <AdminAccessToggle checked={canAdmin} onChange={setCanAdmin} />
       <MemberAccentPicker value={accentKey} onChange={setAccentKey} />
       {error ? (

@@ -349,6 +349,54 @@ html.lifexp-keyboard-open.dark body::before {
   }
 }
 
+.lifexp-crown-today {
+  filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.28)) drop-shadow(0 3px 6px rgba(120, 53, 18, 0.18));
+}
+
+.lifexp-crown-yesterday {
+  filter: drop-shadow(0 1px 2px rgba(69, 26, 3, 0.35)) drop-shadow(0 3px 7px rgba(180, 83, 9, 0.22));
+}
+
+.lifexp-crown-pulse {
+  animation: lifexp-crown-pulse 1.8s ease-in-out infinite;
+}
+
+.lifexp-crown-pling {
+  animation: lifexp-crown-pling 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lifexp-crown-pulse,
+  .lifexp-crown-pling {
+    animation: none;
+  }
+}
+
+@keyframes lifexp-crown-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes lifexp-crown-pling {
+  0% {
+    transform: scale(0.15);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 /* Denkblase — Positionierung in AvatarWasJetztTunThoughtBubble.tsx (Tailwind) */
 
 /* Komfortables Tippen auf Mobilgeräten */

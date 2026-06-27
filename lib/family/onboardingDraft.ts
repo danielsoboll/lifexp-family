@@ -6,7 +6,16 @@ export const FAMILY_ONBOARDING_DRAFT_LOCAL_KEY = 'lifexp_family_onboarding_draft
 export const FAMILY_ONBOARDING_DRAFT_COOKIE_KEY = 'lifexp_fod'
 
 export type CreateOnboardingStep = 'form' | 'install' | 'recovery'
-export type JoinOnboardingStep = 'choice' | 'code' | 'scan' | 'confirm' | 'install' | 'recovery'
+export type JoinOnboardingStep =
+  | 'choice'
+  | 'code'
+  | 'pick_member'
+  | 'profile'
+  | 'scan'
+  | 'link'
+  | 'confirm'
+  | 'install'
+  | 'recovery'
 
 type DraftBase = {
   version: 1
@@ -32,7 +41,7 @@ export type FamilyOnboardingDraft =
       step: JoinOnboardingStep
       inviteCode: string
       /** Wie der Nutzer in den Join-Flow kam — für korrektes Zurück ab Install. */
-      joinEntryPath?: 'code' | 'scan'
+      joinEntryPath?: 'code' | 'scan' | 'link' | 'claim'
     })
 
 function isMemberGender(value: unknown): value is OnboardingMemberGender {
@@ -103,13 +112,26 @@ function parseDraft(raw: string): FamilyOnboardingDraft | null {
       const step =
         parsed.step === 'choice' ||
         parsed.step === 'code' ||
+        parsed.step === 'pick_member' ||
+        parsed.step === 'profile' ||
         parsed.step === 'scan' ||
+        parsed.step === 'link' ||
         parsed.step === 'confirm' ||
         parsed.step === 'install' ||
         parsed.step === 'recovery'
           ? parsed.step
           : 'choice'
-      return { ...base, mode: 'join', step, inviteCode: parsed.inviteCode, joinEntryPath: parsed.joinEntryPath === 'scan' ? 'scan' : parsed.joinEntryPath === 'code' ? 'code' : undefined }
+      const joinEntryPath =
+        parsed.joinEntryPath === 'scan'
+          ? 'scan'
+          : parsed.joinEntryPath === 'link'
+            ? 'link'
+            : parsed.joinEntryPath === 'claim'
+              ? 'claim'
+              : parsed.joinEntryPath === 'code'
+                ? 'code'
+                : undefined
+      return { ...base, mode: 'join', step, inviteCode: parsed.inviteCode, joinEntryPath }
     }
 
     return null
@@ -141,7 +163,17 @@ export function hasIncompleteFamilyOnboardingDraft(): boolean {
 }
 
 const CREATE_STEP_ORDER: CreateOnboardingStep[] = ['form', 'install', 'recovery']
-const JOIN_STEP_ORDER: JoinOnboardingStep[] = ['choice', 'code', 'scan', 'confirm', 'install', 'recovery']
+const JOIN_STEP_ORDER: JoinOnboardingStep[] = [
+  'choice',
+  'code',
+  'pick_member',
+  'profile',
+  'scan',
+  'link',
+  'confirm',
+  'install',
+  'recovery',
+]
 
 export function mergeOnboardingStep<T extends CreateOnboardingStep | JoinOnboardingStep>(
   current: T,

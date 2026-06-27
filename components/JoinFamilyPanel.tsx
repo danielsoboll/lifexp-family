@@ -3,13 +3,14 @@
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 
+import JoinMemberPicker from './JoinMemberPicker'
 import OnboardingProfileFields from './OnboardingProfileFields'
 import OnboardingPwaStep from './OnboardingPwaStep'
 import OnboardingRecoveryStep from './OnboardingRecoveryStep'
 import OpenPwaHint from './OpenPwaHint'
-import QrCodeScanner from './QrCodeScanner'
 import { useFamilyOnboardingBridge } from '../hooks/useFamilyOnboardingBridge'
-import { joinFamilyWithInviteCode } from '../lib/family/families'
+import { claimFamilyMember, fetchClaimableMembers, joinFamilyWithInviteCode } from '../lib/family/families'
+import type { ClaimableMember } from '../lib/family/claimableMembers'
 import { updateMemberAppInstalled, updateMemberAppLater } from '../lib/family/memberSettings'
 import {
   bootstrapOnboardingBridge,
@@ -41,7 +42,7 @@ import {
   type OnboardingDevicePrefs,
   type OnboardingMemberGender,
 } from '../lib/family/onboardingMember'
-import { normalizeInviteCodeInput, parseInviteCodeFromQr } from '../lib/parseInviteCode'
+import { normalizeInviteCodeInput } from '../lib/parseInviteCode'
 import { storeFamilySession, type FamilySession } from '../lib/familySession'
 import { isStandaloneDisplayMode } from '../lib/pwaInstall'
 import { FORM_FIELD_INPUT_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
@@ -51,6 +52,7 @@ import { resetOnboardingSheetScroll } from '../lib/slowScroll'
 type JoinFamilyPanelProps = {
   onBack: () => void
   sheetScrollRef?: RefObject<HTMLElement | null>
+  initialInviteCode?: string | null
 }
 
 type JoinState = {
@@ -62,7 +64,7 @@ type JoinState = {
   recoveryCode: string
   pendingSession: FamilySession | null
   pwaInstallAcknowledged: boolean
-  joinEntryPath: 'code' | 'scan' | null
+  joinEntryPath: 'code' | 'scan' | 'link' | 'claim' | null
 }
 
 function portraitFromDraft(gender: OnboardingMemberGender, draftPortraitId?: string): AvatarPortraitId {
@@ -98,7 +100,7 @@ function joinStateFromDraft(): JoinState {
   }
 }
 
-export default function JoinFamilyPanel({ onBack, sheetScrollRef }: JoinFamilyPanelProps) {
+export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteCode = null }: JoinFamilyPanelProps) {
   const router = useRouter()
   const draftHydratedRef = useRef(false)
   const submitBusyRef = useRef(false)
@@ -121,7 +123,8 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef }: JoinFamilyPa
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [recoveryBusy, setRecoveryBusy] = useState(false)
-  const [joinEntryPath, setJoinEntryPath] = useState<'code' | 'scan' | null>(null)
+  const [joinEntryPath, setJoinEntryPath] = useState<'code' | 'scan' | 'link' | 'claim' | null>(null)
+  const [claimableMembers, setClaimableMembers] = useState<ClaimableMember[]>([])
 
   stepRef.current = step
   genderRef.current = gender
@@ -219,12 +222,60 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef }: JoinFamilyPa
 
   useFamilyOnboardingBridge({ onResume: resyncFromStorage })
 
+  const advanceAfterInviteCode = useCallback(
+    async (code: string, entryPath: 'code' | 'scan' | 'link' | 'claim' = 'code') => {
+      const normalized = normalizeInviteCodeInput(code)
+      if (!normalized) {
+        setError('Bitte einen Einladungscode eingeben.')
+        return
+      }
+
+      setLoading(true)
+      setError(null)
+      const { members, error: slotsError } = await fetchClaimableMembers(normalized)
+      setLoading(false)
+
+      if (slotsError) {
+        setError(slotsError.message)
+        return
+      }
+
+      setInviteCode(normalized)
+      setClaimableMembers(members)
+
+      if (members.length > 0) {
+        navigateJoinStep('pick_member', { inviteCode: normalized, joinEntryPath: 'claim' })
+        return
+      }
+
+      navigateJoinStep('profile', { inviteCode: normalized, joinEntryPath: entryPath })
+    },
+    [navigateJoinStep],
+  )
+
   useEffect(() => {
     if (draftHydratedRef.current) return
     draftHydratedRef.current = true
     bootstrapOnboardingBridge()
-    applyDraftSnapshot(joinStateFromDraft())
-  }, [applyDraftSnapshot])
+
+    const draft = joinStateFromDraft()
+    const urlCode = initialInviteCode?.trim()
+      ? normalizeInviteCodeInput(initialInviteCode)
+      : ''
+
+    if (urlCode && !draft.inviteCode.trim()) {
+      applyDraftSnapshot({
+        ...draft,
+        inviteCode: urlCode,
+        step: 'code',
+        joinEntryPath: 'claim',
+      })
+      void advanceAfterInviteCode(urlCode, 'claim')
+      return
+    }
+
+    applyDraftSnapshot(draft)
+  }, [applyDraftSnapshot, initialInviteCode, advanceAfterInviteCode])
 
   useEffect(() => {
     resetOnboardingSheetScroll(sheetScrollRef?.current)
@@ -463,7 +514,19 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef }: JoinFamilyPa
 
   const recoveryCredentials = resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
 
-  const handleCodeSubmit = async (event: React.FormEvent) => {
+  const handleCodeValidate = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (loading || submitBusyRef.current) return
+    commitFocusedFormField()
+    submitBusyRef.current = true
+    try {
+      await advanceAfterInviteCode(inviteCode, joinEntryPath ?? 'code')
+    } finally {
+      submitBusyRef.current = false
+    }
+  }
+
+  const handleProfileSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (loading || submitBusyRef.current) return
 
@@ -481,20 +544,61 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef }: JoinFamilyPa
     setError(null)
 
     await proceedToInstall(snapshot.inviteCode, snapshot)
+    submitBusyRef.current = false
   }
 
-  const handleScannedCode = (raw: string) => {
-    const parsed = parseInviteCodeFromQr(raw)
-    if (!parsed) {
-      setError('QR-Code konnte nicht gelesen werden.')
+  const handleMemberSelect = async (member: ClaimableMember) => {
+    if (loading || submitBusyRef.current) return
+    const normalized = normalizeInviteCodeInput(inviteCode)
+    if (!normalized) {
+      setError('Bitte einen Einladungscode eingeben.')
       return
     }
-    navigateJoinStep('confirm', { inviteCode: parsed, joinEntryPath: 'scan' })
+
+    submitBusyRef.current = true
+    setLoading(true)
+    setError(null)
+
+    const { result, error: claimError } = await claimFamilyMember(
+      normalized,
+      { memberKind: member.memberKind, memberId: member.memberId },
+      { appInstalled: true, appLater: false },
+    )
+
+    submitBusyRef.current = false
+    setLoading(false)
+
+    if (claimError) {
+      setError(claimError.message)
+      return
+    }
+    if (!result) {
+      setError('Verbindung fehlgeschlagen.')
+      return
+    }
+
+    setInviteCode(normalized)
+    setJoinEntryPath('claim')
+    setPendingSession(result.session)
+    setRecoveryCode(result.recoveryCode)
+    goToRecoveryStep(result.session, result.recoveryCode, { appInstalled: true, appLater: false })
   }
 
+  const codeBackStep = (): JoinOnboardingStep => {
+    if (joinEntryPath === 'scan') return 'scan'
+    if (joinEntryPath === 'link') return 'link'
+    return 'choice'
+  }
+
+  const profileBackStep = (): JoinOnboardingStep => 'code'
+
+  const pickMemberBackStep = (): JoinOnboardingStep => 'code'
+
   const installBackStep = (): JoinOnboardingStep => {
-    if (joinEntryPath === 'scan' && inviteCode.trim()) return 'confirm'
-    return 'code'
+    if (joinEntryPath === 'claim') return 'pick_member'
+    if (joinEntryPath === 'scan') return 'scan'
+    if (joinEntryPath === 'link') return 'link'
+    return 'profile'
   }
 
   const profileFields = (
@@ -603,7 +707,48 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef }: JoinFamilyPa
           }}
           className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-stone-400 bg-gradient-to-b from-stone-100 via-stone-200 to-stone-400/80 px-4 py-3 text-base font-bold text-stone-900 dark:border-stone-600 dark:from-stone-700 dark:via-stone-800 dark:to-stone-950 dark:text-stone-100`}
         >
-          Code scannen
+          QR-Code scannen
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setError(null)
+            navigateJoinStep('link', { joinEntryPath: 'link' })
+          }}
+          className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-stone-400 bg-gradient-to-b from-stone-100 via-stone-200 to-stone-400/80 px-4 py-3 text-base font-bold text-stone-900 dark:border-stone-600 dark:from-stone-700 dark:via-stone-800 dark:to-stone-950 dark:text-stone-100`}
+        >
+          Link per SMS oder WhatsApp vom Familiengründer erhalten
+        </button>
+      </div>
+    )
+  }
+
+  if (step === 'link') {
+    return (
+      <div key="join-link" className="space-y-4">
+        <button
+          type="button"
+          onClick={() => navigateJoinStep('choice')}
+          className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+        >
+          ← Zurück
+        </button>
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          Link per SMS oder WhatsApp
+        </p>
+        <p className="text-sm text-slate-950 dark:text-slate-400">
+          Dein Familiengründer kann dir den Einladungslink per SMS oder WhatsApp schicken. Tippe in der
+          Nachricht auf den Link — LifeXP Family öffnet sich dann automatisch mit deiner Einladung.
+        </p>
+        <p className="text-xs text-slate-600 dark:text-slate-400">
+          Hast du stattdessen nur den Einladungscode? Dann geht es weiter über Code eingeben.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigateJoinStep('code')}
+          className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white`}
+        >
+          Code eingeben
         </button>
       </div>
     )
@@ -611,34 +756,96 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef }: JoinFamilyPa
 
   if (step === 'scan') {
     return (
-      <div key="join-scan" className="relative space-y-4">
+      <div key="join-scan" className="space-y-4">
         <button
           type="button"
           onClick={() => navigateJoinStep('choice')}
-          className="relative z-10 text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+          className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
         >
           ← Zurück
         </button>
-        <QrCodeScanner onCode={handleScannedCode} onError={setError} />
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">QR-Code scannen</p>
+        <p className="text-sm text-slate-950 dark:text-slate-400">
+          Mach einfach ein Foto vom QR-Code auf dem Handy deines Familien-Gründers — die Kamera deines Handys
+          erkennt den Einladungslink automatisch.
+        </p>
+        <p className="text-xs text-slate-600 dark:text-slate-400">
+          Alternativ kannst du den Einladungscode auch manuell eingeben.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigateJoinStep('code')}
+          className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white`}
+        >
+          Code eingeben
+        </button>
+      </div>
+    )
+  }
+
+  if (step === 'pick_member') {
+    return (
+      <div key="join-pick-member" className="space-y-4 pb-8">
+        <button
+          type="button"
+          onClick={() => navigateJoinStep(pickMemberBackStep())}
+          className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+        >
+          ← Zurück
+        </button>
+        <JoinMemberPicker members={claimableMembers} onSelect={(member) => void handleMemberSelect(member)} disabled={loading} />
         {error ? (
           <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
             {error}
           </p>
         ) : null}
+        {loading ? <p className="text-sm text-slate-950 dark:text-slate-400">Wird verbunden …</p> : null}
       </div>
+    )
+  }
+
+  if (step === 'profile') {
+    return (
+      <form key="join-profile" noValidate autoComplete="off" onSubmit={(event) => void handleProfileSubmit(event)} className="space-y-4 pb-36">
+        <div ref={joinFormIntroRef} className="space-y-4">
+          <button
+            type="button"
+            onClick={() => navigateJoinStep(profileBackStep())}
+            className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+          >
+            ← Zurück
+          </button>
+          <p className="text-sm text-slate-950 dark:text-slate-400">
+            Kein Profil von deinem Familiengründer gefunden — lege kurz dein Profil an.
+          </p>
+        </div>
+        {profileFields}
+        {error ? (
+          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+            {error}
+          </p>
+        ) : null}
+        <button
+          type="submit"
+          disabled={loading}
+          className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white disabled:opacity-45`}
+        >
+          {loading ? 'Wird verbunden …' : 'Weiter'}
+        </button>
+      </form>
     )
   }
 
   if (step === 'confirm') {
     return (
-      <form key="join-confirm" noValidate autoComplete="off" onSubmit={(event) => void handleCodeSubmit(event)} className="space-y-4 pb-36">
+      <form key="join-confirm" noValidate autoComplete="off" onSubmit={(event) => void handleProfileSubmit(event)} className="space-y-4 pb-36">
         <div ref={joinFormIntroRef} className="space-y-4">
           <button
             type="button"
-            onClick={() => navigateJoinStep('scan')}
+            onClick={() => navigateJoinStep('code', { joinEntryPath: 'code' })}
             className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
           >
-            ← Erneut scannen
+            ← Zurück
           </button>
           <p className="text-sm text-slate-950 dark:text-slate-400">
             Code erkannt: <span className="font-bold text-slate-900 dark:text-slate-100">{inviteCode}</span>
@@ -661,46 +868,49 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef }: JoinFamilyPa
     )
   }
 
-  return (
-    <form key="join-code" noValidate autoComplete="off" onSubmit={(event) => void handleCodeSubmit(event)} className="space-y-4 pb-36">
-      <div ref={joinFormIntroRef} className="space-y-4">
-        <button
-          type="button"
-          onClick={() => navigateJoinStep('choice')}
-          className="relative z-10 text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
-        >
-          ← Zurück
-        </button>
-        <div>
-          <label htmlFor="join-invite-code" className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-            Einladungscode
-          </label>
-          <input
-            id="join-invite-code"
-            required
-            maxLength={40}
-            spellCheck={false}
-            placeholder="z. B. ABCD-1234"
-            value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value)}
-            className={`${FORM_FIELD_INPUT_CLASS} font-mono uppercase`}
-            {...oneLineTextInputProps('lifexp-join-invite-code')}
-          />
+  if (step === 'code') {
+    return (
+      <form key="join-code" noValidate autoComplete="off" onSubmit={(event) => void handleCodeValidate(event)} className="space-y-4 pb-8">
+        <div className="space-y-4">
+          <button
+            type="button"
+            onClick={() => navigateJoinStep(codeBackStep())}
+            className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
+          >
+            ← Zurück
+          </button>
+          <div>
+            <label htmlFor="join-invite-code" className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Einladungscode
+            </label>
+            <input
+              id="join-invite-code"
+              required
+              maxLength={40}
+              spellCheck={false}
+              placeholder="z. B. ABCD-1234"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              className={`${FORM_FIELD_INPUT_CLASS} font-mono uppercase`}
+              {...oneLineTextInputProps('lifexp-join-invite-code')}
+            />
+          </div>
         </div>
-      </div>
-      {profileFields}
-      {error ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
-          {error}
-        </p>
-      ) : null}
-      <button
-        type="submit"
-        disabled={loading}
-        className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white disabled:opacity-45`}
-      >
-        {loading ? 'Wird verbunden …' : 'Weiter'}
-      </button>
-    </form>
-  )
+        {error ? (
+          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+            {error}
+          </p>
+        ) : null}
+        <button
+          type="submit"
+          disabled={loading}
+          className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white disabled:opacity-45`}
+        >
+          {loading ? 'Wird geprüft …' : 'Weiter'}
+        </button>
+      </form>
+    )
+  }
+
+  return null
 }

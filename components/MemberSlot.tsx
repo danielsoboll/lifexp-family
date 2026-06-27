@@ -1,6 +1,8 @@
 import Link from 'next/link'
 
+import MemberCrownBadge from './MemberCrownBadge'
 import MemberDailyXpBar from './MemberDailyXpBar'
+import type { DailyCrownKind } from '../lib/family/dailyCrown'
 import { CARD_SURFACE_CLASS } from '../lib/appShell'
 
 type MemberSlotProps = {
@@ -13,6 +15,8 @@ type MemberSlotProps = {
   highlightClass?: string
   setupGuideTarget?: string
   onNavigate?: () => void
+  crown?: DailyCrownKind | null
+  crownPling?: boolean
 }
 
 export default function MemberSlot({
@@ -25,15 +29,28 @@ export default function MemberSlot({
   highlightClass = '',
   setupGuideTarget,
   onNavigate,
+  crown = null,
+  crownPling = false,
 }: MemberSlotProps) {
+  const crownPortraitRingClass = crown
+    ? crown === 'yesterday'
+      ? 'ring-2 ring-amber-500/70 shadow-[0_0_10px_-2px_rgba(217,119,6,0.45)] dark:ring-amber-400/55'
+      : 'ring-2 ring-amber-400/65 shadow-[0_0_8px_-2px_rgba(251,191,36,0.4)] dark:ring-amber-300/50'
+    : 'ring-1 ring-slate-900/[0.07] dark:ring-white/10'
+
   const visual = avatarError ? (
     <div className="flex aspect-[5/6] w-full items-center justify-center rounded-xl bg-slate-100 px-1 dark:bg-slate-800">
       <p className="text-[10px] leading-tight text-amber-800 dark:text-amber-200">{avatarError}</p>
     </div>
   ) : avatarSrc ? (
-    <div className="relative aspect-[5/6] w-full overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={avatarSrc} alt="" className="absolute inset-0 h-full w-full object-cover object-top" />
+    <div className="relative aspect-[5/6] w-full overflow-visible">
+      {crown ? <MemberCrownBadge kind={crown} pling={crownPling} /> : null}
+      <div
+        className={`absolute inset-0 overflow-hidden rounded-2xl bg-slate-200/60 shadow-sm dark:bg-slate-800/80 ${crownPortraitRingClass}`}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={avatarSrc} alt="" className="absolute inset-0 h-full w-full object-cover object-top" />
+      </div>
     </div>
   ) : (
     <div className="flex aspect-[5/6] w-full items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">

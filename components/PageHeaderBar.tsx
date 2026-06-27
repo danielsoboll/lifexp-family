@@ -11,6 +11,8 @@ type PageHeaderBarProps = {
   compact?: boolean
   infoHref?: string
   infoLabel?: string
+  /** Optional rechts neben Theme-Toggle (z. B. PLUS-Schloss). */
+  headerAction?: ReactNode
   /** Optional, z. B. „Eigene“ — wird unter dem Info-Button angezeigt. */
   headerSecondaryAction?: ReactNode
   onBackClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void
@@ -22,6 +24,7 @@ export default function PageHeaderBar({
   compact = false,
   infoHref,
   infoLabel,
+  headerAction,
   headerSecondaryAction,
   onBackClick,
 }: PageHeaderBarProps) {
@@ -32,7 +35,10 @@ export default function PageHeaderBar({
         {backLabel}
       </Link>
       <div className="flex flex-col items-end gap-2">
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          {headerAction}
+          <ThemeToggle />
+        </div>
         {infoHref || headerSecondaryAction ? (
           <div className="flex flex-col items-end gap-1.5">
             {infoHref ? <InfoButton href={infoHref} label={infoLabel ?? 'Info'} /> : null}

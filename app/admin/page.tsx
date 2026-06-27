@@ -7,11 +7,17 @@ import { useEffect, useRef, useState } from 'react'
 import AdminScrollPage from '../../components/AdminScrollPage'
 import ChildMemberEditor from '../../components/ChildMemberEditor'
 import DangerConfirmAction from '../../components/DangerConfirmAction'
+import FamilyInviteSharePanel from '../../components/FamilyInviteSharePanel'
 import ParentMemberEditor from '../../components/ParentMemberEditor'
 import PageHeaderBar from '../../components/PageHeaderBar'
 import { notifyFamilyDataChanged, useFamily } from '../../components/FamilyProvider'
 import { markSetupGuideAdminVisited } from '../../lib/family/setupGuide'
-import { deleteChildById } from '../../lib/family/admin'
+import { deleteChildById, deleteParentById } from '../../lib/family/admin'
+import {
+  childCanBeRemoved,
+  memberHasCollectedDayXp,
+  parentCanBeRemoved,
+} from '../../lib/family/memberRemovable'
 import { CARD_SURFACE_CLASS, MUTED_BODY_TEXT_CLASS, PRESSABLE_3D_CLASS } from '../../lib/appShell'
 import { formatParentDisplayName } from '../../lib/family/familyDisplayName'
 
@@ -21,9 +27,13 @@ const ADMIN_SETTINGS_LINK_CLASS = `${PRESSABLE_3D_CLASS} flex w-full items-cente
 
 export default function AdminPage() {
   const router = useRouter()
-  const { family, parent, activeChild, parents, children, loading, error, canAdmin, refresh } = useFamily()
+  const { family, parent, activeChild, parents, children, loading, error, canAdmin, refresh, session } =
+    useFamily()
   const [childDeleteError, setChildDeleteError] = useState<string | null>(null)
   const [childDeleteBusy, setChildDeleteBusy] = useState<string | null>(null)
+  const [parentDeleteError, setParentDeleteError] = useState<string | null>(null)
+  const [parentDeleteBusy, setParentDeleteBusy] = useState<string | null>(null)
+  const [removableByKey, setRemovableByKey] = useState<Record<string, boolean>>({})
   const adminGuideTrackedRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -39,6 +49,50 @@ export default function AdminPage() {
     }
   }, [loading, canAdmin, router])
 
+  useEffect(() => {
+    if (!family?.id) {
+      setRemovableByKey({})
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      const next: Record<string, boolean> = {}
+
+      await Promise.all([
+        ...parents.map(async (member) => {
+          const { hasXp } = await memberHasCollectedDayXp({
+            familyId: family.id,
+            memberKind: 'parent',
+            memberId: member.id,
+          })
+          next[`parent:${member.id}`] = parentCanBeRemoved({
+            parent: member,
+            parents,
+            sessionMemberKind: session?.memberKind ?? null,
+            sessionMemberId: session?.memberId ?? null,
+            hasXp,
+          })
+        }),
+        ...children.map(async (member) => {
+          const { hasXp } = await memberHasCollectedDayXp({
+            familyId: family.id,
+            memberKind: 'child',
+            memberId: member.id,
+          })
+          next[`child:${member.id}`] = childCanBeRemoved(hasXp)
+        }),
+      ])
+
+      if (!cancelled) setRemovableByKey(next)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [family?.id, parents, children, session?.memberKind, session?.memberId])
+
   if (!loading && !canAdmin) {
     return null
   }
@@ -51,6 +105,21 @@ export default function AdminPage() {
     setChildDeleteBusy(null)
     if (deleteError) {
       setChildDeleteError(deleteError.message)
+      return false
+    }
+    notifyFamilyDataChanged()
+    await refresh()
+    return true
+  }
+
+  const handleDeleteParent = async (parentId: string): Promise<boolean> => {
+    if (!family) return false
+    setParentDeleteBusy(parentId)
+    setParentDeleteError(null)
+    const { error: deleteError } = await deleteParentById(parentId, family.id)
+    setParentDeleteBusy(null)
+    if (deleteError) {
+      setParentDeleteError(deleteError.message)
       return false
     }
     notifyFamilyDataChanged()
@@ -87,12 +156,11 @@ export default function AdminPage() {
                   : (activeChild?.display_name ?? '—')}
               </span>
             </p>
-            <p className={MUTED_BODY_TEXT_CLASS}>
-              Einladungscode:{' '}
-              <span className="font-mono font-semibold text-slate-950 dark:text-slate-100">
-                {family?.invite_code ?? '—'}
-              </span>
-            </p>
+            {family?.invite_code ? (
+              <FamilyInviteSharePanel inviteCode={family.invite_code} familyName={family.name} />
+            ) : (
+              <p className={MUTED_BODY_TEXT_CLASS}>Einladungscode: —</p>
+            )}
           </section>
 
           <section className="mb-4 space-y-3">
@@ -100,9 +168,26 @@ export default function AdminPage() {
             <Link href="/admin/adults/new" className={ADMIN_ADD_LINK_CLASS}>
               + Erwachsenen hinzufügen
             </Link>
+            {parentDeleteError ? (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+                {parentDeleteError}
+              </p>
+            ) : null}
+
             <div className="space-y-2">
               {parents.map((p) => (
-                <ParentMemberEditor key={p.id} member={p} />
+                <div key={p.id} className="space-y-1.5">
+                  <ParentMemberEditor member={p} />
+                  {removableByKey[`parent:${p.id}`] ? (
+                    <DangerConfirmAction
+                      triggerLabel="Familienmitglied entfernen"
+                      confirmTitle={`${formatParentDisplayName(p.display_name, p.gender)} wirklich entfernen?`}
+                      confirmDescription="Profil und Zugang dieses Erwachsenen werden unwiderruflich gelöscht. Nur möglich, solange noch kein XP gesammelt wurde."
+                      onConfirm={() => handleDeleteParent(p.id)}
+                      busy={parentDeleteBusy === p.id}
+                    />
+                  ) : null}
+                </div>
               ))}
             </div>
           </section>
@@ -128,13 +213,15 @@ export default function AdminPage() {
                 {children.map((child) => (
                   <div key={child.id} className="space-y-1.5">
                     <ChildMemberEditor child={child} />
-                    <DangerConfirmAction
-                      triggerLabel="Familienmitglied entfernen"
-                      confirmTitle={`${child.display_name} wirklich entfernen?`}
-                      confirmDescription="Profil, Quest-Fortschritt und XP-Einträge dieses Kindes werden unwiderruflich gelöscht."
-                      onConfirm={() => handleDeleteChild(child.id)}
-                      busy={childDeleteBusy === child.id}
-                    />
+                    {removableByKey[`child:${child.id}`] ? (
+                      <DangerConfirmAction
+                        triggerLabel="Familienmitglied entfernen"
+                        confirmTitle={`${child.display_name} wirklich entfernen?`}
+                        confirmDescription="Profil, Quest-Fortschritt und XP-Einträge dieses Kindes werden unwiderruflich gelöscht. Nur möglich, solange noch kein XP gesammelt wurde."
+                        onConfirm={() => handleDeleteChild(child.id)}
+                        busy={childDeleteBusy === child.id}
+                      />
+                    ) : null}
                   </div>
                 ))}
               </div>

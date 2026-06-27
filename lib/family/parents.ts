@@ -8,6 +8,10 @@ import {
   type AvatarPortraitId,
 } from './memberAvatar'
 import { nextAccentKeyForFamily } from './memberAccentAssign'
+import {
+  generateUniqueMemberRecoveryCode,
+  memberRecoveryInsertFields,
+} from './memberRecoveryCode'
 import { supabase } from '../supabase'
 import { familyDbError } from './dbError'
 import type { MemberAccentKey } from './memberAccentColor'
@@ -49,6 +53,16 @@ export async function createParentForFamily(
   const { accentKey, error: accentError } = await nextAccentKeyForFamily(input.familyId)
   if (accentError) return { parent: null, error: accentError }
 
+  let recoveryCode: string
+  try {
+    recoveryCode = await generateUniqueMemberRecoveryCode(supabase)
+  } catch (error) {
+    return {
+      parent: null,
+      error: error instanceof Error ? error : new Error('Recovery-Code konnte nicht erzeugt werden.'),
+    }
+  }
+
   const { error: parentError } = await supabase.from('parent_profiles').insert({
     id: parentId,
     display_name: displayName,
@@ -56,6 +70,7 @@ export async function createParentForFamily(
     can_admin: canAdmin,
     avatar_url: portraitId ? portraitSrc(portraitId) : null,
     accent_key: accentKey,
+    ...memberRecoveryInsertFields(recoveryCode),
   })
 
   if (parentError) {

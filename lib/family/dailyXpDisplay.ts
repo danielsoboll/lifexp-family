@@ -6,6 +6,11 @@ export const MEMBER_DAILY_XP_BOOST_THRESHOLD = 20
 /** Familie gemeinsam: Happy_all-Banner ab dieser Tages-XP-Summe. */
 export const FAMILY_DAILY_XP_HAPPY_ALL_MIN = 60
 
+/** Verlauf-Familienchart: Y-Achse bis Mitglieder × max. Tages-XP (je 30). */
+export function familyDailyXpChartMax(memberCount: number): number {
+  return Math.max(0, memberCount) * MEMBER_DAILY_XP_MAX
+}
+
 /** Nächste Familien-Stufe (Happy_all_2-Zyklus o. ä.) ab dieser Tages-XP-Summe. */
 export const FAMILY_DAILY_XP_NEXT_TIER_MIN = 80
 
