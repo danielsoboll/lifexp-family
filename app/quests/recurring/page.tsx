@@ -12,7 +12,6 @@ import {
   fetchRecurringQuestTemplates,
   pauseRecurringQuestTemplate,
   reactivateRecurringQuestTemplate,
-  sessionIsRecurringTemplateCreator,
 } from '../../../lib/family/recurringQuests'
 import type { RecurringQuestTemplate } from '../../../lib/family/types'
 import { formatParentDisplayName } from '../../../lib/family/familyDisplayName'
@@ -48,11 +47,45 @@ function creatorSummary(
   return '—'
 }
 
+type RecurringQuestTemplateCardBodyProps = {
+  template: RecurringQuestTemplate
+  parents: ReturnType<typeof useFamily>['parents']
+  children: ReturnType<typeof useFamily>['children']
+}
+
+function RecurringQuestTemplateCardBody({ template, parents, children }: RecurringQuestTemplateCardBodyProps) {
+  return (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-bold text-slate-900 dark:text-slate-100">{template.title}</p>
+          {template.description ? (
+            <p className="mt-0.5 text-xs text-slate-950 dark:text-slate-400">{template.description}</p>
+          ) : null}
+        </div>
+        <span className="shrink-0 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+          +{template.xp_reward} XP
+        </span>
+      </div>
+      <p className="text-xs text-slate-950 dark:text-slate-400">
+        {recurringScheduleLabel(template.schedule, template.weekly_weekday)}
+      </p>
+      <p className="text-xs text-slate-950 dark:text-slate-400">Für: {assigneeSummary(template, parents, children)}</p>
+      <p className="text-xs text-slate-950 dark:text-slate-500">
+        Angelegt von: {creatorSummary(template, parents, children)}
+      </p>
+      {!template.is_active ? (
+        <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">Ausgeplant — erzeugt vorübergehend keine Quests</p>
+      ) : null}
+    </>
+  )
+}
+
 type RecurringQuestTemplateCardProps = {
   template: RecurringQuestTemplate
   parents: ReturnType<typeof useFamily>['parents']
   children: ReturnType<typeof useFamily>['children']
-  canModify: boolean
+  canAdmin: boolean
   actionBusy: boolean
   onPause: () => void
   onReactivate: () => void
@@ -62,47 +95,35 @@ function RecurringQuestTemplateCard({
   template,
   parents,
   children,
-  canModify,
+  canAdmin,
   actionBusy,
   onPause,
   onReactivate,
 }: RecurringQuestTemplateCardProps) {
+  const editHref = `/quests/recurring/${template.id}/edit`
+
   return (
     <li
       className={`${CARD_SURFACE_CLASS} space-y-2 rounded-2xl p-4 ${
         template.is_active ? '' : 'border-amber-300/80 bg-amber-50/40 dark:border-amber-800/60 dark:bg-amber-950/20'
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-bold text-slate-900 dark:text-slate-100">{template.title}</p>
-          {template.description ? (
-            <p className="mt-0.5 text-xs text-slate-700 dark:text-slate-400">{template.description}</p>
-          ) : null}
+      {canAdmin ? (
+        <Link
+          href={editHref}
+          className="block space-y-2 rounded-xl outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600"
+          aria-label={`${template.title} bearbeiten`}
+        >
+          <RecurringQuestTemplateCardBody template={template} parents={parents} children={children} />
+        </Link>
+      ) : (
+        <div className="space-y-2">
+          <RecurringQuestTemplateCardBody template={template} parents={parents} children={children} />
         </div>
-        <span className="shrink-0 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-          +{template.xp_reward} XP
-        </span>
-      </div>
-      <p className="text-xs text-slate-700 dark:text-slate-400">
-        {recurringScheduleLabel(template.schedule, template.weekly_weekday)}
-      </p>
-      <p className="text-xs text-slate-700 dark:text-slate-400">Für: {assigneeSummary(template, parents, children)}</p>
-      <p className="text-xs text-slate-600 dark:text-slate-500">
-        Angelegt von: {creatorSummary(template, parents, children)}
-      </p>
-      {!template.is_active ? (
-        <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">Ausgeplant — erzeugt vorübergehend keine Quests</p>
-      ) : null}
+      )}
 
-      {canModify ? (
+      {canAdmin ? (
         <div className="flex flex-wrap gap-2 pt-1">
-          <Link
-            href={`/quests/recurring/${template.id}/edit`}
-            className={`${PRESSABLE_3D_CLASS} rounded-xl border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200/90 px-3 py-2 text-xs font-bold text-slate-800 dark:border-slate-600 dark:from-slate-800 dark:to-slate-950 dark:text-slate-100`}
-          >
-            Bearbeiten
-          </Link>
           {template.is_active ? (
             <button
               type="button"
@@ -129,7 +150,7 @@ function RecurringQuestTemplateCard({
 }
 
 export default function RecurringQuestsPage() {
-  const { family, parents, children, session } = useFamily()
+  const { family, parents, children, canAdmin } = useFamily()
   const { plusActive, headerAction: plusHeaderAction, portals: plusPortals } = usePlusDiscoverHeader()
   const [templates, setTemplates] = useState<RecurringQuestTemplate[]>([])
   const [loading, setLoading] = useState(true)
@@ -203,15 +224,17 @@ export default function RecurringQuestsPage() {
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Wiederkehrende Quests</h1>
             <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
-              PLUS-Vorlagen — separat von Einmal-Quests. Bearbeiten und ausplanen nur für die anlegende Person.
+              PLUS-Vorlagen — Admins tippen eine Aufgabe zum Bearbeiten an.
             </p>
           </div>
-          <Link
-            href="/quests/recurring/new"
-            className={`${PRESSABLE_3D_CLASS} inline-flex shrink-0 items-center gap-2 rounded-2xl border-2 border-amber-500 bg-gradient-to-b from-amber-300 to-amber-500 px-3.5 py-2.5 text-sm font-bold text-amber-950`}
-          >
-            + Neu
-          </Link>
+          {canAdmin ? (
+            <Link
+              href="/quests/recurring/new"
+              className={`${PRESSABLE_3D_CLASS} inline-flex shrink-0 items-center gap-2 rounded-2xl border-2 border-amber-500 bg-gradient-to-b from-amber-300 to-amber-500 px-3.5 py-2.5 text-sm font-bold text-amber-950`}
+            >
+              + Neu
+            </Link>
+          ) : null}
         </div>
 
         {loading ? (
@@ -234,7 +257,7 @@ export default function RecurringQuestsPage() {
 
             {activeTemplates.length > 0 ? (
               <section className="space-y-2">
-                <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200">Eingeplant</h2>
+                <h2 className="text-sm font-bold text-slate-950 dark:text-slate-200">Eingeplant</h2>
                 <ul className="space-y-2">
                   {activeTemplates.map((template) => (
                     <RecurringQuestTemplateCard
@@ -242,7 +265,7 @@ export default function RecurringQuestsPage() {
                       template={template}
                       parents={parents}
                       children={children}
-                      canModify={Boolean(session && sessionIsRecurringTemplateCreator(template, session))}
+                      canAdmin={canAdmin}
                       actionBusy={actionBusyId === template.id}
                       onPause={() => void handlePause(template.id)}
                       onReactivate={() => void handleReactivate(template.id)}
@@ -255,7 +278,7 @@ export default function RecurringQuestsPage() {
             {pausedTemplates.length > 0 ? (
               <section className="space-y-2">
                 <h2 className="text-sm font-bold text-amber-800 dark:text-amber-200">Ausgeplant</h2>
-                <p className="text-xs text-slate-600 dark:text-slate-400">
+                <p className="text-xs text-slate-950 dark:text-slate-400">
                   Vorlagen bleiben gespeichert (z. B. Urlaub) — es werden keine neuen Tage erzeugt.
                 </p>
                 <ul className="space-y-2">
@@ -265,7 +288,7 @@ export default function RecurringQuestsPage() {
                       template={template}
                       parents={parents}
                       children={children}
-                      canModify={Boolean(session && sessionIsRecurringTemplateCreator(template, session))}
+                      canAdmin={canAdmin}
                       actionBusy={actionBusyId === template.id}
                       onPause={() => void handlePause(template.id)}
                       onReactivate={() => void handleReactivate(template.id)}

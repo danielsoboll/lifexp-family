@@ -564,7 +564,7 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
           ← Zurück
         </button>
         <div ref={familyNameBlockRef}>
-          <label htmlFor="lifexp-create-family-title" className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+          <label htmlFor="lifexp-create-family-title" className="mb-1 block text-sm font-semibold text-slate-950 dark:text-slate-200">
             Familienname
           </label>
           <AutofillSafeTextInput

@@ -98,7 +98,7 @@ export default function ParentMemberEditor({ member }: ParentMemberEditorProps) 
 
   return (
     <form autoComplete="off" onSubmit={(e) => void handleSave(e)} className={`${CARD_SURFACE_CLASS} space-y-2 rounded-xl p-3`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-400">{roleLabel}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-950 dark:text-slate-400">{roleLabel}</p>
       <div className="flex gap-2">
         <MemberAvatarPicker
           resolved={avatarResolved}

@@ -17,7 +17,7 @@ export default function FamilyPlusFeaturesList({ className = 'mt-4' }: FamilyPlu
           </span>
           <div className="min-w-0">
             <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{feature.title}</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-slate-800 dark:text-slate-300">
+            <p className="mt-0.5 text-xs leading-relaxed text-slate-950 dark:text-slate-300">
               {feature.description}
             </p>
           </div>

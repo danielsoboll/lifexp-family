@@ -67,7 +67,7 @@ export default function MemberRecoveryAdminSection({
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Zum Home-Bildschirm</p>
+        <p className="text-xs font-semibold text-slate-950 dark:text-slate-300">Zum Home-Bildschirm</p>
         <PwaInstallPanel
           compact
           showIosDoneButton
@@ -80,7 +80,7 @@ export default function MemberRecoveryAdminSection({
 
       {recCode ? (
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Recovery-Code</p>
+          <p className="text-xs font-semibold text-slate-950 dark:text-slate-300">Recovery-Code</p>
           <RecoveryCodePanel
             code={recCode}
             variant="settings"
@@ -92,7 +92,7 @@ export default function MemberRecoveryAdminSection({
           />
         </div>
       ) : (
-        <p className="text-xs text-slate-500 dark:text-slate-400">Kein Recovery-Code hinterlegt.</p>
+        <p className="text-xs text-slate-950 dark:text-slate-400">Kein Recovery-Code hinterlegt.</p>
       )}
 
       {error ? (

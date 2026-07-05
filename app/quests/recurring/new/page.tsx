@@ -165,7 +165,7 @@ export default function NewRecurringQuestPage() {
             {loading ? 'Wird gespeichert …' : 'Vorlage speichern'}
           </button>
 
-          <p className="text-center text-xs text-slate-600 dark:text-slate-400">
+          <p className="text-center text-xs text-slate-950 dark:text-slate-400">
             <Link href="/quests/new" className="font-semibold underline underline-offset-2">
               Nur für heute/morgen?
             </Link>{' '}

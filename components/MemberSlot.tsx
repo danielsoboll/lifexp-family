@@ -54,7 +54,7 @@ export default function MemberSlot({
     </div>
   ) : (
     <div className="flex aspect-[5/6] w-full items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
-      <span className="text-xs text-slate-500 dark:text-slate-400">Kein Portrait</span>
+      <span className="text-xs text-slate-950 dark:text-slate-400">Kein Portrait</span>
     </div>
   )
 

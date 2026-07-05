@@ -192,14 +192,14 @@ export default function QuestCreatorConfirmSheet() {
                 >
                   <p className="font-bold text-slate-900 dark:text-slate-100">{item.questTitle}</p>
                   <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
-                    Bestätigt von <strong className="text-slate-800 dark:text-slate-200">{item.assigneeName}</strong>
+                    Bestätigt von <strong className="text-slate-950 dark:text-slate-200">{item.assigneeName}</strong>
                     {timeLabel ? `, ${timeLabel} Uhr` : null}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">+{item.xpReward} XP</p>
 
                   {plusActive && photos.length > 0 ? (
                     <div className="mt-3">
-                      <p className="mb-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">Beweisfotos</p>
+                      <p className="mb-1.5 text-xs font-semibold text-slate-950 dark:text-slate-400">Beweisfotos</p>
                       <div className="flex gap-2">
                         {photos.map((photo) => (
                           <a

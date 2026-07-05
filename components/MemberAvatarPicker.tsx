@@ -53,7 +53,7 @@ export default function MemberAvatarPicker({
     <>
       <div className="shrink-0 self-start">
         {!hideLegend ? (
-          <p className="mb-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200">{legend}</p>
+          <p className="mb-1.5 text-xs font-semibold text-slate-950 dark:text-slate-200">{legend}</p>
         ) : null}
         {canChange ? (
           <button

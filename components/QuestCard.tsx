@@ -32,7 +32,7 @@ type QuestCardProps = {
 }
 
 const STATUS_LABEL = {
-  open: { text: 'Offen', className: 'bg-white/70 text-slate-800 dark:bg-slate-800/70 dark:text-slate-200' },
+  open: { text: 'Offen', className: 'bg-white/70 text-slate-950 dark:bg-slate-800/70 dark:text-slate-200' },
   awaiting_creator: {
     text: 'Wartet auf Bestätigung',
     className: 'bg-white/75 text-sky-900 dark:bg-sky-950/50 dark:text-sky-100',
@@ -85,7 +85,7 @@ export default function QuestCard({
     <>
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="rounded-full bg-white/65 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-700 dark:bg-slate-900/55 dark:text-slate-200">
+          <span className="rounded-full bg-white/65 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-950 dark:bg-slate-900/55 dark:text-slate-200">
             {dayLabel}
           </span>
           <span
@@ -104,7 +104,7 @@ export default function QuestCard({
       ) : (
         <div className="mt-2 flex min-w-0 items-baseline gap-1.5">
           <p className={`shrink-0 text-sm font-bold leading-snug ${accent.nameClass}`}>{assigneeName}</p>
-          <span className="text-slate-400 dark:text-slate-500" aria-hidden>
+          <span className="text-slate-950 dark:text-slate-500" aria-hidden>
             ·
           </span>
           <h3 className="min-w-0 truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{quest.title}</h3>
@@ -112,14 +112,14 @@ export default function QuestCard({
       )}
 
       {quest.description ? (
-        <p className="mt-1 line-clamp-2 text-sm text-slate-700/90 dark:text-slate-300/90">{quest.description}</p>
+        <p className="mt-1 line-clamp-2 text-sm text-slate-950/95 dark:text-slate-300/90">{quest.description}</p>
       ) : null}
 
       <p className="mt-1.5 text-[11px] text-slate-950/95 dark:text-slate-400/90">
         von {creatorLabel(quest, parents, children)}
       </p>
       {manageable ? (
-        <p className="mt-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400">Tippen zum Bearbeiten</p>
+        <p className="mt-1 text-[10px] font-semibold text-slate-950 dark:text-slate-400">Tippen zum Bearbeiten</p>
       ) : null}
       {pendingConfirmations.map((row) => (
         <QuestFinalConfirmButton
@@ -158,7 +158,7 @@ export default function QuestCard({
         <button
           type="button"
           onClick={onManage}
-          className="mt-2 text-[10px] font-semibold text-slate-500 underline dark:text-slate-400"
+          className="mt-2 text-[10px] font-semibold text-slate-950 underline dark:text-slate-400"
         >
           Bearbeiten
         </button>

@@ -54,7 +54,7 @@ export default function QuestCreatorReactionForm({
       </div>
 
       <label className="block">
-        <span className="mb-1 block text-xs font-semibold text-slate-800 dark:text-slate-200">Deine Nachricht</span>
+        <span className="mb-1 block text-xs font-semibold text-slate-950 dark:text-slate-200">Deine Nachricht</span>
         <input
           type="text"
           maxLength={280}
@@ -67,7 +67,7 @@ export default function QuestCreatorReactionForm({
       </label>
 
       {selectedPortraitId ? (
-        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+        <div className="flex items-center gap-2 text-xs text-slate-950 dark:text-slate-400">
           <RoundPortraitReaction portraitId={selectedPortraitId} sizeClass="h-8 w-8" />
           <span>Vorschau — so sieht es {message.trim() ? 'mit deinem Text' : 'aus'}.</span>
         </div>

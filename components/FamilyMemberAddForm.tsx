@@ -192,7 +192,7 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
         />
         <div className="min-w-0 flex-1 space-y-2">
           <div>
-            <label htmlFor="member-name" className="mb-0.5 block text-xs font-semibold text-slate-700 dark:text-slate-200">
+            <label htmlFor="member-name" className="mb-0.5 block text-xs font-semibold text-slate-950 dark:text-slate-200">
               Name
             </label>
             <input
@@ -207,7 +207,7 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
           </div>
 
           <fieldset>
-            <legend className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">
+            <legend className="mb-1 block text-xs font-semibold text-slate-950 dark:text-slate-200">
               {memberKind === 'adult' ? 'Rolle' : 'Geschlecht'}
             </legend>
             <div className="grid grid-cols-2 gap-1.5">
@@ -222,7 +222,7 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
                     className={`${PRESSABLE_3D_CLASS} flex items-center justify-center rounded-lg border-2 px-2 py-1.5 text-xs font-semibold ${
                       selected
                         ? 'border-emerald-500 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-100'
-                        : 'border-slate-300 text-slate-800 dark:border-slate-600 dark:text-slate-100'
+                        : 'border-slate-300 text-slate-950 dark:border-slate-600 dark:text-slate-100'
                     }`}
                   >
                     {option.label}
@@ -243,7 +243,7 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
 
           {memberKind === 'child' ? (
             <div>
-              <label htmlFor="member-age" className="mb-0.5 block text-xs font-semibold text-slate-700 dark:text-slate-200">
+              <label htmlFor="member-age" className="mb-0.5 block text-xs font-semibold text-slate-950 dark:text-slate-200">
                 Alter
               </label>
               <input

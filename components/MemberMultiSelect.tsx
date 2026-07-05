@@ -63,7 +63,7 @@ export default function MemberMultiSelect({ parents, children, value, onChange }
       {open ? (
         <div className={`${CARD_SURFACE_CLASS} absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-xl p-2 shadow-lg`}>
           {options.length === 0 ? (
-            <p className="px-2 py-1 text-xs text-slate-500">Noch keine Familienmitglieder.</p>
+            <p className="px-2 py-1 text-xs text-slate-900">Noch keine Familienmitglieder.</p>
           ) : (
             options.map((option) => {
               const key = toKey(option.type, option.id)
@@ -76,7 +76,7 @@ export default function MemberMultiSelect({ parents, children, value, onChange }
                   <input type="checkbox" checked={checked} onChange={() => toggle(option)} className="h-4 w-4 rounded" />
                   <span>
                     {option.label}{' '}
-                    <span className="text-xs text-slate-500">({option.type === 'parent' ? 'Elternteil' : 'Kind'})</span>
+                    <span className="text-xs text-slate-900">({option.type === 'parent' ? 'Elternteil' : 'Kind'})</span>
                   </span>
                 </label>
               )

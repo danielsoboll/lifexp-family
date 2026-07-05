@@ -127,8 +127,8 @@ export default function OwnQuestList() {
   return (
     <div className="space-y-4">
       <div className={`${CARD_SURFACE_CLASS} rounded-2xl p-4`}>
-        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{displayName ?? 'Du'}</p>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-sm font-semibold text-slate-950 dark:text-slate-200">{displayName ?? 'Du'}</p>
+        <p className="mt-1 text-xs text-slate-950 dark:text-slate-400">
           {completedCount} von {quests.length} Quests heute erledigt
         </p>
         <div className="mt-3">
@@ -162,7 +162,7 @@ export default function OwnQuestList() {
                 onClick={() => void complete(quest)}
                 className={`${PRESSABLE_3D_CLASS} mt-3 w-full rounded-xl border-2 px-3 py-2 text-sm font-bold disabled:opacity-60 ${
                   done
-                    ? 'border-stone-300 bg-stone-100 text-stone-600 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-300'
+                    ? 'border-stone-300 bg-stone-100 text-stone-950 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-300'
                     : 'border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 text-white'
                 }`}
               >

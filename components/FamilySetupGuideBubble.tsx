@@ -59,7 +59,7 @@ export default function FamilySetupGuideBubble({
               ) : null}
               {title}
             </p>
-            <p className="mt-2 text-base leading-relaxed text-slate-800 dark:text-slate-900/95">{body}</p>
+            <p className="mt-2 text-base leading-relaxed text-slate-950 dark:text-slate-900/95">{body}</p>
           </button>
         </div>
       </div>

@@ -5,6 +5,7 @@ import {
   fetchFamilyForBilling,
   getSiteUrl,
   getStripe,
+  resolveBillingPortalConfigurationId,
 } from '../_shared/billing.ts'
 import { handleCors, jsonResponse } from '../_shared/cors.ts'
 import { getServiceClient } from '../_shared/supabase.ts'
@@ -47,9 +48,11 @@ serve(async (req) => {
 
     const stripe = getStripe()
     const siteUrl = getSiteUrl(req)
+    const configuration = await resolveBillingPortalConfigurationId(stripe)
     const portal = await stripe.billingPortal.sessions.create({
       customer: family.stripe_customer_id,
       return_url: `${siteUrl}/admin/settings`,
+      ...(configuration ? { configuration } : {}),
     })
 
     return jsonResponse({ url: portal.url })

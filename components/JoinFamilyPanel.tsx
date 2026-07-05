@@ -753,7 +753,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
           Dein Familiengründer kann dir den Einladungslink per SMS oder WhatsApp schicken. Tippe in der
           Nachricht auf den Link — LifeXP Family öffnet sich dann automatisch mit deiner Einladung.
         </p>
-        <p className="text-xs text-slate-600 dark:text-slate-400">
+        <p className="text-xs text-slate-950 dark:text-slate-400">
           Hast du stattdessen nur den Einladungscode? Dann geht es weiter über Code eingeben.
         </p>
         <button
@@ -782,7 +782,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
           Mach einfach ein Foto vom QR-Code auf dem Handy deines Familien-Gründers — die Kamera deines Handys
           erkennt den Einladungslink automatisch.
         </p>
-        <p className="text-xs text-slate-600 dark:text-slate-400">
+        <p className="text-xs text-slate-950 dark:text-slate-400">
           Alternativ kannst du den Einladungscode auch manuell eingeben.
         </p>
         <button
@@ -893,7 +893,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
             ← Zurück
           </button>
           <div>
-            <label htmlFor="join-invite-code" className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <label htmlFor="join-invite-code" className="mb-1 block text-sm font-semibold text-slate-950 dark:text-slate-200">
               Einladungscode
             </label>
             <input

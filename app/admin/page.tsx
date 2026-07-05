@@ -23,7 +23,7 @@ import { formatParentDisplayName } from '../../lib/family/familyDisplayName'
 
 const ADMIN_ADD_LINK_CLASS = `${PRESSABLE_3D_CLASS} flex w-full items-center justify-center rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3.5 text-base font-bold text-white shadow-[0_4px_14px_-4px_rgba(5,150,105,0.55)] ring-1 ring-emerald-400/30 dark:border-emerald-500 dark:ring-emerald-600/40`
 
-const ADMIN_SETTINGS_LINK_CLASS = `${PRESSABLE_3D_CLASS} flex w-full items-center justify-center rounded-2xl border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200/90 px-4 py-3 text-sm font-bold text-slate-800 dark:border-slate-600 dark:from-slate-800 dark:to-slate-950 dark:text-slate-100`
+const ADMIN_SETTINGS_LINK_CLASS = `${PRESSABLE_3D_CLASS} flex w-full items-center justify-center rounded-2xl border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200/90 px-4 py-3 text-sm font-bold text-slate-950 dark:border-slate-600 dark:from-slate-800 dark:to-slate-950 dark:text-slate-100`
 
 export default function AdminPage() {
   const router = useRouter()

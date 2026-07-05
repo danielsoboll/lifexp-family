@@ -79,7 +79,7 @@ export default function QuestCompletionPhotoSheet({
         >
           <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-400/70 dark:bg-slate-500" />
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Foto hinzufügen (PLUS)</h2>
-          <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
+          <p className="mt-1 text-sm text-slate-950 dark:text-slate-300">
             Optional bis zu 2 Fotos zu „{questTitle}“ — z. B. das aufgeräumte Zimmer.
           </p>
 

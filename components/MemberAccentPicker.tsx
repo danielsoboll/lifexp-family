@@ -16,7 +16,7 @@ type MemberAccentPickerProps = {
 export default function MemberAccentPicker({ value, onChange, legend = 'Quest-Farbe' }: MemberAccentPickerProps) {
   return (
     <fieldset>
-      <legend className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-200">{legend}</legend>
+      <legend className="mb-1.5 block text-xs font-semibold text-slate-950 dark:text-slate-200">{legend}</legend>
       <div className="grid grid-cols-4 gap-1.5">
         {MEMBER_ACCENT_PALETTE.map((key) => {
           const style = memberAccentStyle(key)
@@ -36,7 +36,7 @@ export default function MemberAccentPicker({ value, onChange, legend = 'Quest-Fa
               }`}
             >
               <span className={`h-6 w-full rounded-md ${style.chipClass}`} aria-hidden />
-              <span className="text-[10px] font-semibold leading-none text-slate-700 dark:text-slate-300">
+              <span className="text-[10px] font-semibold leading-none text-slate-950 dark:text-slate-300">
                 {MEMBER_ACCENT_LABELS[key]}
               </span>
             </button>

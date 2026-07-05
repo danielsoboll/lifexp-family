@@ -60,7 +60,7 @@ export default function WasJetztTunPage() {
             <h1 className="text-2xl font-bold tracking-tight text-amber-950 dark:text-yellow-100">
               Was jetzt tun?
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Deine nächsten Schritte</p>
+            <p className="text-sm text-slate-950 dark:text-slate-400">Deine nächsten Schritte</p>
           </div>
         </header>
 
@@ -74,7 +74,7 @@ export default function WasJetztTunPage() {
         ) : null}
 
         {loading ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Laden …</p>
+          <p className="text-sm text-slate-950 dark:text-slate-400">Laden …</p>
         ) : (
           <>
             {suggestedSteps.length > 0 ? (
@@ -96,7 +96,7 @@ export default function WasJetztTunPage() {
 
                 {suggestedSteps.length > 1 ? (
                   <div className="flex flex-col gap-3">
-                    <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-white/75 dark:text-slate-400">
+                    <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-slate-950 dark:text-slate-400">
                       Weitere Empfehlungen
                     </h2>
                     {suggestedSteps.slice(1).map((step) => (

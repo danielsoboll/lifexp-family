@@ -123,7 +123,7 @@ export function XpHistoryChartLegend({
   className?: string
 }) {
   return (
-    <p className={`px-0.5 text-xs text-slate-600 dark:text-slate-400 ${className}`.trim()}>
+    <p className={`px-0.5 text-xs text-slate-950 dark:text-slate-400 ${className}`.trim()}>
       <span className="font-semibold text-emerald-700 dark:text-emerald-400">Grün</span> über dem Ziel (
       {target} XP),{' '}
       <span className="font-semibold text-amber-700 dark:text-amber-400">gelb/rot</span> darunter.{' '}
@@ -222,7 +222,7 @@ export default function XpHistoryChart({
 
   if (days.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-600 dark:text-slate-400">
+      <p className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-950 dark:border-slate-600 dark:text-slate-400">
         Noch keine Historie für diesen Zeitraum.
       </p>
     )
@@ -434,7 +434,7 @@ export default function XpHistoryChart({
         </svg>
       </div>
       {!compact && !hideInlineLegend ? (
-        <p className="border-t border-slate-200/80 px-3 py-2.5 text-xs text-slate-600 dark:border-slate-700/80 dark:text-slate-400">
+        <p className="border-t border-slate-200/80 px-3 py-2.5 text-xs text-slate-950 dark:border-slate-700/80 dark:text-slate-400">
           <span className="font-semibold text-emerald-700 dark:text-emerald-400">Grün</span> über dem Ziel (
           {target} XP),{' '}
           <span className="font-semibold text-amber-700 dark:text-amber-400">gelb/rot</span> darunter.{' '}

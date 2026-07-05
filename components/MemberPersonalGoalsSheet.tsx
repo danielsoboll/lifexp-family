@@ -220,7 +220,7 @@ export default function MemberPersonalGoalsSheet({
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
               {readOnly ? 'Eigene Ziele' : goals.length > 0 ? 'Eigene Ziele' : 'Eigene Ziele anlegen'}
             </h2>
-            <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
+            <p className="mt-1 text-sm text-slate-950 dark:text-slate-300">
               {readOnly
                 ? `${memberLabel} — Ziele sind gesperrt, weil ein Admin XP vergeben hat.`
                 : canAdmin && !isSelf
@@ -303,7 +303,7 @@ export default function MemberPersonalGoalsSheet({
                               className={
                                 hasTitleLetter
                                   ? `${PRESSABLE_3D_CLASS} shrink-0 rounded-xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 text-sm font-bold text-white`
-                                  : `${PRESSABLE_3D_CLASS} shrink-0 rounded-xl border-2 border-slate-300 bg-gradient-to-b from-slate-200 to-slate-300 px-4 text-sm font-bold text-slate-500 disabled:opacity-100 dark:border-slate-600 dark:from-slate-700 dark:to-slate-800 dark:text-slate-400`
+                                  : `${PRESSABLE_3D_CLASS} shrink-0 rounded-xl border-2 border-slate-300 bg-gradient-to-b from-slate-200 to-slate-300 px-4 text-sm font-bold text-slate-950 disabled:opacity-100 dark:border-slate-600 dark:from-slate-700 dark:to-slate-800 dark:text-slate-400`
                               }
                             >
                               OK

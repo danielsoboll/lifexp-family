@@ -312,7 +312,7 @@ export default function FamilyHistoryList() {
                     className="w-full rounded-xl"
                   />
                   {!history || history.loading ? (
-                    <p className="mt-2 text-[10px] text-slate-500 dark:text-slate-400">…</p>
+                    <p className="mt-2 text-[10px] text-slate-950 dark:text-slate-400">…</p>
                   ) : (
                     <div className="mt-2">
                       <XpGoalVerticalBar

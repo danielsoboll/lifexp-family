@@ -29,7 +29,7 @@ export default function QuestDayToggle({ value, onChange }: QuestDayToggleProps)
               className={`${PRESSABLE_3D_CLASS} flex flex-col items-center justify-center rounded-2xl border-2 px-3 py-3 text-center transition-[border-color,background-color,box-shadow,color] ${
                 active
                   ? 'border-emerald-600 bg-gradient-to-b from-emerald-400 via-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-900/25 ring-2 ring-emerald-300/60 dark:border-emerald-500 dark:from-emerald-600 dark:via-emerald-700 dark:to-emerald-800 dark:ring-emerald-600/50'
-                  : 'border-slate-300 bg-white text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100'
+                  : 'border-slate-300 bg-white text-slate-950 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100'
               }`}
             >
               <span className="text-xl leading-none" aria-hidden>

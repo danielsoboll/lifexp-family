@@ -59,11 +59,11 @@ export default function RecurringQuestsEntryAction({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100">Wiederkehrende Quests</span>
-        <span className="mt-0.5 block text-xs text-slate-600 dark:text-slate-400">
+        <span className="mt-0.5 block text-xs text-slate-950 dark:text-slate-400">
           Automatisch eintragen · <span className="font-semibold text-amber-800/90 dark:text-amber-300/90">PLUS</span>
         </span>
       </span>
-      <span className="shrink-0 text-sm text-slate-400 dark:text-slate-500" aria-hidden>
+      <span className="shrink-0 text-sm text-slate-950 dark:text-slate-500" aria-hidden>
         ›
       </span>
     </Link>

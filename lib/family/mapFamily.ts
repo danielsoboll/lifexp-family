@@ -26,6 +26,7 @@ export function mapFamilyRow(row: Record<string, unknown>): Family {
     stripe_subscription_id: nullableString(row.stripe_subscription_id),
     plus_until: nullableString(row.plus_until),
     trial_ends_at: nullableString(row.trial_ends_at),
+    cancel_at_period_end: boolValue(row.cancel_at_period_end),
     guide_welcome_seen: boolValue(row.guide_welcome_seen),
     guide_quest_seen: boolValue(row.guide_quest_seen),
     guide_invite_seen: boolValue(row.guide_invite_seen),

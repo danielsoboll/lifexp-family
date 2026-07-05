@@ -8,7 +8,7 @@ type LifeXpBrandMarkProps = {
 export default function LifeXpBrandMark({ showFamilySuffix = false, className = '' }: LifeXpBrandMarkProps) {
   return (
     <h1
-      className={`text-balance text-xl font-bold tracking-tight text-stone-50 dark:text-slate-400 ${className}`.trim()}
+      className={`text-balance text-xl font-bold tracking-tight text-slate-950 dark:text-slate-400 ${className}`.trim()}
     >
       <span aria-hidden className="mr-1.5">
         🔥

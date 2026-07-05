@@ -18,7 +18,7 @@ type XpGoalVerticalBarProps = {
 
 /** Label „Gesamt XP“ — auch in der Mitglieder-Kopfzeile verwenden. */
 export const HISTORY_TOTAL_XP_LABEL_CLASS =
-  'text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400'
+  'text-[10px] font-semibold uppercase tracking-wide text-slate-950 dark:text-slate-400'
 
 /** Detail-Ansicht: Balkenhöhe nach Ziel-XP — unten bündig, nur nach oben länger. */
 export function xpGoalDetailBarHeightClass(target: number): string {
@@ -61,8 +61,8 @@ export default function XpGoalVerticalBar({
     ? 'mb-1.5 w-full px-0.5 text-center text-[9px] font-bold leading-[1.2] text-amber-700 dark:text-amber-300'
     : 'mb-1 max-w-[3.25rem] text-center text-[8px] font-semibold leading-tight text-amber-700 dark:text-amber-300'
   const fractionTextClass = detail
-    ? 'font-bold tabular-nums leading-none text-slate-800 dark:text-slate-100'
-    : 'font-bold tabular-nums leading-none text-slate-800 dark:text-slate-200'
+    ? 'font-bold tabular-nums leading-none text-slate-950 dark:text-slate-100'
+    : 'font-bold tabular-nums leading-none text-slate-950 dark:text-slate-200'
 
   return (
     <div className={`flex w-full flex-col items-center ${className}`.trim()}>

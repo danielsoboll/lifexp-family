@@ -133,7 +133,7 @@ export default function FamilyPlusBillingControls({
             type="button"
             disabled={busy !== null}
             onClick={() => void syncBilling()}
-            className="w-full text-xs font-medium text-slate-700 underline underline-offset-2 disabled:opacity-60 dark:text-slate-300"
+            className="w-full text-xs font-medium text-slate-900 underline underline-offset-2 disabled:opacity-60 dark:text-slate-300"
           >
             {busy === 'sync' ? 'Synchronisiere mit Stripe …' : 'Bereits bezahlt? Status von Stripe holen'}
           </button>
@@ -144,7 +144,7 @@ export default function FamilyPlusBillingControls({
         <button
           type="button"
           disabled={busy !== null}
-          className="text-xs font-medium text-slate-700 underline underline-offset-2 disabled:opacity-60 dark:text-slate-300"
+          className="text-xs font-medium text-slate-900 underline underline-offset-2 disabled:opacity-60 dark:text-slate-300"
           onClick={() => void syncBilling()}
         >
           {busy === 'sync' ? 'Synchronisiere …' : 'Status aktualisieren'}

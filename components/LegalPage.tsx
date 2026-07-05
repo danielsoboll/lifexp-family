@@ -51,7 +51,7 @@ export default function LegalPage({ title, sections }: LegalPageProps) {
           {sections.map((section) => (
             <section key={section.title}>
               <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-100">{section.title}</h2>
-              <div className="space-y-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+              <div className="space-y-3 text-sm leading-relaxed text-slate-950 dark:text-slate-300">
                 {section.paragraphs.map((paragraph) => (
                   <Fragment key={paragraph}>{renderLegalParagraph(paragraph)}</Fragment>
                 ))}

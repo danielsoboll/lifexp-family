@@ -1,6 +1,8 @@
--- Fix: Billing-Sync via Service Role (Edge Functions / Webhook)
--- Trigger erkannte service_role nicht zuverlässig → Updates schlugen fehl, plan blieb "free".
+-- Kündigung zum Periodenende: cancel_at_period_end + Trigger-Update
 -- Einmal im Supabase SQL Editor ausführen.
+
+ALTER TABLE public.families
+  ADD COLUMN IF NOT EXISTS cancel_at_period_end boolean NOT NULL DEFAULT false;
 
 CREATE OR REPLACE FUNCTION public.protect_family_billing_fields()
 RETURNS trigger

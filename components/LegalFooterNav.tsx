@@ -1,9 +1,9 @@
 import Link from 'next/link'
 
 const linkClass =
-  'text-[0.6875rem] leading-none text-white/78 underline-offset-2 hover:text-white/95 hover:underline dark:text-slate-500 dark:hover:text-slate-300'
+  'text-[0.6875rem] leading-none text-slate-950 underline-offset-2 hover:underline dark:text-slate-500 dark:hover:text-slate-300'
 
-const separatorClass = 'text-[0.6875rem] text-white/55 dark:text-slate-600'
+const separatorClass = 'text-[0.6875rem] text-slate-950 dark:text-slate-600'
 
 type LegalFooterNavProps = {
   className?: string

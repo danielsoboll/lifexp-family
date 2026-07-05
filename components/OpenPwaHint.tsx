@@ -62,7 +62,7 @@ export default function OpenPwaHint({ onContinueInBrowser, onCloseTab }: OpenPwa
           </button>
           {!closeBlocked && onCloseTab ? (
             <>
-              <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-center text-xs text-slate-950 dark:text-slate-400">
                 Alle Eingaben bleiben bestehen.
               </p>
               <button

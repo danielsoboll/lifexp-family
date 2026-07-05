@@ -51,7 +51,7 @@ export default function PlusNonAdminHintSheet({ onClose }: PlusNonAdminHintSheet
               </h2>
             </div>
 
-            <p className="relative mt-5 text-center text-sm font-semibold text-slate-800 dark:text-slate-200">
+            <p className="relative mt-5 text-center text-sm font-semibold text-slate-950 dark:text-slate-200">
               {FAMILY_PLUS_NON_ADMIN_HINT_INTRO}
             </p>
 

@@ -16,7 +16,8 @@
   --surface-raised: #f1f5f9;
   --border-strong: #94a3b8;
   --border-subtle: #cbd5e1;
-  --muted: #475569;
+  --muted: #0f172a;
+  --muted-soft: #1e293b;
   --accent: #059669;
   --accent-soft: #d1fae5;
   --ring: rgba(5, 150, 105, 0.35);
@@ -98,6 +99,47 @@ html.lifexp-keyboard-open {
 
 html.lifexp-keyboard-open body::before {
   background: var(--background-mid);
+}
+
+/*
+ * Daylight mode: muted slate/stone text → near-black for readable contrast on gray gradient.
+ * Intentional light-on-dark surfaces (wjt cards, footer on gradient) are excluded via class.
+ */
+html:not(.dark) :is(
+  .text-slate-300,
+  .text-slate-400,
+  .text-slate-500,
+  .text-slate-600,
+  .text-slate-700,
+  .text-slate-800,
+  .text-stone-400,
+  .text-stone-500,
+  .text-stone-600,
+  .text-stone-700,
+  .text-stone-800
+) {
+  color: #020617 !important; /* slate-950 */
+}
+
+html:not(.dark) :is(
+  [class*="text-slate-300/"],
+  [class*="text-slate-400/"],
+  [class*="text-slate-500/"],
+  [class*="text-slate-600/"],
+  [class*="text-slate-700/"],
+  [class*="text-slate-800/"],
+  [class*="text-stone-400/"],
+  [class*="text-stone-500/"],
+  [class*="text-stone-600/"],
+  [class*="text-stone-700/"],
+  [class*="text-stone-800/"]
+) {
+  color: rgb(2 6 23 / 0.92) !important;
+}
+
+html:not(.dark) .text-slate-900,
+html:not(.dark) [class*="text-slate-900/"] {
+  color: #020617 !important;
 }
 
 html.lifexp-keyboard-open.dark {

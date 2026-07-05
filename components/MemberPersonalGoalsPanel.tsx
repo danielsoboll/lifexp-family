@@ -82,7 +82,7 @@ export default function MemberPersonalGoalsPanel({
     <section className="space-y-3">
       {canAdmin && hasGoals ? (
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+          <p className="text-xs font-semibold text-slate-950 dark:text-slate-400">
             {allGoalsHaveXp ? 'Ziele' : 'Ziele — tippe, um XP zu vergeben (1–999)'}
           </p>
           <ul className="space-y-2">

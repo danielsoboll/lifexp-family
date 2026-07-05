@@ -82,7 +82,7 @@ export default function QuestAssigneePicker({
       <label className="mb-1.5 block text-sm font-semibold">Für wen?</label>
       <div className={`${CARD_SURFACE_CLASS} space-y-1 rounded-xl p-1.5`}>
         {options.length === 0 ? (
-          <p className="px-2 py-2 text-xs text-slate-500 dark:text-slate-400">
+          <p className="px-2 py-2 text-xs text-slate-950 dark:text-slate-400">
             Keine anderen Familienmitglieder — Quests sind immer für jemand anderen.
           </p>
         ) : (

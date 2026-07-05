@@ -1,6 +1,7 @@
 import Stripe from 'https://esm.sh/stripe@14.25.0?target=denonext'
 
 import {
+  ensureFullStripeSubscription,
   getStripe,
   resolveFamilyIdFromStripeObject,
   stripeCryptoProvider,
@@ -58,9 +59,14 @@ Deno.serve(async (req) => {
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription
+        let subscription = event.data.object as Stripe.Subscription
+        subscription = await ensureFullStripeSubscription(stripe, subscription)
+
         const customerId =
-          typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id
+          typeof subscription.customer === 'string'
+            ? subscription.customer
+            : subscription.customer?.id
+        if (!customerId) break
 
         const familyId = await resolveFamilyIdFromStripeObject(
           admin,
@@ -91,7 +97,8 @@ Deno.serve(async (req) => {
         )
         if (!familyId) break
 
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+        let subscription = await stripe.subscriptions.retrieve(subscriptionId)
+        subscription = await ensureFullStripeSubscription(stripe, subscription)
         await syncFamilyFromSubscription(admin, familyId, subscription, customerId)
         break
       }

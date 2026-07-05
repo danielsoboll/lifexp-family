@@ -118,7 +118,7 @@ export default function DashboardButton({
   const arrowClass =
     tone !== 'default'
       ? TONE_ARROW_CLASS[tone]
-      : 'text-slate-300 transition group-hover:text-emerald-600 dark:text-slate-600 dark:group-hover:text-emerald-400'
+      : 'text-slate-950 transition group-hover:text-emerald-700 dark:text-slate-600 dark:group-hover:text-emerald-400'
 
   const className = `${PRESSABLE_3D_CLASS} group relative flex w-full items-start gap-4 overflow-hidden rounded-2xl border-2 p-4 text-left ring-1 hover:border-emerald-400/90 hover:ring-emerald-900/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:hover:border-emerald-500/80 ${statusClasses}`
 

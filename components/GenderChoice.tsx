@@ -30,7 +30,7 @@ export default function GenderChoice(props: GenderChoiceProps) {
   return (
     <div>
       <span
-        className={`mb-1 block font-semibold text-slate-700 dark:text-slate-200 ${
+        className={`mb-1 block font-semibold text-slate-950 dark:text-slate-200 ${
           compact ? 'text-xs' : 'text-sm'
         }`}
       >
@@ -55,7 +55,7 @@ export default function GenderChoice(props: GenderChoiceProps) {
               } ${
                 selected
                   ? 'border-emerald-500 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-100'
-                  : 'border-slate-300 text-slate-800 dark:border-slate-600 dark:text-slate-100'
+                  : 'border-slate-300 text-slate-950 dark:border-slate-600 dark:text-slate-100'
               }`}
             >
               {option.label}

@@ -17,7 +17,7 @@ type FamilyInviteSharePanelProps = {
   familyName?: string | null
 }
 
-const ACTION_BUTTON_CLASS = `${PRESSABLE_3D_CLASS} rounded-xl border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200/90 px-3 py-2 text-sm font-bold text-slate-800 dark:border-slate-600 dark:from-slate-800 dark:to-slate-950 dark:text-slate-100`
+const ACTION_BUTTON_CLASS = `${PRESSABLE_3D_CLASS} rounded-xl border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200/90 px-3 py-2 text-sm font-bold text-slate-950 dark:border-slate-600 dark:from-slate-800 dark:to-slate-950 dark:text-slate-100`
 
 const COPIED_LINK_HINT = 'Link kopiert — per SMS/WhatsApp versenden'
 const COPIED_CODE_HINT = 'Code kopiert — per SMS/WhatsApp versenden'
@@ -80,7 +80,7 @@ export default function FamilyInviteSharePanel({ inviteCode, familyName }: Famil
     <div className="space-y-3 border-t border-slate-300/70 pt-2 dark:border-slate-600/70">
       <div className="space-y-2">
         <div className="space-y-1">
-          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Einladungscode</p>
+          <p className="text-xs font-semibold text-slate-950 dark:text-slate-300">Einladungscode</p>
           <p className="font-mono text-sm font-semibold text-slate-950 dark:text-slate-100">{code}</p>
         </div>
 
@@ -137,7 +137,7 @@ export default function FamilyInviteSharePanel({ inviteCode, familyName }: Famil
             <p id="lifexp-invite-qr-title" className="text-center text-base font-bold text-slate-900 dark:text-slate-100">
               QR-Code zum Beitritt
             </p>
-            <p className="mt-1 text-center text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-1 text-center text-sm text-slate-950 dark:text-slate-400">
               Mit dem Handy des Familienmitglieds scannen — Beitritt startet automatisch.
             </p>
             <div className="mt-4 flex justify-center">
@@ -155,7 +155,7 @@ export default function FamilyInviteSharePanel({ inviteCode, familyName }: Famil
             <button
               type="button"
               onClick={() => setQrOpen(false)}
-              className={`${PRESSABLE_3D_CLASS} mt-5 w-full rounded-xl border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200/90 px-4 py-2.5 text-sm font-bold text-slate-800 dark:border-slate-600 dark:from-slate-800 dark:to-slate-950 dark:text-slate-100`}
+              className={`${PRESSABLE_3D_CLASS} mt-5 w-full rounded-xl border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200/90 px-4 py-2.5 text-sm font-bold text-slate-950 dark:border-slate-600 dark:from-slate-800 dark:to-slate-950 dark:text-slate-100`}
             >
               Schließen
             </button>

@@ -31,6 +31,7 @@ export type Family = {
   stripe_subscription_id: string | null
   plus_until: string | null
   trial_ends_at: string | null
+  cancel_at_period_end: boolean
   guide_welcome_seen: boolean
   guide_quest_seen: boolean
   guide_invite_seen: boolean

@@ -133,8 +133,8 @@ export default function AdminPersonalGoalXpSheet({
             style={{ scrollPaddingBottom }}
           >
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">XP für Ziel vergeben</h2>
-            <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{goalTitle}</p>
-            <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+            <p className="mt-1 text-sm text-slate-950 dark:text-slate-300">{goalTitle}</p>
+            <p className="mt-2 text-xs text-slate-950 dark:text-slate-400">
               Wie viele XP soll {memberLabel} für dieses Ziel sammeln? (1–999)
             </p>
 

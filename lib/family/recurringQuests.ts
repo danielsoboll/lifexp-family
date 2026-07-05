@@ -1,6 +1,7 @@
 import { cetAddDays, cetToday, normalizeDateKey } from '../cetDate'
 import { readFamilySession, type FamilySession } from '../familySession'
 import { supabase } from '../supabase'
+import { assertFamilyAdminSession } from './admin'
 import { isFamilyPlus } from './familyPlus'
 import { fetchFamilyById } from './families'
 import { replaceQuestAssignments } from './questAssignments'
@@ -190,19 +191,15 @@ async function fetchTemplateRow(
   return { template: mapTemplate(row, assignments.get(row.id) ?? []), error: null }
 }
 
-async function assertRecurringTemplateCreator(
+async function assertRecurringTemplateEditor(
   templateId: string,
   familyId: string,
 ): Promise<{ template: RecurringQuestTemplate | null; error: Error | null }> {
-  const session = readFamilySession()
-  if (!session) return { template: null, error: new Error('Bitte zuerst anmelden.') }
+  const adminError = await assertFamilyAdminSession(familyId)
+  if (adminError.error) return { template: null, error: adminError.error }
 
   const { template, error } = await fetchTemplateRow(templateId, familyId)
   if (error || !template) return { template: null, error: error ?? new Error('Vorlage nicht gefunden.') }
-
-  if (!sessionIsRecurringTemplateCreator(template, session)) {
-    return { template: null, error: new Error('Nur die Person, die diese Vorlage angelegt hat, kann sie ändern.') }
-  }
 
   return { template, error: null }
 }
@@ -303,7 +300,7 @@ export type UpdateRecurringQuestTemplateInput = {
 export async function updateRecurringQuestTemplate(
   input: UpdateRecurringQuestTemplateInput,
 ): Promise<{ error: Error | null }> {
-  const { template, error: assertError } = await assertRecurringTemplateCreator(input.templateId, input.familyId)
+  const { template, error: assertError } = await assertRecurringTemplateEditor(input.templateId, input.familyId)
   if (assertError || !template) return { error: assertError ?? new Error('Vorlage nicht gefunden.') }
 
   const { family, error: familyError } = await fetchFamilyById(input.familyId)
@@ -459,7 +456,7 @@ export async function pauseRecurringQuestTemplate(
   templateId: string,
   familyId: string,
 ): Promise<{ error: Error | null }> {
-  const { error: assertError } = await assertRecurringTemplateCreator(templateId, familyId)
+  const { error: assertError } = await assertRecurringTemplateEditor(templateId, familyId)
   if (assertError) return { error: assertError }
 
   const { error } = await supabase
@@ -479,7 +476,7 @@ export async function reactivateRecurringQuestTemplate(
   templateId: string,
   familyId: string,
 ): Promise<{ error: Error | null }> {
-  const { template, error: assertError } = await assertRecurringTemplateCreator(templateId, familyId)
+  const { template, error: assertError } = await assertRecurringTemplateEditor(templateId, familyId)
   if (assertError || !template) return { error: assertError ?? new Error('Vorlage nicht gefunden.') }
 
   const { error } = await supabase

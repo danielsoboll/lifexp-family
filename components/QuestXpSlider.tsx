@@ -42,7 +42,7 @@ export default function QuestXpSlider({ value, onChange, maxAllowed = QUEST_XP_M
           className="absolute inset-x-0 top-0 h-3 w-full cursor-pointer appearance-none bg-transparent disabled:cursor-not-allowed disabled:opacity-60 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-emerald-700 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
         />
       </div>
-      <div className="flex justify-between text-[11px] font-semibold tabular-nums text-slate-500 dark:text-slate-400">
+      <div className="flex justify-between text-[11px] font-semibold tabular-nums text-slate-950 dark:text-slate-400">
         <span>{QUEST_XP_MIN} XP</span>
         <span>{QUEST_XP_MAX} XP max.</span>
       </div>

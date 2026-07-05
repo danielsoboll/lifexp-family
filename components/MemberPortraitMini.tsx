@@ -20,7 +20,7 @@ export default function MemberPortraitMini({ src, error, className = '' }: Membe
         /* eslint-disable-next-line @next/next/no-img-element */
         <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover object-top" />
       ) : (
-        <span className="flex h-full items-center justify-center text-[8px] text-slate-500 dark:text-slate-400">—</span>
+        <span className="flex h-full items-center justify-center text-[8px] text-slate-950 dark:text-slate-400">—</span>
       )}
     </div>
   )

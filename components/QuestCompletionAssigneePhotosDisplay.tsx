@@ -15,7 +15,7 @@ export default function QuestCompletionAssigneePhotosDisplay({
 
   return (
     <div className="mt-2.5">
-      <p className="mb-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">{label}</p>
+      <p className="mb-1.5 text-xs font-semibold text-slate-950 dark:text-slate-400">{label}</p>
       <div className="flex gap-2">
         {photos.map((photo) => (
           <a

@@ -17,11 +17,20 @@ export const HOME_PAGE_INSET_CLASS =
 export const CARD_SURFACE_CLASS =
   'border-2 border-slate-400/85 bg-slate-100 shadow-[0_4px_16px_-4px_rgba(15,23,42,0.14)] ring-1 ring-slate-500/15 dark:border-slate-600 dark:bg-slate-900/90 dark:ring-slate-700/50'
 
-/** Sekundärtext auf Seitenverlauf und Karten — gut lesbar im Tagesmodus. */
+/** Sekundärtext auf Seitenverlauf — gut lesbar im Tagesmodus (nicht slate-500 auf slate-500-Verlauf). */
 export const MUTED_BODY_TEXT_CLASS = 'text-sm text-slate-950 dark:text-slate-400'
 
 /** Kleinere Hilfetexte (Listen, Metadaten, Leer-Zustände). */
 export const MUTED_CAPTION_TEXT_CLASS = 'text-xs text-slate-950 dark:text-slate-400'
+
+/** Metadaten / Labels auf Kartenflächen (bg-slate-100). */
+export const MUTED_ON_SURFACE_TEXT_CLASS = 'text-slate-950 dark:text-slate-400'
+
+/** Formular-Labels und Zwischenüberschriften im Tagesmodus. */
+export const MUTED_LABEL_TEXT_CLASS = 'text-slate-950 dark:text-slate-200'
+
+/** Dekorative Icons (Chevrons, Trenner) — lesbar, aber zurückhaltend. */
+export const MUTED_ICON_TEXT_CLASS = 'text-slate-950 dark:text-slate-500'
 
 /** Kartenfläche für 3D-Steintafel-Buttons. */
 export const CARD_BUTTON_SURFACE_CLASS =

@@ -33,7 +33,7 @@ export default function PersonalGoalSymbolPicker({
             <span className="text-lg leading-none" aria-hidden>
               {symbol.emoji}
             </span>
-            <span className="line-clamp-2 text-[9px] font-semibold leading-tight text-slate-800 dark:text-slate-200">
+            <span className="line-clamp-2 text-[9px] font-semibold leading-tight text-slate-950 dark:text-slate-200">
               {symbol.label}
             </span>
           </button>

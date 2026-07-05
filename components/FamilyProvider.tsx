@@ -262,7 +262,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     void ensureRecurringQuestInstances(family.id).then(({ generated }) => {
       if (generated > 0) notifyFamilyDataChanged()
     })
-  }, [loading, family?.id, family?.plan, family?.plus_until, family?.subscription_status])
+  }, [loading, family?.id, family?.plan, family?.plus_until, family?.subscription_status, family?.cancel_at_period_end])
 
   const setSession = useCallback(
     (next: FamilySession) => {

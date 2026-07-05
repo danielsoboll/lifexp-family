@@ -16,7 +16,6 @@ import PageHeaderBar from '../../../../../components/PageHeaderBar'
 import { usePlusDiscoverHeader } from '../../../../../hooks/usePlusDiscoverHeader'
 import {
   fetchRecurringQuestTemplateById,
-  sessionIsRecurringTemplateCreator,
   updateRecurringQuestTemplate,
 } from '../../../../../lib/family/recurringQuests'
 import type { QuestAssignee, RecurringQuestSchedule } from '../../../../../lib/family/types'
@@ -27,7 +26,7 @@ export default function EditRecurringQuestPage() {
   const router = useRouter()
   const params = useParams<{ templateId: string }>()
   const templateId = params.templateId
-  const { family, parents, children, memberKind, parent, activeChild, session, loading: familyLoading } =
+  const { family, parents, children, memberKind, parent, activeChild, loading: familyLoading, canAdmin } =
     useFamily()
   const { plusActive, headerAction: plusHeaderAction, portals: plusPortals } = usePlusDiscoverHeader()
   const [title, setTitle] = useState('')
@@ -68,9 +67,9 @@ export default function EditRecurringQuestPage() {
         return
       }
 
-      if (!session || !sessionIsRecurringTemplateCreator(template, session)) {
+      if (!canAdmin) {
         setCanEdit(false)
-        setError('Nur die Person, die diese Vorlage angelegt hat, kann sie bearbeiten.')
+        setError('Nur Familien-Admins können Vorlagen bearbeiten.')
         return
       }
 
@@ -87,7 +86,7 @@ export default function EditRecurringQuestPage() {
     return () => {
       cancelled = true
     }
-  }, [family?.id, templateId, familyLoading, session])
+  }, [family?.id, templateId, familyLoading, canAdmin])
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()

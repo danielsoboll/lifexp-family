@@ -74,7 +74,7 @@ export default function OnboardingRecoveryRestorePanel({ onBack }: OnboardingRec
       </div>
 
       <div>
-        <label htmlFor="lifexp-recovery-restore-code" className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <label htmlFor="lifexp-recovery-restore-code" className="mb-1 block text-sm font-semibold text-slate-950 dark:text-slate-200">
           Recovery-Code
         </label>
         <input
@@ -110,7 +110,7 @@ export default function OnboardingRecoveryRestorePanel({ onBack }: OnboardingRec
         <button
           type="button"
           onClick={onBack}
-          className="w-full text-center text-xs font-semibold text-slate-600 underline-offset-2 hover:text-emerald-700 hover:underline dark:text-slate-400 dark:hover:text-emerald-300"
+          className="w-full text-center text-xs font-semibold text-slate-950 underline-offset-2 hover:text-emerald-700 hover:underline dark:text-slate-400 dark:hover:text-emerald-300"
         >
           ← Zurück
         </button>

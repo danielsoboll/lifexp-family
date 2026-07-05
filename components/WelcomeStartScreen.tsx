@@ -234,7 +234,7 @@ export default function WelcomeStartScreen() {
               event.stopPropagation()
               openRestoreSheet()
             }}
-            className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-0 right-0 text-center text-xs font-semibold text-slate-700/90 underline decoration-slate-500/50 underline-offset-2 hover:text-emerald-700 dark:text-slate-300/90 dark:hover:text-emerald-300"
+            className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-0 right-0 text-center text-xs font-semibold text-slate-950/95 underline decoration-slate-500/50 underline-offset-2 hover:text-emerald-700 dark:text-slate-300/90 dark:hover:text-emerald-300"
           >
             Mit Code wiederherstellen
           </button>
@@ -335,7 +335,7 @@ export default function WelcomeStartScreen() {
                     <button
                       type="button"
                       onClick={openRestoreSheet}
-                      className="w-full pt-1 text-center text-xs font-semibold text-slate-600 underline decoration-slate-400/70 underline-offset-2 hover:text-emerald-700 dark:text-slate-400 dark:hover:text-emerald-300"
+                      className="w-full pt-1 text-center text-xs font-semibold text-slate-950 underline decoration-slate-400/70 underline-offset-2 hover:text-emerald-700 dark:text-slate-400 dark:hover:text-emerald-300"
                     >
                       Mit Code wiederherstellen
                     </button>

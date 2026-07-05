@@ -35,12 +35,12 @@ export default function RecurringQuestSchedulePicker({
                 className={`${OPTION_CLASS} ${
                   active
                     ? 'border-amber-500 bg-amber-50 text-amber-950 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-100'
-                    : 'border-slate-300 bg-white text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100'
+                    : 'border-slate-300 bg-white text-slate-950 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100'
                 }`}
               >
                 <span className="block">{option.label}</span>
                 {option.hint ? (
-                  <span className="mt-0.5 block text-xs font-normal text-slate-600 dark:text-slate-400">
+                  <span className="mt-0.5 block text-xs font-normal text-slate-950 dark:text-slate-400">
                     {option.hint}
                   </span>
                 ) : null}
@@ -64,7 +64,7 @@ export default function RecurringQuestSchedulePicker({
                   className={`${OPTION_CLASS} ${
                     active
                       ? 'border-emerald-600 bg-emerald-50 text-emerald-950 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-100'
-                      : 'border-slate-300 bg-white text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100'
+                      : 'border-slate-300 bg-white text-slate-950 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100'
                   }`}
                 >
                   {label}
@@ -76,7 +76,7 @@ export default function RecurringQuestSchedulePicker({
       ) : null}
 
       {schedule === 'every_other_day' ? (
-        <p className="text-xs text-slate-600 dark:text-slate-400">
+        <p className="text-xs text-slate-950 dark:text-slate-400">
           Start: heute ({RECURRING_WEEKDAY_LABELS_DE[cetWeekdayIndex(cetToday())]}) — dann jeden zweiten Tag.
         </p>
       ) : null}

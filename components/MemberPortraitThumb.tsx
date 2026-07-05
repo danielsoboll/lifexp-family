@@ -18,7 +18,7 @@ export default function MemberPortraitThumb({ src, error, className = '' }: Memb
         /* eslint-disable-next-line @next/next/no-img-element */
         <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover object-top" />
       ) : (
-        <span className="flex h-full items-center justify-center px-1 text-center text-[10px] text-slate-500 dark:text-slate-400">
+        <span className="flex h-full items-center justify-center px-1 text-center text-[10px] text-slate-950 dark:text-slate-400">
           Kein Portrait
         </span>
       )}

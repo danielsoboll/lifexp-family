@@ -105,9 +105,9 @@ export default function MemberSingleSelect({
             <span className="min-w-0 flex-1 font-semibold">{selectedOption.label}</span>
           </>
         ) : (
-          <span className="text-slate-500 dark:text-slate-400">Familienmitglied wählen …</span>
+          <span className="text-slate-950 dark:text-slate-400">Familienmitglied wählen …</span>
         )}
-        <span className="ml-auto shrink-0 text-slate-400" aria-hidden>
+        <span className="ml-auto shrink-0 text-slate-950" aria-hidden>
           {open ? '▴' : '▾'}
         </span>
       </button>
@@ -115,7 +115,7 @@ export default function MemberSingleSelect({
       {open ? (
         <div className={`${CARD_SURFACE_CLASS} absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-xl p-1.5 shadow-lg`}>
           {options.length === 0 ? (
-            <p className="px-2 py-2 text-xs text-slate-500 dark:text-slate-400">
+            <p className="px-2 py-2 text-xs text-slate-950 dark:text-slate-400">
               Keine anderen Familienmitglieder — Quests sind immer für jemand anderen.
             </p>
           ) : (
@@ -140,7 +140,7 @@ export default function MemberSingleSelect({
       ) : null}
 
       {options.length === 0 && !open ? (
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-xs text-slate-950 dark:text-slate-400">
           Keine anderen Familienmitglieder — Quests sind immer für jemand anderen.
         </p>
       ) : null}
