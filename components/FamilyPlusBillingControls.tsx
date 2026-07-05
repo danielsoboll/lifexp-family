@@ -3,6 +3,7 @@
 import { useState } from 'react'
 
 import { useFamily } from './FamilyProvider'
+import FamilyPlusPriceDisplay from './FamilyPlusPriceDisplay'
 import { familyPlusTarifLine, isFamilyPlus } from '../lib/family/familyPlus'
 import { FAMILY_PLUS_CTA_LABEL, FAMILY_PLUS_TAGLINE } from '../lib/family/familyPlusFeatures'
 import { createPlusCheckoutSession, createPlusPortalSession } from '../lib/family/stripeBilling'
@@ -12,9 +13,15 @@ import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 type FamilyPlusBillingControlsProps = {
   family?: Family | null
   compact?: boolean
+  /** Preis-Streifen über dem CTA — aus, wenn oben schon FamilyPlusPriceDisplay steht. */
+  showPriceBadge?: boolean
 }
 
-export default function FamilyPlusBillingControls({ family: familyProp, compact = false }: FamilyPlusBillingControlsProps) {
+export default function FamilyPlusBillingControls({
+  family: familyProp,
+  compact = false,
+  showPriceBadge = true,
+}: FamilyPlusBillingControlsProps) {
   const { family: familyFromContext, canAdmin, refresh } = useFamily()
   const family = familyProp ?? familyFromContext
   const [busy, setBusy] = useState<'checkout' | 'portal' | null>(null)
@@ -90,19 +97,18 @@ export default function FamilyPlusBillingControls({ family: familyProp, compact 
           {busy === 'portal' ? 'Wird geöffnet …' : 'Abo verwalten'}
         </button>
       ) : (
-        <button
-          type="button"
-          disabled={busy !== null}
-          onClick={() => void startCheckout()}
-          className={`${PRESSABLE_3D_CLASS} w-full rounded-xl border-2 border-amber-500 bg-gradient-to-b from-amber-300 to-amber-500 px-4 py-3 text-sm font-bold text-amber-950 disabled:opacity-60`}
-        >
-          {busy === 'checkout' ? 'Weiter zu Stripe …' : FAMILY_PLUS_CTA_LABEL}
-        </button>
+        <>
+          {showPriceBadge ? <FamilyPlusPriceDisplay variant="inline" /> : null}
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => void startCheckout()}
+            className={`${PRESSABLE_3D_CLASS} w-full rounded-xl border-2 border-amber-500 bg-gradient-to-b from-amber-300 to-amber-500 px-4 py-3.5 text-base font-bold text-amber-950 shadow-[0_4px_14px_-4px_rgba(217,119,6,0.55)] ring-1 ring-amber-400/30 disabled:opacity-60 dark:ring-amber-600/40`}
+          >
+            {busy === 'checkout' ? 'Weiter zu Stripe …' : FAMILY_PLUS_CTA_LABEL}
+          </button>
+        </>
       )}
-
-      {!plusActive ? (
-        <p className="text-center text-xs text-slate-700 dark:text-slate-400">4,99 €/Monat</p>
-      ) : null}
 
       {plusActive ? (
         <button

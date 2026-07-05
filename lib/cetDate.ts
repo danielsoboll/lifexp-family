@@ -152,6 +152,21 @@ export function cetWeekdayShort(date: string): (typeof WEEKDAY_SHORT_DE)[number]
   return WEEKDAY_SHORT_DE[localWeekday(noon)] ?? 'Mo'
 }
 
+/** Wochentag 0=So … 6=Sa (Europe/Berlin). */
+export function cetWeekdayIndex(date: string): number {
+  const noon = localNoonInstant(normalizeDateKey(date))
+  if (noon === null) return 1
+  return localWeekday(noon)
+}
+
+/** Kalendertage zwischen zwei Keys (0 = gleicher Tag). */
+export function cetDaysBetween(startKey: string, endKey: string): number {
+  const start = normalizeDateKey(startKey)
+  const end = normalizeDateKey(endKey)
+  if (!start || !end || end < start) return 0
+  return cetDateRangeInclusive(start, end).length - 1
+}
+
 /** `DD.MM.` für Kopfzeile im Wochenplan. */
 export function cetFormatDayMonth(date: string): string {
   const normalized = normalizeDateKey(date)

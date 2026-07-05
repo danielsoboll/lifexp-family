@@ -24,7 +24,8 @@ function renderQuestCard(
     onManage: (quest: QuestWithCompletion) => void
   },
 ) {
-  const manageable = props.session ? canSessionModifyQuest(quest, props.session) : false
+  const manageable =
+    props.session && !quest.recurring_template_id ? canSessionModifyQuest(quest, props.session) : false
   return (
     <QuestCard
       key={quest.id}

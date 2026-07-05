@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { notifyFamilyDataChanged } from './FamilyProvider'
 import { completeQuestForChild } from '../lib/family/questCompletions'
+import { markPlusDiscoverUnlocked } from '../lib/family/plusDiscoverUnlock'
 import type { Quest } from '../lib/family/types'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 
@@ -43,6 +44,7 @@ export default function QuestCompleteButton({
       return
     }
     setDone(true)
+    markPlusDiscoverUnlocked(familyId)
     notifyFamilyDataChanged()
     onCompleted?.()
   }

@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 import FlowHintArrow from './FlowHintArrow'
 import HeaderActionPill from './HeaderActionPill'
 import ThemeToggle from './ThemeToggle'
@@ -9,6 +11,7 @@ type DashboardHeaderActionsProps = {
   preview?: boolean
   highlightAdmin?: boolean
   onAdminNavigate?: () => void
+  headerPlusAction?: ReactNode
 }
 
 export default function DashboardHeaderActions({
@@ -16,14 +19,16 @@ export default function DashboardHeaderActions({
   preview = false,
   highlightAdmin = false,
   onAdminNavigate,
+  headerPlusAction,
 }: DashboardHeaderActionsProps) {
   return (
     <div className="flex shrink-0 flex-col items-end gap-1">
       <div
-        className={preview ? 'pointer-events-auto' : undefined}
+        className={`flex items-center gap-2 ${preview ? 'pointer-events-auto' : ''}`}
         onClick={preview ? (event) => event.stopPropagation() : undefined}
         onKeyDown={preview ? (event) => event.stopPropagation() : undefined}
       >
+        {headerPlusAction}
         <ThemeToggle />
       </div>
       {showAdmin ? (

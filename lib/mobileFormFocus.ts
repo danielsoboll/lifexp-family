@@ -34,3 +34,23 @@ export function focusFormField(
     }
   })
 }
+
+/** Scrollt ein Element an den oberen Rand eines Sheet-Containers (Tastatur offen). */
+export function scrollElementToTopOfContainer(
+  container: HTMLElement | null | undefined,
+  element: HTMLElement | null | undefined,
+): void {
+  if (!container || !element) return
+
+  const align = () => {
+    const containerRect = container.getBoundingClientRect()
+    const elementRect = element.getBoundingClientRect()
+    const delta = elementRect.top - containerRect.top
+    container.scrollTop += delta - 8
+  }
+
+  align()
+  requestAnimationFrame(align)
+  window.setTimeout(align, 120)
+  window.setTimeout(align, 320)
+}

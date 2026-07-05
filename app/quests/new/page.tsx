@@ -29,9 +29,7 @@ import {
   soloQuestBlockedMessage,
 } from '../../../lib/family/setupGuide'
 import FamilySetupGuideBubble from '../../../components/FamilySetupGuideBubble'
-import FamilyPlusFeaturesSheet from '../../../components/FamilyPlusFeaturesSheet'
-import PlusLockHeaderButton from '../../../components/PlusLockHeaderButton'
-import { isFamilyPlus } from '../../../lib/family/familyPlus'
+import { usePlusDiscoverHeader } from '../../../hooks/usePlusDiscoverHeader'
 import { CARD_SURFACE_CLASS, MAIN_PAGE_INSET_CLASS, MAIN_SHELL_CLASS, PRESSABLE_3D_CLASS } from '../../../lib/appShell'
 import { multilineTextInputProps, oneLineTextInputProps } from '../../../lib/formInputAutofill'
 
@@ -50,9 +48,7 @@ export default function NewQuestPage() {
   const [budgetLoading, setBudgetLoading] = useState(false)
   const budgetRequestRef = useRef(0)
   const [familyQuestsReady, setFamilyQuestsReady] = useState<boolean | null>(null)
-  const [plusSheetOpen, setPlusSheetOpen] = useState(false)
-
-  const plusActive = isFamilyPlus(family)
+  const { headerAction: plusHeaderAction, portals: plusPortals } = usePlusDiscoverHeader()
 
   const excludeMember = useMemo((): QuestAssignee | null => {
     if (memberKind === 'parent' && parent) return { type: 'parent', id: parent.id }
@@ -261,9 +257,7 @@ export default function NewQuestPage() {
       <PageHeaderBar
         backHref="/quests"
         backLabel="Family-Quests"
-        headerAction={
-          !plusActive ? <PlusLockHeaderButton onClick={() => setPlusSheetOpen(true)} /> : undefined
-        }
+        headerAction={plusHeaderAction}
       />
       <h1 className="mb-1 text-2xl font-bold text-slate-900 dark:text-slate-100">Quest eintragen</h1>
       <p className="mb-4 text-sm text-slate-950 dark:text-slate-400">
@@ -384,7 +378,7 @@ export default function NewQuestPage() {
         />
       ) : null}
 
-      {plusSheetOpen ? <FamilyPlusFeaturesSheet onClose={() => setPlusSheetOpen(false)} /> : null}
+      {plusPortals}
     </main>
   )
 }

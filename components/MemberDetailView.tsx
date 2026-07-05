@@ -1,36 +1,76 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
+import AvatarWasJetztTunThoughtBubble from './AvatarWasJetztTunThoughtBubble'
 import MemberDailyXpBar from './MemberDailyXpBar'
+import MemberPersonalGoalsPanel from './MemberPersonalGoalsPanel'
 import ProgressBar from './ProgressBar'
+import QuestCompletionAssigneePhotosDisplay from './QuestCompletionAssigneePhotosDisplay'
+import QuestCompletionPhotoSheet from './QuestCompletionPhotoSheet'
+import QuestCompletionReactionDisplay from './QuestCompletionReactionDisplay'
+import XpGoalVerticalBar from './XpGoalVerticalBar'
 import DailyStreakCheckin from './DailyStreakCheckin'
-import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
+import DangerConfirmAction from './DangerConfirmAction'
+import { notifyFamilyDataChanged, useFamily, FAMILY_DATA_CHANGED_EVENT } from './FamilyProvider'
 import { formatChildAge } from '../lib/family/memberGender'
+import { markPlusDiscoverUnlocked } from '../lib/family/plusDiscoverUnlock'
 import { formatParentDisplayName } from '../lib/family/familyDisplayName'
+import { isFamilyPlus } from '../lib/family/familyPlus'
 import { resolveChildAvatar, resolveParentAvatar } from '../lib/family/memberAvatar'
-import { completeQuestForChild, completeQuestForParent } from '../lib/family/questCompletions'
+import { completeQuestForChild, completeQuestForParent, adminDeleteQuestCompletion } from '../lib/family/questCompletions'
 import { cetToday } from '../lib/cetDate'
 import { fetchMemberStreakClaimedToday } from '../lib/family/dailyStreak'
 import { persistMemberStreakIntroSeen } from '../lib/family/streakIntroHint'
 import { fetchQuestsWithCompletions, questAppliesToMember } from '../lib/family/quests'
-import { fulfillmentForMemberOnQuest } from '../lib/family/questConfirmation'
-import type { QuestWithCompletion } from '../lib/family/types'
+import { fulfillmentForMemberOnQuest, aggregateQuestFulfillmentStatus } from '../lib/family/questConfirmation'
+import { fetchMemberPersonalGoalBarState, type MemberPersonalGoalBarState } from '../lib/family/personalGoals'
+import { fetchQuestCompletionEnrichment, type QuestCompletionEnrichment } from '../lib/family/questCompletionPlus'
+import { personalGoalSymbolEmoji } from '../lib/family/personalGoalSymbols'
+import type { QuestCompletionOnDate, QuestWithCompletion } from '../lib/family/types'
 import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
+import { useThoughtBubbleVisibility } from '../lib/useThoughtBubbleVisibility'
 
 type MemberDetailViewProps = {
   memberKind: 'parent' | 'child'
   memberId: string
 }
 
+function completionForMember(
+  quest: QuestWithCompletion,
+  kind: 'parent' | 'child',
+  id: string,
+): QuestCompletionOnDate | undefined {
+  return quest.completionsOnDate.find((row) => (kind === 'child' ? row.childId === id : row.parentId === id))
+}
+
 export default function MemberDetailView({ memberKind, memberId }: MemberDetailViewProps) {
-  const { family, parents, children, loading: familyLoading, memberKind: sessionKind, parent: sessionParent, activeChild } =
-    useFamily()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const {
+    family,
+    parents,
+    children,
+    loading: familyLoading,
+    memberKind: sessionKind,
+    parent: sessionParent,
+    activeChild,
+    canAdmin,
+  } = useFamily()
   const [quests, setQuests] = useState<QuestWithCompletion[]>([])
   const [questsLoading, setQuestsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyQuestId, setBusyQuestId] = useState<string | null>(null)
+  const [deleteBusyCompletionId, setDeleteBusyCompletionId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [streakClaimed, setStreakClaimed] = useState<boolean | null>(null)
+  const [goalBar, setGoalBar] = useState<MemberPersonalGoalBarState | null>(null)
+  const [goalsEditorOpen, setGoalsEditorOpen] = useState(false)
+  const [photoSheet, setPhotoSheet] = useState<{ completionId: string; questTitle: string } | null>(null)
+  const [completionEnrichment, setCompletionEnrichment] = useState<Map<string, QuestCompletionEnrichment>>(new Map())
+
+  const plusActive = isFamilyPlus(family)
 
   const isSelf =
     (memberKind === 'parent' && sessionKind === 'parent' && sessionParent?.id === memberId) ||
@@ -62,6 +102,48 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
 
     return () => {
       cancelled = true
+    }
+  }, [family?.id, memberKind, memberId])
+
+  const loadCompletionEnrichment = useCallback(async (rows: QuestWithCompletion[]) => {
+    if (!plusActive) {
+      setCompletionEnrichment(new Map())
+      return
+    }
+    const ids = rows
+      .map((quest) => completionForMember(quest, memberKind, memberId)?.id)
+      .filter((id): id is string => Boolean(id && id !== 'local'))
+    const { byCompletionId } = await fetchQuestCompletionEnrichment(ids)
+    setCompletionEnrichment(byCompletionId)
+  }, [plusActive, memberKind, memberId])
+
+  useEffect(() => {
+    if (!family || questsLoading) return
+    void loadCompletionEnrichment(quests)
+  }, [family, quests, questsLoading, loadCompletionEnrichment])
+
+  useEffect(() => {
+    if (!plusActive) return
+    const onRefresh = () => void loadCompletionEnrichment(quests)
+    window.addEventListener(FAMILY_DATA_CHANGED_EVENT, onRefresh)
+    return () => window.removeEventListener(FAMILY_DATA_CHANGED_EVENT, onRefresh)
+  }, [plusActive, quests, loadCompletionEnrichment])
+
+  useEffect(() => {
+    if (!family) return
+    let cancelled = false
+
+    const loadGoalBar = async () => {
+      const { bar } = await fetchMemberPersonalGoalBarState(family.id, { memberKind, memberId })
+      if (!cancelled) setGoalBar(bar)
+    }
+
+    void loadGoalBar()
+    const onRefresh = () => void loadGoalBar()
+    window.addEventListener(FAMILY_DATA_CHANGED_EVENT, onRefresh)
+    return () => {
+      cancelled = true
+      window.removeEventListener(FAMILY_DATA_CHANGED_EVENT, onRefresh)
     }
   }, [family?.id, memberKind, memberId])
 
@@ -99,6 +181,7 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
       : child?.display_name
 
   const todayXp = memberKind === 'parent' ? (parent?.todayXp ?? 0) : (child?.todayXp ?? 0)
+  const totalXpForBubble = memberKind === 'child' ? (child?.total_xp ?? 0) : todayXp
 
   const avatar =
     memberKind === 'parent' && parent
@@ -106,6 +189,25 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
       : child
         ? resolveChildAvatar(child.gender, child.age, child.portrait_id, { todayXp })
         : { src: null, error: null }
+
+  const thoughtBubbleEligible =
+    isSelf && !familyLoading && Boolean(displayName) && Boolean(avatar.src) && !avatar.error
+
+  const { visible: showThoughtBubble, dismissThoughtBubble } = useThoughtBubbleVisibility({
+    eligible: thoughtBubbleEligible,
+    totalXp: totalXpForBubble,
+  })
+
+  const handleThoughtBubbleActivate = useCallback(() => {
+    dismissThoughtBubble()
+    router.push('/was-jetzt-tun')
+  }, [dismissThoughtBubble, router])
+
+  useEffect(() => {
+    if (searchParams.get('ziele') !== '1') return
+    if (!isSelf && !canAdmin) return
+    setGoalsEditorOpen(true)
+  }, [searchParams, isSelf, canAdmin])
 
   const completedCount = useMemo(
     () => quests.filter((q) => fulfillmentForMemberOnQuest(q, memberKind, memberId) === 'done').length,
@@ -130,18 +232,23 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
       return
     }
 
+    markPlusDiscoverUnlocked(family.id)
     notifyFamilyDataChanged()
+
+    const completionId = result.completionId ?? null
+
     setQuests((prev) =>
       prev.map((q) => {
         if (q.id !== quest.id) return q
         const now = new Date().toISOString()
         const nextStatus = result.creatorConfirmed ? ('done' as const) : ('awaiting_creator' as const)
+        const resolvedCompletionId = completionId ?? q.assigneeCompletion?.completionId ?? 'local'
         const nextCompletions = [
           ...q.completionsOnDate.filter((row) =>
             memberKind === 'child' ? row.childId !== memberId : row.parentId !== memberId,
           ),
           {
-            id: q.assigneeCompletion?.completionId ?? 'local',
+            id: resolvedCompletionId,
             childId: memberKind === 'child' ? memberId : null,
             parentId: memberKind === 'parent' ? memberId : null,
             assigneeConfirmedAt: now,
@@ -153,13 +260,57 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
           fulfillmentStatus: nextStatus,
           completionsOnDate: nextCompletions,
           assigneeCompletion: {
-            completionId: q.assigneeCompletion?.completionId ?? 'local',
+            completionId: resolvedCompletionId,
             assigneeConfirmedAt: now,
             creatorConfirmedAt: result.creatorConfirmed ? now : null,
           },
         }
       }),
     )
+
+    if (plusActive && completionId && !result.creatorConfirmed) {
+      setPhotoSheet({ completionId, questTitle: quest.title })
+    }
+  }
+
+  const removeCompletion = async (completionId: string, questId: string): Promise<boolean> => {
+    if (!family) return false
+    setDeleteBusyCompletionId(completionId)
+    setDeleteError(null)
+    const { error: removeError } = await adminDeleteQuestCompletion(completionId)
+    setDeleteBusyCompletionId(null)
+    if (removeError) {
+      setDeleteError(removeError.message)
+      return false
+    }
+    setDeleteError(null)
+    notifyFamilyDataChanged()
+    setQuests((prev) =>
+      prev.map((quest) => {
+        if (quest.id !== questId) return quest
+        const removed = quest.completionsOnDate.find((row) => row.id === completionId)
+        const nextCompletions = quest.completionsOnDate.filter((row) => row.id !== completionId)
+        const wasConfirmed = Boolean(removed?.creatorConfirmedAt)
+        const nextFulfillment = aggregateQuestFulfillmentStatus(quest.assignees, nextCompletions)
+        return {
+          ...quest,
+          completionsOnDate: nextCompletions,
+          completionChildIds:
+            wasConfirmed && memberKind === 'child'
+              ? quest.completionChildIds.filter((id) => id !== memberId)
+              : quest.completionChildIds,
+          completionParentIds:
+            wasConfirmed && memberKind === 'parent'
+              ? quest.completionParentIds.filter((id) => id !== memberId)
+              : quest.completionParentIds,
+          assigneeCompletion:
+            quest.assigneeCompletion?.completionId === completionId ? null : quest.assigneeCompletion,
+          fulfillmentStatus: nextFulfillment,
+          completedToday: nextFulfillment === 'done',
+        }
+      }),
+    )
+    return true
   }
 
   if (familyLoading) {
@@ -170,19 +321,58 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
     return <p className="text-sm text-slate-950 dark:text-slate-400">Familienmitglied nicht gefunden.</p>
   }
 
+  const canOpenGoalsEditor = isSelf || canAdmin
+  const hasActiveGoal = Boolean(goalBar?.showBar)
+
+  const openGoalsEditor = () => {
+    if (!canOpenGoalsEditor) return
+    setGoalsEditorOpen(true)
+  }
+
+  const goalBarBottomInset =
+    memberKind === 'child' && child && formatChildAge(child.age) ? 'pb-[2.75rem]' : 'pb-[1.75rem]'
+
   return (
     <div className="space-y-6">
-      <article
-        className={`${CARD_SURFACE_CLASS} mx-auto flex w-full max-w-[15rem] flex-col items-center rounded-2xl p-3 text-center sm:max-w-[16rem]`}
-      >
+      <div className="mx-auto flex w-full max-w-[18.5rem] items-stretch sm:max-w-[19.5rem]">
+        <div className={`flex w-12 shrink-0 flex-col justify-end ${goalBarBottomInset}`}>
+          <button
+            type="button"
+            onClick={openGoalsEditor}
+            disabled={!canOpenGoalsEditor}
+            className={`-ml-3.5 flex w-full items-center justify-center rounded-xl px-0.5 py-0.5 transition ${
+              canOpenGoalsEditor
+                ? 'cursor-pointer active:scale-[0.98] hover:bg-slate-100/80 dark:hover:bg-slate-800/50'
+                : 'cursor-default'
+            }`}
+            aria-label={hasActiveGoal ? 'Ziel-Fortschritt anzeigen' : 'Eigene Ziele anlegen'}
+            title={canOpenGoalsEditor ? (hasActiveGoal ? 'Ziele verwalten' : 'Eigene Ziele anlegen') : undefined}
+          >
+            <XpGoalVerticalBar
+              detail
+              emptyState={!hasActiveGoal}
+              progress={hasActiveGoal ? goalBar!.progress : 0}
+              target={hasActiveGoal ? goalBar!.target : 100}
+              symbolEmoji={hasActiveGoal ? personalGoalSymbolEmoji(goalBar!.symbolId) : undefined}
+            />
+          </button>
+        </div>
+        <article
+          className={`${CARD_SURFACE_CLASS} ml-0.5 flex w-full max-w-[15rem] shrink-0 flex-col items-center rounded-2xl p-3 text-center sm:max-w-[16rem]`}
+        >
         {avatar.error ? (
           <div className="flex aspect-[5/6] w-full items-center justify-center rounded-xl bg-slate-100 px-1 dark:bg-slate-800">
             <p className="text-[10px] leading-tight text-amber-800 dark:text-amber-200">{avatar.error}</p>
           </div>
         ) : avatar.src ? (
-          <div className="relative aspect-[5/6] w-full overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={avatar.src} alt="" className="absolute inset-0 h-full w-full object-cover object-top" />
+          <div className="relative aspect-[5/6] w-full overflow-visible rounded-xl bg-slate-100 dark:bg-slate-800">
+            <div className="absolute inset-0 overflow-hidden rounded-xl">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={avatar.src} alt="" className="absolute inset-0 h-full w-full object-cover object-top" />
+            </div>
+            {showThoughtBubble ? (
+              <AvatarWasJetztTunThoughtBubble onActivate={handleThoughtBubbleActivate} />
+            ) : null}
           </div>
         ) : (
           <div className="flex aspect-[5/6] w-full items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
@@ -206,9 +396,10 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
         {memberKind === 'child' && child && formatChildAge(child.age) ? (
           <p className="mt-0.5 text-xs text-slate-950 dark:text-slate-400">{formatChildAge(child.age)}</p>
         ) : null}
-      </article>
+        </article>
+      </div>
 
-      <section className={`${CARD_SURFACE_CLASS} space-y-3 rounded-2xl p-4`}>
+      <section id="quests-heute" className={`${CARD_SURFACE_CLASS} space-y-3 rounded-2xl p-4 scroll-mt-4`}>
         <div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Quests heute</h2>
           <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
@@ -223,6 +414,10 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
           <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
             {error}
           </p>
+        ) : deleteError ? (
+          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+            {deleteError}
+          </p>
         ) : quests.length === 0 ? (
           <p className="text-sm text-slate-950 dark:text-slate-400">Keine Quests für heute zugewiesen.</p>
         ) : (
@@ -231,6 +426,10 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
               const status = fulfillmentForMemberOnQuest(quest, memberKind, memberId)
               const done = status === 'done'
               const awaiting = status === 'awaiting_creator'
+              const completion = completionForMember(quest, memberKind, memberId)
+              const canAdminRemove = canAdmin && completion && (done || awaiting)
+              const enrichment =
+                completion && completion.id !== 'local' ? completionEnrichment.get(completion.id) : undefined
 
               return (
                 <li
@@ -265,6 +464,15 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
                   >
                     {done ? 'Erledigt' : awaiting ? 'Wartet auf Bestätigung' : 'Offen'}
                   </p>
+                  {(done || awaiting) && enrichment && enrichment.photos.length > 0 ? (
+                    <QuestCompletionAssigneePhotosDisplay
+                      photos={enrichment.photos}
+                      label={isSelf ? 'Deine Fotos' : 'Fotos'}
+                    />
+                  ) : null}
+                  {done && enrichment?.reaction ? (
+                    <QuestCompletionReactionDisplay reaction={enrichment.reaction} />
+                  ) : null}
                   {isSelf && status === 'open' ? (
                     <button
                       type="button"
@@ -275,12 +483,53 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
                       {busyQuestId === quest.id ? 'Speichern …' : 'Schritt 1: Als erledigt melden'}
                     </button>
                   ) : null}
+                  {canAdminRemove && completion ? (
+                    <div className="mt-2.5">
+                      <DangerConfirmAction
+                        triggerLabel={done ? 'Abschluss löschen' : 'Meldung zurücknehmen'}
+                        confirmTitle={
+                          done
+                            ? `„${quest.title}" wirklich zurücksetzen?`
+                            : `Meldung zu „${quest.title}" zurücknehmen?`
+                        }
+                        confirmDescription={
+                          done
+                            ? `Die ${quest.xp_reward} XP werden von ${displayName} abgezogen. Die Quest ist danach wieder offen.`
+                            : 'Die Quest wartet noch auf Bestätigung — es wurden noch keine XP vergeben.'
+                        }
+                        onConfirm={() => removeCompletion(completion.id, quest.id)}
+                        busy={deleteBusyCompletionId === completion.id}
+                      />
+                    </div>
+                  ) : null}
                 </li>
               )
             })}
           </ul>
         )}
       </section>
+
+      <MemberPersonalGoalsPanel
+        memberKind={memberKind}
+        memberId={memberId}
+        memberLabel={displayName}
+        isSelf={isSelf}
+        editorOpen={goalsEditorOpen}
+        onEditorOpenChange={setGoalsEditorOpen}
+      />
+
+      {photoSheet && family ? (
+        <QuestCompletionPhotoSheet
+          familyId={family.id}
+          completionId={photoSheet.completionId}
+          questTitle={photoSheet.questTitle}
+          onClose={() => setPhotoSheet(null)}
+          onUploaded={() => {
+            notifyFamilyDataChanged()
+            void loadCompletionEnrichment(quests)
+          }}
+        />
+      ) : null}
     </div>
   )
 }

@@ -1,19 +1,52 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { FAMILY_DATA_CHANGED_EVENT, notifyFamilyDataChanged, useFamily } from './FamilyProvider'
+import QuestCreatorReactionForm, {
+  defaultReactionMessage,
+  defaultReactionPortrait,
+} from './QuestCreatorReactionForm'
 import { cetFormatTimeFromIso } from '../lib/cetDate'
+import { isFamilyPlus } from '../lib/family/familyPlus'
+import {
+  portraitIdFromStored,
+  resolveChildAvatar,
+  resolveParentAvatar,
+  type AvatarPortraitId,
+} from '../lib/family/memberAvatar'
 import { confirmQuestByCreator, fetchPendingCreatorConfirmations } from '../lib/family/questCompletions'
+import { fetchAssigneePhotosForCompletion } from '../lib/family/questCompletionPlus'
+import type { QuestCompletionPhoto } from '../lib/family/questCompletionPlus'
+import { markPlusDiscoverUnlocked } from '../lib/family/plusDiscoverUnlock'
 import type { PendingCreatorConfirmation } from '../lib/family/types'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 
+type ReactionDraft = {
+  message: string
+  portraitId: AvatarPortraitId
+}
+
 export default function QuestCreatorConfirmSheet() {
-  const { family, parents, children, loading, hasSession } = useFamily()
+  const { family, parents, children, loading, hasSession, parent, activeChild, memberKind } = useFamily()
   const [items, setItems] = useState<PendingCreatorConfirmation[]>([])
   const [visible, setVisible] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [photosByCompletion, setPhotosByCompletion] = useState<Map<string, QuestCompletionPhoto[]>>(new Map())
+  const [reactionsByCompletion, setReactionsByCompletion] = useState<Map<string, ReactionDraft>>(new Map())
+
+  const plusActive = isFamilyPlus(family)
+
+  const creatorBasePortraitId = useMemo((): AvatarPortraitId | null => {
+    if (memberKind === 'parent' && parent) {
+      return portraitIdFromStored(parent.avatar_url) ?? resolveParentAvatar(parent.gender, parent.avatar_url).portraitId
+    }
+    if (memberKind === 'child' && activeChild) {
+      return resolveChildAvatar(activeChild.gender, activeChild.age, activeChild.portrait_id).portraitId
+    }
+    return null
+  }, [memberKind, parent, activeChild])
 
   const load = useCallback(async () => {
     if (!family) {
@@ -28,7 +61,20 @@ export default function QuestCreatorConfirmSheet() {
     }
     setError(null)
     setItems(rows)
-  }, [family, parents, children])
+
+    if (plusActive && rows.length > 0) {
+      const photoMap = new Map<string, QuestCompletionPhoto[]>()
+      await Promise.all(
+        rows.map(async (row) => {
+          const { photos } = await fetchAssigneePhotosForCompletion(row.completionId)
+          if (photos.length > 0) photoMap.set(row.completionId, photos)
+        }),
+      )
+      setPhotosByCompletion(photoMap)
+    } else {
+      setPhotosByCompletion(new Map())
+    }
+  }, [family, parents, children, plusActive])
 
   useEffect(() => {
     if (loading || !hasSession || !family) {
@@ -54,15 +100,49 @@ export default function QuestCreatorConfirmSheet() {
     return undefined
   }, [items.length])
 
+  useEffect(() => {
+    if (!plusActive || !creatorBasePortraitId) return
+    setReactionsByCompletion((prev) => {
+      const next = new Map(prev)
+      for (const item of items) {
+        if (!next.has(item.completionId)) {
+          next.set(item.completionId, {
+            message: defaultReactionMessage(),
+            portraitId: defaultReactionPortrait(creatorBasePortraitId),
+          })
+        }
+      }
+      return next
+    })
+  }, [items, plusActive, creatorBasePortraitId])
+
+  const setReactionDraft = (completionId: string, patch: Partial<ReactionDraft>) => {
+    setReactionsByCompletion((prev) => {
+      const next = new Map(prev)
+      const current = next.get(completionId)
+      if (!current) return prev
+      next.set(completionId, { ...current, ...patch })
+      return next
+    })
+  }
+
   const confirm = async (item: PendingCreatorConfirmation) => {
     setBusyId(item.completionId)
     setError(null)
-    const { error: confirmError } = await confirmQuestByCreator(item.completionId)
+
+    const reactionDraft = reactionsByCompletion.get(item.completionId)
+    const reaction =
+      plusActive && reactionDraft && reactionDraft.message.trim() && reactionDraft.portraitId
+        ? { message: reactionDraft.message.trim(), portraitId: reactionDraft.portraitId }
+        : null
+
+    const { error: confirmError } = await confirmQuestByCreator(item.completionId, { reaction })
     setBusyId(null)
     if (confirmError) {
       setError(confirmError.message)
       return
     }
+    if (family?.id) markPlusDiscoverUnlocked(family.id)
     notifyFamilyDataChanged()
     setItems((prev) => prev.filter((row) => row.completionId !== item.completionId))
   }
@@ -94,9 +174,12 @@ export default function QuestCreatorConfirmSheet() {
             </p>
           </div>
 
-          <ul className="max-h-[min(52vh,24rem)] space-y-3 overflow-y-auto px-4 py-4">
+          <ul className="max-h-[min(58vh,28rem)] space-y-3 overflow-y-auto px-4 py-4">
             {items.map((item) => {
               const timeLabel = cetFormatTimeFromIso(item.assigneeConfirmedAt)
+              const photos = photosByCompletion.get(item.completionId) ?? []
+              const reactionDraft = reactionsByCompletion.get(item.completionId)
+
               return (
                 <li
                   key={item.completionId}
@@ -108,13 +191,49 @@ export default function QuestCreatorConfirmSheet() {
                     {timeLabel ? `, ${timeLabel} Uhr` : null}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">+{item.xpReward} XP</p>
+
+                  {plusActive && photos.length > 0 ? (
+                    <div className="mt-3">
+                      <p className="mb-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">Beweisfotos</p>
+                      <div className="flex gap-2">
+                        {photos.map((photo) => (
+                          <a
+                            key={photo.id}
+                            href={photo.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block overflow-hidden rounded-xl ring-2 ring-slate-200 dark:ring-slate-700"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={photo.url} alt="" className="h-20 w-20 object-cover" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {plusActive && creatorBasePortraitId && reactionDraft ? (
+                    <QuestCreatorReactionForm
+                      basePortraitId={creatorBasePortraitId}
+                      message={reactionDraft.message}
+                      selectedPortraitId={reactionDraft.portraitId}
+                      onMessageChange={(message) => setReactionDraft(item.completionId, { message })}
+                      onPortraitChange={(portraitId) => setReactionDraft(item.completionId, { portraitId })}
+                      disabled={busyId === item.completionId}
+                    />
+                  ) : null}
+
                   <button
                     type="button"
                     disabled={busyId === item.completionId}
                     onClick={() => void confirm(item)}
                     className={`${PRESSABLE_3D_CLASS} mt-3 w-full rounded-xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-60`}
                   >
-                    {busyId === item.completionId ? 'Wird bestätigt …' : 'OK — XP gutschreiben'}
+                    {busyId === item.completionId
+                      ? 'Wird bestätigt …'
+                      : plusActive
+                        ? 'OK — XP & Like senden'
+                        : 'OK — XP gutschreiben'}
                   </button>
                 </li>
               )

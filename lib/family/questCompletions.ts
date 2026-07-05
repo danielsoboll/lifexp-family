@@ -1,6 +1,8 @@
 import { cetToday, normalizeDateKey } from '../cetDate'
 import { getStoredParentId, readFamilySession } from '../familySession'
 import { supabase } from '../supabase'
+import { assertFamilyAdminSession, resyncFamilyXpHistoryForDate } from './admin'
+import { formatParentDisplayName } from './familyDisplayName'
 import { fetchQuestAssignmentsForQuests, questAppliesToAssignee } from './questAssignments'
 import { sessionIsQuestCreator, assigneeDisplayNameFromCompletion, isCompletionForSessionMember } from './questConfirmation'
 import { fetchMemberXpBudget } from './questXpBudget'
@@ -8,7 +10,8 @@ import { clampQuestXp } from './questRules'
 import type { ParentMember } from './members'
 import type { ChildWithTodayXp, PendingCreatorConfirmation, Quest } from './types'
 import { recordDailyXpEntry } from './xp'
-import { formatParentDisplayName } from './familyDisplayName'
+import type { AvatarPortraitId } from './memberAvatar'
+import { saveQuestCompletionCreatorReaction } from './questCompletionPlus'
 
 async function validateSessionOwnsQuest(input: {
   quest: Quest
@@ -61,7 +64,7 @@ async function validateCompletionBudget(input: {
   return null
 }
 
-type AssigneeConfirmResult = { error: Error | null; creatorConfirmed: boolean }
+type AssigneeConfirmResult = { error: Error | null; creatorConfirmed: boolean; completionId: string | null }
 
 async function tryAutoConfirmCreatorOwnFamilyQuest(
   quest: Quest,
@@ -101,7 +104,7 @@ export async function confirmQuestByAssigneeChild(input: {
     memberType: 'child',
     memberId: input.childId,
   })
-  if (ownershipError) return { error: ownershipError, creatorConfirmed: false }
+  if (ownershipError) return { error: ownershipError, creatorConfirmed: false, completionId: null }
 
   const budgetError = await validateCompletionBudget({
     familyId: input.familyId,
@@ -110,7 +113,7 @@ export async function confirmQuestByAssigneeChild(input: {
     quest: input.quest,
     xpAwarded: clampQuestXp(input.quest.xp_reward),
   })
-  if (budgetError) return { error: budgetError, creatorConfirmed: false }
+  if (budgetError) return { error: budgetError, creatorConfirmed: false, completionId: null }
 
   const { data: inserted, error: completionError } = await supabase
     .from('quest_completions')
@@ -129,21 +132,23 @@ export async function confirmQuestByAssigneeChild(input: {
 
   if (completionError) {
     if (completionError.code === '23505') {
-      return { error: new Error('Diese Quest wurde an diesem Tag schon gemeldet.'), creatorConfirmed: false }
+      return { error: new Error('Diese Quest wurde an diesem Tag schon gemeldet.'), creatorConfirmed: false, completionId: null }
     }
-    return { error: new Error(completionError.message), creatorConfirmed: false }
+    return { error: new Error(completionError.message), creatorConfirmed: false, completionId: null }
   }
 
-  if (!inserted?.id) return { error: null, creatorConfirmed: false }
+  if (!inserted?.id) return { error: null, creatorConfirmed: false, completionId: null }
+
+  const completionId = inserted.id as string
 
   const auto = await tryAutoConfirmCreatorOwnFamilyQuest(
     input.quest,
-    inserted.id as string,
+    completionId,
     'child',
     input.childId,
   )
-  if (auto.error) return { error: auto.error, creatorConfirmed: false }
-  return { error: null, creatorConfirmed: auto.creatorConfirmed }
+  if (auto.error) return { error: auto.error, creatorConfirmed: false, completionId }
+  return { error: null, creatorConfirmed: auto.creatorConfirmed, completionId }
 }
 
 export async function confirmQuestByAssigneeParent(input: {
@@ -160,7 +165,7 @@ export async function confirmQuestByAssigneeParent(input: {
     memberType: 'parent',
     memberId: input.parentId,
   })
-  if (ownershipError) return { error: ownershipError, creatorConfirmed: false }
+  if (ownershipError) return { error: ownershipError, creatorConfirmed: false, completionId: null }
 
   const budgetError = await validateCompletionBudget({
     familyId: input.familyId,
@@ -169,7 +174,7 @@ export async function confirmQuestByAssigneeParent(input: {
     quest: input.quest,
     xpAwarded: clampQuestXp(input.quest.xp_reward),
   })
-  if (budgetError) return { error: budgetError, creatorConfirmed: false }
+  if (budgetError) return { error: budgetError, creatorConfirmed: false, completionId: null }
 
   const { data: inserted, error: completionError } = await supabase
     .from('quest_completions')
@@ -188,21 +193,23 @@ export async function confirmQuestByAssigneeParent(input: {
 
   if (completionError) {
     if (completionError.code === '23505') {
-      return { error: new Error('Diese Quest wurde an diesem Tag schon gemeldet.'), creatorConfirmed: false }
+      return { error: new Error('Diese Quest wurde an diesem Tag schon gemeldet.'), creatorConfirmed: false, completionId: null }
     }
-    return { error: new Error(completionError.message), creatorConfirmed: false }
+    return { error: new Error(completionError.message), creatorConfirmed: false, completionId: null }
   }
 
-  if (!inserted?.id) return { error: null, creatorConfirmed: false }
+  if (!inserted?.id) return { error: null, creatorConfirmed: false, completionId: null }
+
+  const completionId = inserted.id as string
 
   const auto = await tryAutoConfirmCreatorOwnFamilyQuest(
     input.quest,
-    inserted.id as string,
+    completionId,
     'parent',
     input.parentId,
   )
-  if (auto.error) return { error: auto.error, creatorConfirmed: false }
-  return { error: null, creatorConfirmed: auto.creatorConfirmed }
+  if (auto.error) return { error: auto.error, creatorConfirmed: false, completionId }
+  return { error: null, creatorConfirmed: auto.creatorConfirmed, completionId }
 }
 
 /** @deprecated Alias */
@@ -212,7 +219,10 @@ export const completeQuestForParent = confirmQuestByAssigneeParent
 
 export async function confirmQuestByCreator(
   completionId: string,
-  options: { allowSelfAssignee?: boolean } = {},
+  options: {
+    allowSelfAssignee?: boolean
+    reaction?: { message: string; portraitId: string } | null
+  } = {},
 ): Promise<{ error: Error | null }> {
   const session = readFamilySession()
   if (!session) return { error: new Error('Bitte zuerst anmelden.') }
@@ -298,6 +308,19 @@ export async function confirmQuestByCreator(
       metadata: { quest_completion_id: completionId, quest_title: quest.title },
     })
     if (xpError) return { error: xpError }
+  }
+
+  if (options.reaction?.message.trim() && options.reaction.portraitId) {
+    const reactionError = await saveQuestCompletionCreatorReaction({
+      familyId,
+      completionId,
+      message: options.reaction.message,
+      portraitId: options.reaction.portraitId as AvatarPortraitId,
+      creatorKind: session.memberKind,
+      creatorParentId: session.memberKind === 'parent' ? session.memberId : null,
+      creatorChildId: session.memberKind === 'child' ? session.memberId : null,
+    })
+    if (reactionError.error) return reactionError
   }
 
   return { error: null }
@@ -453,4 +476,99 @@ export async function fetchCompletionsForChildOnDate(
 
   if (error) return { questIds: [], error: new Error(error.message) }
   return { questIds: (data ?? []).map((row) => row.quest_id as string), error: null }
+}
+
+/** Mindestens eine Quest wurde abgehakt (Assignee oder Creator). */
+export async function familyHasQuestCompletionActivity(
+  familyId: string,
+): Promise<{ hasActivity: boolean; error: Error | null }> {
+  const { count, error } = await supabase
+    .from('quest_completions')
+    .select('id', { count: 'exact', head: true })
+    .eq('family_id', familyId)
+    .not('assignee_confirmed_at', 'is', null)
+
+  if (error) return { hasActivity: false, error: new Error(error.message) }
+  return { hasActivity: (count ?? 0) > 0, error: null }
+}
+
+async function deleteQuestXpEntryForCompletion(input: {
+  familyId: string
+  completionId: string
+  questId: string
+  childId: string
+  entryDate: string
+}): Promise<{ error: Error | null }> {
+  const { data: byMetadata, error: metaFetchError } = await supabase
+    .from('daily_xp_entries')
+    .select('id')
+    .eq('family_id', input.familyId)
+    .eq('child_id', input.childId)
+    .filter('metadata->>quest_completion_id', 'eq', input.completionId)
+
+  if (metaFetchError) return { error: new Error(metaFetchError.message) }
+
+  const ids = (byMetadata ?? []).map((row) => row.id as string)
+  if (ids.length === 0) {
+    const { data: bySource, error: sourceFetchError } = await supabase
+      .from('daily_xp_entries')
+      .select('id')
+      .eq('family_id', input.familyId)
+      .eq('child_id', input.childId)
+      .eq('entry_date', input.entryDate)
+      .eq('source', 'quest')
+      .eq('source_id', input.questId)
+
+    if (sourceFetchError) return { error: new Error(sourceFetchError.message) }
+    ids.push(...(bySource ?? []).map((row) => row.id as string))
+  }
+
+  if (ids.length === 0) return { error: null }
+
+  const { error: deleteError } = await supabase.from('daily_xp_entries').delete().in('id', ids)
+  if (deleteError) return { error: new Error(deleteError.message) }
+  return { error: null }
+}
+
+/** Admin: Quest-Abschluss entfernen — bei bestätigten Quests werden XP zurückgenommen. */
+export async function adminDeleteQuestCompletion(completionId: string): Promise<{ error: Error | null }> {
+  const { data: row, error: fetchError } = await supabase
+    .from('quest_completions')
+    .select(
+      'id, quest_id, child_id, parent_id, family_id, completed_on, assignee_confirmed_at, creator_confirmed_at, xp_awarded',
+    )
+    .eq('id', completionId)
+    .maybeSingle()
+
+  if (fetchError) return { error: new Error(fetchError.message) }
+  if (!row) return { error: new Error('Quest-Abschluss nicht gefunden.') }
+
+  const familyId = row.family_id as string
+  const adminError = await assertFamilyAdminSession(familyId)
+  if (adminError.error) return adminError
+
+  if (!row.assignee_confirmed_at) {
+    return { error: new Error('Diese Quest wurde noch nicht als erledigt gemeldet.') }
+  }
+
+  const entryDate = normalizeDateKey(row.completed_on as string)
+  const childId = row.child_id as string | null
+  const questId = row.quest_id as string
+
+  if (row.creator_confirmed_at && childId) {
+    const xpError = await deleteQuestXpEntryForCompletion({
+      familyId,
+      completionId,
+      questId,
+      childId,
+      entryDate,
+    })
+    if (xpError.error) return xpError
+  }
+
+  const { error: deleteError } = await supabase.from('quest_completions').delete().eq('id', completionId)
+  if (deleteError) return { error: new Error(deleteError.message) }
+
+  await resyncFamilyXpHistoryForDate(familyId, entryDate)
+  return { error: null }
 }

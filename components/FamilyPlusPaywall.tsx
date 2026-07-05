@@ -2,7 +2,10 @@
 
 import type { ReactNode } from 'react'
 
+import FamilyPlusAboCallout from './FamilyPlusAboCallout'
 import FamilyPlusBillingControls from './FamilyPlusBillingControls'
+import FamilyPlusFeaturesList from './FamilyPlusFeaturesList'
+import FamilyPlusPriceDisplay from './FamilyPlusPriceDisplay'
 import { useFamily } from './FamilyProvider'
 import { isFamilyPlus } from '../lib/family/familyPlus'
 import { FAMILY_PLUS_TAGLINE } from '../lib/family/familyPlusFeatures'
@@ -42,7 +45,10 @@ export default function FamilyPlusPaywall({
           <p className="mt-2 text-sm text-slate-950 dark:text-slate-300">{featureDescription}</p>
         ) : null}
       </div>
-      <FamilyPlusBillingControls family={family} />
+      <FamilyPlusPriceDisplay variant="hero" />
+      <FamilyPlusAboCallout showPrice={false} />
+      <FamilyPlusFeaturesList className="mt-0" />
+      <FamilyPlusBillingControls family={family} showPriceBadge={false} />
     </div>
   )
 }

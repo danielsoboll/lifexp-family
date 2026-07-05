@@ -4,7 +4,7 @@ type LifeXpBrandMarkProps = {
   className?: string
 }
 
-/** Markenzeile — kompakter als der Familienname auf dem Dashboard. */
+/** Markenzeile — kompakter als der Familienname in der Übersicht. */
 export default function LifeXpBrandMark({ showFamilySuffix = false, className = '' }: LifeXpBrandMarkProps) {
   return (
     <h1

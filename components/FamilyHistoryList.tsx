@@ -17,6 +17,8 @@ import {
   syncAllXpGoalsForFamily,
   type XpGoalPeriod,
 } from '../lib/family/xpGoals'
+import { fetchMemberPersonalGoalBarState, syncAllPersonalGoalsForFamily } from '../lib/family/personalGoals'
+import { personalGoalSymbolEmoji } from '../lib/family/personalGoalSymbols'
 import {
   fetchFamilyXpHistory,
   fetchMemberXpHistory,
@@ -36,6 +38,7 @@ type MemberHistoryState = {
   loading: boolean
   error: string | null
   goal: XpGoalPeriod | null
+  personalSymbolEmoji?: string
 }
 
 function fallbackFamilyGoal(): XpGoalPeriod {
@@ -126,6 +129,7 @@ export default function FamilyHistoryList() {
       setFamilyHistory((prev) => ({ ...prev, loading: true, error: null }))
       await syncFamilyXpHistoryToday(family.id)
       await syncAllXpGoalsForFamily(family.id)
+      await syncAllPersonalGoalsForFamily(family.id)
 
       const [result, goalResult] = await Promise.all([
         fetchFamilyXpHistory({ familyId: family.id, memberCount }),
@@ -180,7 +184,7 @@ export default function FamilyHistoryList() {
 
       await Promise.all(
         members.map(async (member) => {
-          const [result, goalResult] = await Promise.all([
+          const [result, goalResult, personalBar] = await Promise.all([
             fetchMemberXpHistory({
               familyId: family.id,
               member: { memberKind: member.memberKind, memberId: member.memberId },
@@ -190,8 +194,24 @@ export default function FamilyHistoryList() {
               memberKind: member.memberKind,
               memberId: member.memberId,
             }),
+            fetchMemberPersonalGoalBarState(family.id, {
+              memberKind: member.memberKind,
+              memberId: member.memberId,
+            }),
           ])
           if (cancelled) return
+
+          const fallbackGoal = goalResult.goal ?? fallbackMemberGoal()
+          const activePersonal = personalBar.bar
+          const displayGoal: XpGoalPeriod = activePersonal
+            ? {
+                id: activePersonal.goalId,
+                goalName: activePersonal.title,
+                targetXp: activePersonal.target,
+                progressXp: activePersonal.progress,
+                startedAt: fallbackGoal.startedAt,
+              }
+            : fallbackGoal
 
           setMemberHistories((prev) => ({
             ...prev,
@@ -201,7 +221,10 @@ export default function FamilyHistoryList() {
               max: result.max,
               loading: false,
               error: result.error?.message ?? null,
-              goal: goalResult.goal ?? fallbackMemberGoal(),
+              goal: displayGoal,
+              personalSymbolEmoji: activePersonal
+                ? personalGoalSymbolEmoji(activePersonal.symbolId)
+                : undefined,
             },
           }))
         }),
@@ -296,6 +319,7 @@ export default function FamilyHistoryList() {
                         compact
                         progress={memberGoal.progressXp}
                         target={memberGoal.targetXp}
+                        symbolEmoji={history.personalSymbolEmoji}
                       />
                     </div>
                   )}

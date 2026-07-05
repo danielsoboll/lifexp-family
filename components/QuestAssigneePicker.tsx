@@ -163,8 +163,17 @@ export function questAssigneeChoiceFromQuest(quest: {
   assignees: QuestAssignee[]
   child_id?: string | null
 }): QuestAssigneeChoice | null {
-  if (quest.assignees.length > 1) return { mode: 'all' }
-  const assignee = quest.assignees[0] ?? (quest.child_id ? { type: 'child' as const, id: quest.child_id } : null)
-  if (!assignee) return null
-  return { mode: 'one', assignee }
+  return questAssigneeChoiceFromAssignees(
+    quest.assignees.length > 0
+      ? quest.assignees
+      : quest.child_id
+        ? [{ type: 'child', id: quest.child_id }]
+        : [],
+  )
+}
+
+export function questAssigneeChoiceFromAssignees(assignees: QuestAssignee[]): QuestAssigneeChoice | null {
+  if (assignees.length > 1) return { mode: 'all' }
+  if (assignees.length === 1) return { mode: 'one', assignee: assignees[0]! }
+  return null
 }

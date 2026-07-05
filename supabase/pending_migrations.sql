@@ -343,4 +343,9 @@ CREATE TRIGGER parent_profiles_protect_auth_user_id
   FOR EACH ROW
   EXECUTE FUNCTION public.protect_parent_auth_user_id();
 
+-- =============================================================================
+-- 10) Wiederkehrende Quest-Vorlagen (PLUS)
+-- =============================================================================
+-- Vollständig: supabase/recurring_quest_templates_migration.sql
+
 NOTIFY pgrst, 'reload schema';

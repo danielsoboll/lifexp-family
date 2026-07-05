@@ -1,7 +1,7 @@
 import type { ParentGender } from './memberGender'
 import { parentRoleLabel } from './memberGender'
 
-/** Anzeigename auf dem Dashboard: immer mit „Familie “ davor. */
+/** Anzeigename in der Übersicht: immer mit „Familie “ davor. */
 export function formatFamilyHeading(name: string | null | undefined): string {
   const trimmed = (name ?? '').trim()
   if (!trimmed) return 'Familie'

@@ -2,6 +2,8 @@ import type { ChildGender, ParentGender } from './memberGender'
 
 export type FamilyMemberRole = 'owner' | 'parent' | 'child'
 export type QuestRecurrence = 'once' | 'daily' | 'weekly'
+
+export type RecurringQuestSchedule = 'daily' | 'weekdays' | 'every_other_day' | 'weekly'
 export type XpEntrySource = 'quest' | 'bonus' | 'challenge' | 'manual' | 'redemption_adjustment' | 'streak'
 
 export type FamilyPlan = 'free' | 'plus'
@@ -93,6 +95,25 @@ export type QuestAssignee = {
   id: string
 }
 
+export type RecurringQuestTemplate = {
+  id: string
+  family_id: string
+  title: string
+  description: string
+  xp_reward: number
+  category: string
+  schedule: RecurringQuestSchedule
+  weekly_weekday: number | null
+  anchor_date: string
+  ends_on: string | null
+  is_active: boolean
+  created_by: string | null
+  created_by_child_id: string | null
+  created_at: string
+  updated_at: string
+  assignees: QuestAssignee[]
+}
+
 export type Quest = {
   id: string
   family_id: string
@@ -107,6 +128,7 @@ export type Quest = {
   sort_order: number
   created_by: string | null
   created_by_child_id: string | null
+  recurring_template_id?: string | null
   created_at: string
   updated_at: string
 }

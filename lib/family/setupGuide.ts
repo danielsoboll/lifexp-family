@@ -129,7 +129,7 @@ export function setupGuideCopy(step: SetupGuideStep): { title: string; body: str
     case 'member_ready':
       return {
         title: 'Bin dabei!',
-        body: 'Lege eine Aufgabe für ein anderes Familienmitglied an — oder erledige deine eigenen Quests auf dem Dashboard.',
+        body: 'Lege eine Aufgabe für ein anderes Familienmitglied an — oder erledige deine eigenen Quests in der Übersicht.',
         target: 'new_quest',
       }
     case 'complete':

@@ -266,6 +266,34 @@ export function portraitIdForDailyXp(
   return availableIds.has(tier1PortraitId) ? tier1PortraitId : basePortraitId
 }
 
+/** Alle Gesichts-Varianten (_1 … _N) eines Portrait-Stamms — für PLUS-Reaktionen. */
+export function portraitExpressionVariantsForBase(
+  basePortraitId: AvatarPortraitId,
+  availableIds: ReadonlySet<string> = AVAILABLE_PORTRAIT_IDS,
+): AvatarPortraitId[] {
+  const xpBase = portraitXpBase(basePortraitId)
+  if (!xpBase) return availableIds.has(basePortraitId) ? [basePortraitId] : []
+
+  const { stem, tier1PortraitId, suffix } = xpBase
+  const maxTier = resolveMaxPortraitTier(stem, availableIds)
+  const variants: AvatarPortraitId[] = []
+
+  for (let tier = 1; tier <= maxTier; tier += 1) {
+    for (const candidate of portraitIdCandidates(stem, tier, suffix)) {
+      if (availableIds.has(candidate)) {
+        variants.push(candidate)
+        break
+      }
+    }
+  }
+
+  if (variants.length === 0 && availableIds.has(tier1PortraitId)) {
+    return [tier1PortraitId]
+  }
+
+  return variants
+}
+
 export function portraitIdFromStored(value: string | null | undefined): AvatarPortraitId | null {
   if (!value || typeof value !== 'string') return null
   const raw = value

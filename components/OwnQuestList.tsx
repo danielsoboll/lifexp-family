@@ -6,6 +6,7 @@ import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
 import ProgressBar from './ProgressBar'
 import { cetToday } from '../lib/cetDate'
 import { completeQuestForChild, completeQuestForParent } from '../lib/family/questCompletions'
+import { markPlusDiscoverUnlocked } from '../lib/family/plusDiscoverUnlock'
 import { fetchQuestsWithCompletions, questAppliesToMember } from '../lib/family/quests'
 import type { QuestWithCompletion } from '../lib/family/types'
 import { formatParentDisplayName } from '../lib/family/familyDisplayName'
@@ -87,6 +88,7 @@ export default function OwnQuestList() {
       return
     }
 
+    markPlusDiscoverUnlocked(family.id)
     notifyFamilyDataChanged()
     setQuests((prev) =>
       prev.map((q) => {

@@ -46,6 +46,7 @@ import { HOME_PAGE_INSET_CLASS, MAIN_SHELL_CLASS } from '../lib/appShell'
 import { slowScrollContainerToElement, slowScrollToElement, slowScrollToRevealElement } from '../lib/slowScroll'
 import { useSetupGuide, isSetupGuideTargetActive } from '../hooks/useSetupGuide'
 import { useOnboardingPreviewXpStep } from '../hooks/useOnboardingPreviewXpStep'
+import { usePlusDiscoverHeader } from '../hooks/usePlusDiscoverHeader'
 
 type FamilyDashboardProps = {
   preview?: boolean
@@ -101,6 +102,8 @@ export default function FamilyDashboard({
     canAdmin,
     memberId: session?.memberId ?? null,
   })
+
+  const { headerAction: plusHeaderAction, portals: plusPortals } = usePlusDiscoverHeader()
 
   const [sessionStreakClaimed, setSessionStreakClaimed] = useState<boolean | null>(null)
   const [streakIntroTick, setStreakIntroTick] = useState(0)
@@ -419,6 +422,7 @@ export default function FamilyDashboard({
           preview={preview}
           highlightAdmin={showSetupGuide && isSetupGuideTargetActive(guide.activeTarget, 'admin')}
           onAdminNavigate={handleAdminNavigate}
+          headerPlusAction={preview ? undefined : plusHeaderAction}
         />
       </header>
 
@@ -540,6 +544,8 @@ export default function FamilyDashboard({
           onDismiss={dismissStreakHint}
         />
       ) : null}
+
+      {!preview ? plusPortals : null}
     </main>
   )
 }

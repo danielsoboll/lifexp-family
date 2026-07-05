@@ -6,17 +6,28 @@ import { useEffect, useRef, useState } from 'react'
 import AdminScrollPage from '../../../components/AdminScrollPage'
 import DangerConfirmAction from '../../../components/DangerConfirmAction'
 import FamilyQuestAccentEditor from '../../../components/FamilyQuestAccentEditor'
+import FamilyPlusAboCallout from '../../../components/FamilyPlusAboCallout'
 import FamilyPlusBillingControls from '../../../components/FamilyPlusBillingControls'
-import FamilyPlusFeaturesSheet from '../../../components/FamilyPlusFeaturesSheet'
+import FamilyPlusPriceDisplay from '../../../components/FamilyPlusPriceDisplay'
 import MemberRecoveryAdminSection from '../../../components/MemberRecoveryAdminSection'
 import PageHeaderBar from '../../../components/PageHeaderBar'
 import PlusLockHeaderButton from '../../../components/PlusLockHeaderButton'
 import { useFamily } from '../../../components/FamilyProvider'
 import { deleteFamilyById } from '../../../lib/family/admin'
 import { familyPlusTarifLine, isFamilyPlus } from '../../../lib/family/familyPlus'
-import { FAMILY_PLUS_ABO_NOTE, FAMILY_PLUS_CTA_LABEL, FAMILY_PLUS_TAGLINE } from '../../../lib/family/familyPlusFeatures'
+import {
+  FAMILY_PLUS_ACTIVATED_BANNER,
+  FAMILY_PLUS_CTA_LABEL,
+  FAMILY_PLUS_TAGLINE,
+} from '../../../lib/family/familyPlusFeatures'
+import {
+  hasSeenPlusActivatedNotice,
+  markPlusActivatedNoticeSeen,
+  PLUS_ACTIVATED_NOTICE_CHANGED_EVENT,
+} from '../../../lib/family/plusActivatedNotice'
 import { markSetupGuideAdminVisited } from '../../../lib/family/setupGuide'
 import { resetLifeXpFamilyClientState } from '../../../lib/familySession'
+import { usePlusDiscoverHeader } from '../../../hooks/usePlusDiscoverHeader'
 import { CARD_SURFACE_CLASS, MUTED_BODY_TEXT_CLASS } from '../../../lib/appShell'
 
 export default function AdminSettingsPage() {
@@ -24,8 +35,11 @@ export default function AdminSettingsPage() {
   const { family, parent, activeChild, loading, error, canAdmin } = useFamily()
   const [deleteFamilyError, setDeleteFamilyError] = useState<string | null>(null)
   const [deleteFamilyBusy, setDeleteFamilyBusy] = useState(false)
-  const [plusSheetOpen, setPlusSheetOpen] = useState(false)
+  const [showActivatedBanner, setShowActivatedBanner] = useState(false)
   const adminGuideTrackedRef = useRef<string | null>(null)
+  const { headerAction: plusHeaderAction, openPlusDiscover, portals: plusPortals } = usePlusDiscoverHeader({
+    gateHeader: false,
+  })
 
   useEffect(() => {
     if (!family?.id) return
@@ -39,6 +53,17 @@ export default function AdminSettingsPage() {
       router.replace('/')
     }
   }, [loading, canAdmin, router])
+
+  useEffect(() => {
+    if (!family?.id || !isFamilyPlus(family)) {
+      setShowActivatedBanner(false)
+      return
+    }
+    const refresh = () => setShowActivatedBanner(!hasSeenPlusActivatedNotice(family.id))
+    refresh()
+    window.addEventListener(PLUS_ACTIVATED_NOTICE_CHANGED_EVENT, refresh)
+    return () => window.removeEventListener(PLUS_ACTIVATED_NOTICE_CHANGED_EVENT, refresh)
+  }, [family])
 
   if (!loading && !canAdmin) {
     return null
@@ -64,7 +89,7 @@ export default function AdminSettingsPage() {
 
   return (
     <AdminScrollPage>
-      <PageHeaderBar backHref="/admin" backLabel="Admin" compact />
+      <PageHeaderBar backHref="/admin" backLabel="Admin" compact headerAction={plusHeaderAction} />
 
       <h1 className="mb-1 text-xl font-bold text-slate-900 dark:text-slate-100">Weitere Einstellungen</h1>
       <p className={`mb-4 ${MUTED_BODY_TEXT_CLASS}`}>
@@ -88,8 +113,30 @@ export default function AdminSettingsPage() {
                 <p className={`mt-1 text-sm leading-relaxed text-slate-950 dark:text-slate-300`}>
                   {FAMILY_PLUS_TAGLINE}
                 </p>
-                <p className={`mt-2 ${MUTED_BODY_TEXT_CLASS}`}>{FAMILY_PLUS_ABO_NOTE}</p>
+                {!plusActive ? (
+                  <div className="mt-3 space-y-3">
+                    <FamilyPlusPriceDisplay variant="hero" />
+                    <FamilyPlusAboCallout showPrice={false} />
+                  </div>
+                ) : null}
               </div>
+              {plusActive && showActivatedBanner ? (
+                <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-3 dark:border-emerald-800 dark:bg-emerald-950/40">
+                  <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">
+                    {FAMILY_PLUS_ACTIVATED_BANNER}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      markPlusActivatedNoticeSeen(family.id)
+                      setShowActivatedBanner(false)
+                    }}
+                    className="mt-2 text-xs font-semibold text-emerald-800 underline underline-offset-2 dark:text-emerald-200"
+                  >
+                    Verstanden
+                  </button>
+                </div>
+              ) : null}
               {plusActive ? (
                 <FamilyPlusBillingControls family={family} compact />
               ) : (
@@ -98,10 +145,10 @@ export default function AdminSettingsPage() {
                     {familyPlusTarifLine(family)}
                   </p>
                   <PlusLockHeaderButton
-                    fullWidth
+                    variant="cta"
                     showLock={false}
-                    label={`${FAMILY_PLUS_CTA_LABEL} — LifeXP Family PLUS entdecken`}
-                    onClick={() => setPlusSheetOpen(true)}
+                    label="LifeXP Family PLUS entdecken"
+                    onClick={openPlusDiscover}
                   >
                     {FAMILY_PLUS_CTA_LABEL}
                   </PlusLockHeaderButton>
@@ -147,7 +194,7 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      {plusSheetOpen ? <FamilyPlusFeaturesSheet onClose={() => setPlusSheetOpen(false)} /> : null}
+      {plusPortals}
     </AdminScrollPage>
   )
 }

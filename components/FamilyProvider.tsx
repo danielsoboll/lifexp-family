@@ -15,6 +15,9 @@ import { fetchChildById, fetchChildrenForFamily } from '../lib/family/children'
 import { fetchFamilyById, fetchParentById } from '../lib/family/families'
 import { migrateLegacySetupGuideIfNeeded } from '../lib/family/setupGuide'
 import { sessionHasAdminAccess } from '../lib/family/memberAdmin'
+import { ensureRecurringQuestInstances } from '../lib/family/recurringQuests'
+import { syncAllPersonalGoalsForFamily } from '../lib/family/personalGoals'
+import { isFamilyPlus } from '../lib/family/familyPlus'
 import { fetchMemberRoleForParent, fetchParentsForFamily, isAdminRole, type ParentMember } from '../lib/family/members'
 import { fetchTodayXpTotalsForFamily } from '../lib/family/xp'
 import { bootstrapPwaClientStorage } from '../lib/pwaClientStorage'
@@ -235,6 +238,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         : childRows.map((c) => ({ ...c, todayXp: childTotals[c.id] ?? 0 })),
     )
     if (xpError) setError(xpError.message)
+    void syncAllPersonalGoalsForFamily(resolvedFamily.id)
     loadedOnceRef.current = true
     setLoading(false)
   }, [])
@@ -252,6 +256,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       window.removeEventListener(FAMILY_SESSION_CHANGED_EVENT, onChange)
     }
   }, [refresh])
+
+  useEffect(() => {
+    if (loading || !family?.id || !isFamilyPlus(family)) return
+    void ensureRecurringQuestInstances(family.id).then(({ generated }) => {
+      if (generated > 0) notifyFamilyDataChanged()
+    })
+  }, [loading, family?.id, family?.plan, family?.plus_until, family?.subscription_status])
 
   const setSession = useCallback(
     (next: FamilySession) => {
