@@ -20,6 +20,7 @@ import {
   memberRecoveryInsertFields,
 } from './memberRecoveryCode'
 import type { ClaimableMember, ClaimMemberInput } from './claimableMembers'
+import { claimFamilyMemberDirect, fetchClaimableMembersDirect } from './joinFamilyClaim'
 import type { Family, ParentProfile } from './types'
 
 const RLS_SETUP_HINT =
@@ -393,6 +394,11 @@ export async function fetchClaimableMembers(
   const code = inviteCode.trim()
   if (!code) return { members: [], error: new Error('Bitte einen Einladungscode eingeben.') }
 
+  const direct = await fetchClaimableMembersDirect(supabase, code)
+  if (!direct.error || !isRlsError(direct.error)) {
+    return direct
+  }
+
   try {
     const response = await fetch('/api/family/join/slots', {
       method: 'POST',
@@ -401,7 +407,15 @@ export async function fetchClaimableMembers(
     })
     const payload = (await response.json()) as { members?: ClaimableMember[]; error?: string }
     if (!response.ok) {
-      return { members: [], error: new Error(payload.error ?? 'Profile konnten nicht geladen werden.') }
+      const apiMessage = payload.error ?? ''
+      const needsRlsFix =
+        response.status === 503 ||
+        apiMessage.includes('SUPABASE_SERVICE_ROLE_KEY') ||
+        apiMessage.toLowerCase().includes('row-level security')
+      return {
+        members: [],
+        error: new Error(needsRlsFix ? RLS_SETUP_HINT : apiMessage || 'Profile konnten nicht geladen werden.'),
+      }
     }
     return { members: payload.members ?? [], error: null }
   } catch {
@@ -414,6 +428,11 @@ export async function claimFamilyMember(
   claim: ClaimMemberInput,
   devicePrefs?: OnboardingDevicePrefs,
 ): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
+  const direct = await claimFamilyMemberDirect(supabase, inviteCode, claim, devicePrefs)
+  if (!direct.error || !isRlsError(direct.error)) {
+    return direct
+  }
+
   try {
     const response = await fetch('/api/family/join', {
       method: 'POST',

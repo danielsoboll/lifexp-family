@@ -28,6 +28,7 @@ export default function FamilyInviteSharePanel({ inviteCode, familyName }: Famil
   const [showCopiedCode, setShowCopiedCode] = useState(false)
   const [inviteLink, setInviteLink] = useState('')
   const [nativeShare, setNativeShare] = useState(false)
+  const [qrOpen, setQrOpen] = useState(false)
 
   useEffect(() => {
     setInviteLink(buildFamilyInviteLink(inviteCode))
@@ -77,9 +78,21 @@ export default function FamilyInviteSharePanel({ inviteCode, familyName }: Famil
 
   return (
     <div className="space-y-3 border-t border-slate-300/70 pt-2 dark:border-slate-600/70">
-      <div className="space-y-1">
-        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Einladungscode</p>
-        <p className="font-mono text-sm font-semibold text-slate-950 dark:text-slate-100">{code}</p>
+      <div className="space-y-2">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Einladungscode</p>
+          <p className="font-mono text-sm font-semibold text-slate-950 dark:text-slate-100">{code}</p>
+        </div>
+
+        {inviteLink ? (
+          <button
+            type="button"
+            onClick={() => setQrOpen(true)}
+            className={`${ACTION_BUTTON_CLASS} w-full sm:w-auto`}
+          >
+            QR-Code anzeigen
+          </button>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -109,22 +122,44 @@ export default function FamilyInviteSharePanel({ inviteCode, familyName }: Famil
         </div>
       ) : null}
 
-      {inviteLink ? (
-        <div className="flex flex-col items-start gap-2 rounded-xl border border-slate-200/90 bg-white/80 p-3 dark:border-slate-700/80 dark:bg-slate-900/50">
-          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">QR-Code</p>
-          <div className="rounded-lg bg-white p-2 shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/80">
-            <QRCodeSVG
-              value={inviteLink}
-              size={148}
-              level="M"
-              marginSize={1}
-              role="img"
-              aria-label="QR-Code zum Einladungslink"
-            />
+      {qrOpen && inviteLink ? (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 px-6 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lifexp-invite-qr-title"
+          onClick={() => setQrOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p id="lifexp-invite-qr-title" className="text-center text-base font-bold text-slate-900 dark:text-slate-100">
+              QR-Code zum Beitritt
+            </p>
+            <p className="mt-1 text-center text-sm text-slate-600 dark:text-slate-400">
+              Mit dem Handy des Familienmitglieds scannen — Beitritt startet automatisch.
+            </p>
+            <div className="mt-4 flex justify-center">
+              <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/80">
+                <QRCodeSVG
+                  value={inviteLink}
+                  size={280}
+                  level="M"
+                  marginSize={2}
+                  role="img"
+                  aria-label="QR-Code zum Einladungslink"
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setQrOpen(false)}
+              className={`${PRESSABLE_3D_CLASS} mt-5 w-full rounded-xl border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200/90 px-4 py-2.5 text-sm font-bold text-slate-800 dark:border-slate-600 dark:from-slate-800 dark:to-slate-950 dark:text-slate-100`}
+            >
+              Schließen
+            </button>
           </div>
-          <p className="text-xs text-slate-600 dark:text-slate-400">
-            Mit dem Handy des Familienmitglieds scannen — Beitritt startet automatisch.
-          </p>
         </div>
       ) : null}
     </div>

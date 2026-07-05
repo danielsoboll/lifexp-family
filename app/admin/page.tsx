@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import AdminScrollPage from '../../components/AdminScrollPage'
 import ChildMemberEditor from '../../components/ChildMemberEditor'
@@ -34,14 +34,11 @@ export default function AdminPage() {
   const [parentDeleteError, setParentDeleteError] = useState<string | null>(null)
   const [parentDeleteBusy, setParentDeleteBusy] = useState<string | null>(null)
   const [removableByKey, setRemovableByKey] = useState<Record<string, boolean>>({})
-  const adminGuideTrackedRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!family?.id) return
-    if (adminGuideTrackedRef.current === family.id) return
-    adminGuideTrackedRef.current = family.id
-    void markSetupGuideAdminVisited(family)
-  }, [family?.id])
+    void markSetupGuideAdminVisited(family, { parentCount: parents.length, childCount: children.length })
+  }, [family?.id, parents.length, children.length])
 
   useEffect(() => {
     if (!loading && !canAdmin) {

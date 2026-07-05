@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import AdminScrollPage from '../../../components/AdminScrollPage'
 import DangerConfirmAction from '../../../components/DangerConfirmAction'
@@ -32,21 +32,18 @@ import { CARD_SURFACE_CLASS, MUTED_BODY_TEXT_CLASS } from '../../../lib/appShell
 
 export default function AdminSettingsPage() {
   const router = useRouter()
-  const { family, parent, activeChild, loading, error, canAdmin } = useFamily()
+  const { family, parent, activeChild, parents, children, loading, error, canAdmin } = useFamily()
   const [deleteFamilyError, setDeleteFamilyError] = useState<string | null>(null)
   const [deleteFamilyBusy, setDeleteFamilyBusy] = useState(false)
   const [showActivatedBanner, setShowActivatedBanner] = useState(false)
-  const adminGuideTrackedRef = useRef<string | null>(null)
   const { headerAction: plusHeaderAction, openPlusDiscover, portals: plusPortals } = usePlusDiscoverHeader({
     gateHeader: false,
   })
 
   useEffect(() => {
     if (!family?.id) return
-    if (adminGuideTrackedRef.current === family.id) return
-    adminGuideTrackedRef.current = family.id
-    void markSetupGuideAdminVisited(family)
-  }, [family?.id])
+    void markSetupGuideAdminVisited(family, { parentCount: parents.length, childCount: children.length })
+  }, [family?.id, parents.length, children.length])
 
   useEffect(() => {
     if (!loading && !canAdmin) {

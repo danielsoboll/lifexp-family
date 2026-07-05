@@ -60,6 +60,7 @@ type JoinState = {
   inviteCode: string
   displayName: string
   gender: OnboardingMemberGender
+  ageInput: string
   portraitId: AvatarPortraitId
   recoveryCode: string
   pendingSession: FamilySession | null
@@ -79,6 +80,7 @@ function joinStateFromDraft(): JoinState {
       inviteCode: '',
       displayName: '',
       gender: 'male',
+      ageInput: '',
       portraitId: defaultOnboardingPortrait('male'),
       recoveryCode: '',
       pendingSession: null,
@@ -92,6 +94,7 @@ function joinStateFromDraft(): JoinState {
     inviteCode: draft.inviteCode,
     displayName: draft.displayName,
     gender: draft.gender,
+    ageInput: draft.ageInput,
     portraitId: portraitFromDraft(draft.gender, draft.portraitId),
     recoveryCode: draft.recoveryCode ?? '',
     pendingSession: draft.pendingSession ?? null,
@@ -115,6 +118,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
   const [inviteCode, setInviteCode] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [gender, setGender] = useState<OnboardingMemberGender>('male')
+  const [ageInput, setAgeInput] = useState('')
   const [portraitId, setPortraitId] = useState<AvatarPortraitId>(defaultOnboardingPortrait('male'))
   const [recoveryCode, setRecoveryCode] = useState('')
   const [pendingSession, setPendingSession] = useState<FamilySession | null>(null)
@@ -140,14 +144,14 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
       inviteCode,
       displayName,
       gender,
-      ageInput: '',
+      ageInput,
       portraitId,
       pwaInstallAcknowledged,
       recoveryCode: recoveryCode || undefined,
       pendingSession: pendingSession ?? undefined,
       joinEntryPath: joinEntryPath ?? undefined,
     }
-  }, [step, inviteCode, displayName, gender, portraitId, pwaInstallAcknowledged, recoveryCode, pendingSession, joinEntryPath])
+  }, [step, inviteCode, displayName, gender, ageInput, portraitId, pwaInstallAcknowledged, recoveryCode, pendingSession, joinEntryPath])
 
   const saveDraftQuiet = useCallback(
     (patch?: Partial<Extract<FamilyOnboardingDraft, { mode: 'join' }>>) => {
@@ -166,6 +170,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
     setInviteCode(snapshot.inviteCode)
     setDisplayName(snapshot.displayName)
     setGender(snapshot.gender)
+    setAgeInput(snapshot.ageInput)
     setPortraitId(snapshot.portraitId)
     setRecoveryCode(snapshot.recoveryCode)
     setPendingSession(snapshot.pendingSession)
@@ -198,6 +203,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
       if (patch?.inviteCode !== undefined) setInviteCode(patch.inviteCode)
       if (patch?.displayName !== undefined) setDisplayName(patch.displayName)
       if (patch?.gender !== undefined) setGender(patch.gender)
+      if (patch?.ageInput !== undefined) setAgeInput(patch.ageInput)
       if (patch?.portraitId !== undefined) setPortraitId(patch.portraitId as AvatarPortraitId)
       if (patch?.joinEntryPath !== undefined) setJoinEntryPath(patch.joinEntryPath ?? null)
       resetOnboardingSheetScroll(sheetScrollRef?.current)
@@ -299,6 +305,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
     setInviteCode(snapshot.inviteCode)
     setDisplayName(snapshot.displayName)
     setGender(snapshot.gender)
+    setAgeInput(snapshot.ageInput)
     setPortraitId(coerceOnboardingPortrait(snapshot.gender, snapshot.portraitId))
   }
 
@@ -369,12 +376,14 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
       inviteCode: normalized,
       displayName,
       gender: genderRef.current,
+      ageInput,
       portraitId,
     }
 
     const { profile, error: profileError } = onboardingProfileFromForm({
       displayName: form.displayName,
       gender: form.gender,
+      ageInput: form.ageInput,
       portraitId: form.portraitId,
     })
     if (profileError || !profile) {
@@ -416,6 +425,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
       inviteCode: normalized,
       displayName: form.displayName,
       gender: form.gender,
+      ageInput: form.ageInput,
       portraitId: form.portraitId ?? undefined,
       pendingSession: result.session,
       recoveryCode: result.recoveryCode,
@@ -535,6 +545,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
       inviteCode,
       displayName,
       gender: genderRef.current,
+      ageInput,
       portraitId,
     })
     applyFormSnapshot(snapshot)
@@ -607,6 +618,8 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
       onDisplayNameChange={setDisplayName}
       gender={gender}
       onGenderChange={setGender}
+      ageInput={ageInput}
+      onAgeInputChange={setAgeInput}
       portraitId={portraitId}
       onPortraitIdChange={setPortraitId}
       sheetScrollRef={sheetScrollRef}

@@ -76,7 +76,7 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
     setSuccess(false)
 
     const age = parseAgeInput(ageInput)
-    if (ageInput.trim() && age === null) {
+    if (age === null) {
       setLoading(false)
       setError('Bitte ein gültiges Alter (0–99) eingeben.')
       return

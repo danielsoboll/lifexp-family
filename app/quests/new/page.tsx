@@ -23,7 +23,6 @@ import { buildAllFamilyAssignees } from '../../../lib/family/questMemberGroups'
 import { assigneesForFamilyQuestXpBudget, budgetAssigneesCacheKey, fetchMemberXpBudget } from '../../../lib/family/questXpBudget'
 import { questAssignmentsTableReady } from '../../../lib/family/questAssignments'
 import {
-  dismissSoloQuestHint,
   isSoloFamily,
   markSetupGuideQuestVisited,
   soloQuestBlockedMessage,
@@ -89,13 +88,16 @@ export default function NewQuestPage() {
   }, [family?.id, budgetAssignees, taskDate, parents, children])
 
   const questGuideTrackedRef = useRef<string | null>(null)
+  const soloFamily = isSoloFamily(parents.length, children.length)
+  const soloHint = soloQuestBlockedMessage()
+  const showSoloHint = soloFamily && Boolean(family)
 
   useEffect(() => {
-    if (!family?.id) return
+    if (!family?.id || soloFamily) return
     if (questGuideTrackedRef.current === family.id) return
     questGuideTrackedRef.current = family.id
-    void markSetupGuideQuestVisited(family)
-  }, [family?.id])
+    void markSetupGuideQuestVisited(family, { parentCount: parents.length, childCount: children.length })
+  }, [family?.id, soloFamily, parents.length, children.length])
 
   const maxSliderXp = remainingXp === null ? 10 : Math.min(10, Math.max(1, remainingXp))
 
@@ -109,10 +111,6 @@ export default function NewQuestPage() {
       cancelled = true
     }
   }, [])
-
-  const soloFamily = isSoloFamily(parents.length, children.length)
-  const soloHint = soloQuestBlockedMessage()
-  const showSoloHint = soloFamily && family && !family.guide_solo_quest_seen
 
   useEffect(() => {
     if (!family?.id || !budgetCheckKey || !assigneeChoice) {
@@ -369,12 +367,7 @@ export default function NewQuestPage() {
           target="admin"
           showArrow={false}
           showBrandMark={false}
-          onDismiss={() => {
-            void (async () => {
-              await dismissSoloQuestHint(family)
-              notifyFamilyDataChanged()
-            })()
-          }}
+          onDismiss={() => router.push('/admin')}
         />
       ) : null}
 

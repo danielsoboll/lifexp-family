@@ -42,10 +42,12 @@ export function setupGuidePatchForStep(step: SetupGuideStep): SetupGuideDbPatch 
   }
 }
 
-export function setupGuidePatchForAdminVisit(state: SetupGuideState): SetupGuideDbPatch {
+export function setupGuidePatchForAdminVisit(state: SetupGuideState, memberCount: number): SetupGuideDbPatch {
   const patch: SetupGuideDbPatch = {}
   if (!state.welcomeMembersIntroSeen) patch.guide_welcome_seen = true
-  if (state.visitedQuestNew && !state.visitedAdminAfterQuest) patch.guide_invite_seen = true
+  if (memberCount >= 2 && state.visitedQuestNew && !state.visitedAdminAfterQuest) {
+    patch.guide_invite_seen = true
+  }
   return patch
 }
 

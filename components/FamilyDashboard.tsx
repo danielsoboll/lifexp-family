@@ -164,7 +164,7 @@ export default function FamilyDashboard({
 
   const showSetupGuide = Boolean(!preview && guide.visible && guide.copy)
   const showStreakProfileHint =
-    !preview && sessionStreakClaimed === false && !streakIntroSeen && !showSetupGuide
+    !preview && sessionStreakClaimed === false && !streakIntroSeen && guide.resolvedStep === null
 
   const dismissStreakHint = () => {
     if (!session) return
@@ -194,8 +194,11 @@ export default function FamilyDashboard({
 
   const handleAdminNavigate = useCallback(() => {
     if (!family || preview) return
-    void markSetupGuideAdminVisited(family)
-  }, [family, preview])
+    void markSetupGuideAdminVisited(family, {
+      parentCount: parentRows.length,
+      childCount: childRows.length,
+    })
+  }, [family, preview, parentRows.length, childRows.length])
 
   useEffect(() => {
     if (!showSetupGuide) return
@@ -203,6 +206,14 @@ export default function FamilyDashboard({
     let cancelled = false
     const scrollToGuideTarget = () => {
       if (cancelled) return
+
+      if (guide.step === 'welcome_members') {
+        const el = document.querySelector(`[data-setup-guide-target="${setupGuideTargetAttr('admin')}"]`)
+        if (el instanceof HTMLElement) {
+          slowScrollToElement(el, { durationMs: 2000, viewportAnchor: 0.2 })
+        }
+        return
+      }
 
       if (guide.step === 'first_quest') {
         const el = document.querySelector(`[data-setup-guide-target="${setupGuideTargetAttr('new_quest')}"]`)
@@ -216,6 +227,14 @@ export default function FamilyDashboard({
         const el = document.querySelector(`[data-setup-guide-target="${setupGuideTargetAttr('admin')}"]`)
         if (el instanceof HTMLElement) {
           slowScrollToElement(el, { durationMs: 2000, viewportAnchor: 0.2 })
+        }
+        return
+      }
+
+      if (guide.step === 'member_profile') {
+        const el = document.querySelector(`[data-setup-guide-target="${setupGuideTargetAttr('first_member')}"]`)
+        if (el instanceof HTMLElement) {
+          slowScrollToElement(el, { durationMs: 2000, viewportAnchor: 0.28 })
         }
       }
     }
@@ -530,6 +549,7 @@ export default function FamilyDashboard({
           body={guide.copy!.body}
           target={guide.copy!.target}
           showArrow={guide.step !== 'complete'}
+          verticalPlacement={guide.step === 'member_profile' ? 'lower' : 'center'}
           onDismiss={guide.dismiss}
         />
       ) : null}

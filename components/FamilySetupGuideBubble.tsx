@@ -9,6 +9,7 @@ type FamilySetupGuideBubbleProps = {
   target: SetupGuideTarget | null
   showArrow?: boolean
   showBrandMark?: boolean
+  verticalPlacement?: 'center' | 'lower'
   onDismiss: () => void
 }
 
@@ -31,12 +32,18 @@ export default function FamilySetupGuideBubble({
   target,
   showArrow = true,
   showBrandMark = true,
+  verticalPlacement = 'center',
   onDismiss,
 }: FamilySetupGuideBubbleProps) {
+  const overlayClass =
+    verticalPlacement === 'lower'
+      ? 'pointer-events-none fixed inset-0 z-[120] flex items-start justify-center px-6 pt-[55vh] pb-[max(2rem,env(safe-area-inset-bottom))]'
+      : 'pointer-events-none fixed inset-0 z-[120] flex items-center justify-center px-6 pb-[max(3rem,env(safe-area-inset-bottom))] pt-[max(3rem,env(safe-area-inset-top))]'
+
   return (
     <>
       {showArrow && target ? <SetupGuideTargetArrow target={target} /> : null}
-      <div className="pointer-events-none fixed inset-0 z-[120] flex items-center justify-center px-6 pb-[max(3rem,env(safe-area-inset-bottom))] pt-[max(3rem,env(safe-area-inset-top))]">
+      <div className={overlayClass}>
         <div className={HINT_CARD_SHELL_CLASS}>
           <button
             type="button"

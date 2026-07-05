@@ -57,6 +57,7 @@ type CreateState = {
   familyName: string
   displayName: string
   gender: OnboardingMemberGender
+  ageInput: string
   portraitId: AvatarPortraitId
   recoveryCode: string
   pendingSession: FamilySession | null
@@ -68,6 +69,7 @@ const EMPTY_CREATE_STATE: CreateState = {
   familyName: '',
   displayName: '',
   gender: 'male',
+  ageInput: '',
   portraitId: defaultOnboardingPortrait('male'),
   recoveryCode: '',
   pendingSession: null,
@@ -87,6 +89,7 @@ function createStateFromDraft(): CreateState {
     familyName: draft.familyName,
     displayName: draft.displayName,
     gender: draft.gender,
+    ageInput: draft.ageInput,
     portraitId: portraitFromDraft(draft.gender, draft.portraitId),
     recoveryCode: draft.recoveryCode ?? '',
     pendingSession: draft.pendingSession ?? null,
@@ -111,6 +114,7 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
   const [familyName, setFamilyName] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [gender, setGender] = useState<OnboardingMemberGender>('male')
+  const [ageInput, setAgeInput] = useState('')
   const [portraitId, setPortraitId] = useState<AvatarPortraitId>(defaultOnboardingPortrait('male'))
   const [recoveryCode, setRecoveryCode] = useState('')
   const [pendingSession, setPendingSession] = useState<FamilySession | null>(null)
@@ -134,13 +138,13 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
       familyName,
       displayName,
       gender,
-      ageInput: '',
+      ageInput,
       portraitId,
       pwaInstallAcknowledged,
       recoveryCode: recoveryCode || undefined,
       pendingSession: pendingSession ?? undefined,
     }
-  }, [step, familyName, displayName, gender, portraitId, pwaInstallAcknowledged, recoveryCode, pendingSession])
+  }, [step, familyName, displayName, gender, ageInput, portraitId, pwaInstallAcknowledged, recoveryCode, pendingSession])
 
   const saveDraftQuiet = useCallback(
     (patch?: Partial<Extract<FamilyOnboardingDraft, { mode: 'create' }>>) => {
@@ -160,6 +164,7 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
       setFamilyName(snapshot.familyName)
       setDisplayName(snapshot.displayName)
       setGender(snapshot.gender)
+      setAgeInput(snapshot.ageInput)
       setPortraitId(snapshot.portraitId)
       setRecoveryCode(snapshot.recoveryCode)
       setPendingSession(snapshot.pendingSession)
@@ -193,6 +198,7 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
       if (patch?.familyName !== undefined) setFamilyName(patch.familyName)
       if (patch?.displayName !== undefined) setDisplayName(patch.displayName)
       if (patch?.gender !== undefined) setGender(patch.gender)
+      if (patch?.ageInput !== undefined) setAgeInput(patch.ageInput)
       if (patch?.portraitId !== undefined) setPortraitId(patch.portraitId as AvatarPortraitId)
       resetOnboardingSheetScroll(sheetScrollRef?.current)
     },
@@ -244,6 +250,7 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
     setFamilyName(snapshot.familyName)
     setDisplayName(snapshot.displayName)
     setGender(snapshot.gender)
+    setAgeInput(snapshot.ageInput)
     setPortraitId(coerceOnboardingPortrait(snapshot.gender, snapshot.portraitId))
   }
 
@@ -304,6 +311,7 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
       familyName,
       displayName,
       gender: genderRef.current,
+      ageInput,
       portraitId,
     }
 
@@ -317,6 +325,7 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
     const { profile, error: profileError } = onboardingProfileFromForm({
       displayName: form.displayName,
       gender: form.gender,
+      ageInput: form.ageInput,
       portraitId: form.portraitId,
     })
 
@@ -359,6 +368,7 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
       familyName: form.familyName,
       displayName: form.displayName,
       gender: form.gender,
+      ageInput: form.ageInput,
       portraitId: form.portraitId ?? undefined,
       pendingSession: result.session,
       recoveryCode: result.recoveryCode,
@@ -428,6 +438,7 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
       familyName,
       displayName,
       gender: genderRef.current,
+      ageInput,
       portraitId,
     })
     applyFormSnapshot(snapshot)
@@ -580,6 +591,8 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
         onDisplayNameChange={setDisplayName}
         gender={gender}
         onGenderChange={setGender}
+        ageInput={ageInput}
+        onAgeInputChange={setAgeInput}
         portraitId={portraitId}
         onPortraitIdChange={setPortraitId}
         sheetScrollRef={sheetScrollRef}

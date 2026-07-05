@@ -93,16 +93,27 @@ export function resolveSetupGuideStep(input: {
   }
 
   const members = totalFamilyMembers(input.parentCount, input.childCount)
-  if (members < 2 && !input.state.welcomeMembersIntroSeen) return 'welcome_members'
+
+  if (!input.state.welcomeMembersIntroSeen || members < 2) return 'welcome_members'
   if (!input.state.visitedQuestNew) return 'first_quest'
   if (!input.state.visitedAdminAfterQuest) return 'invite_code'
   if (!input.state.visitedMemberProfile) return 'member_profile'
   return 'complete'
 }
 
-export function setupGuideCopy(step: SetupGuideStep): { title: string; body: string; target: SetupGuideTarget | null } {
+export function setupGuideCopy(
+  step: SetupGuideStep,
+  context?: { welcomeMembersIntroSeen?: boolean },
+): { title: string; body: string; target: SetupGuideTarget | null } {
   switch (step) {
     case 'welcome_members':
+      if (context?.welcomeMembersIntroSeen) {
+        return {
+          title: 'Familienmitglieder anlegen',
+          body: 'Lege mindestens ein weiteres Familienmitglied unter Admin an, bevor du Quests eintragen kannst',
+          target: 'admin',
+        }
+      }
       return {
         title: 'Willkommen bei LifeXP!',
         body: 'Bitte lege zuerst deine Familienmitglieder an — tippe dafür auf Admin',
@@ -163,18 +174,33 @@ export async function migrateLegacySetupGuideIfNeeded(family: Family): Promise<b
   return true
 }
 
-export async function markSetupGuideQuestVisited(family: Family | null | undefined): Promise<void> {
+export async function markSetupGuideQuestVisited(
+  family: Family | null | undefined,
+  memberCounts?: { parentCount: number; childCount: number },
+): Promise<void> {
   if (!family?.id) return
   const state = setupGuideStateFromFamily(family)
   if (!state || state.visitedQuestNew) return
+  if (
+    memberCounts &&
+    totalFamilyMembers(memberCounts.parentCount, memberCounts.childCount) < 2
+  ) {
+    return
+  }
   await persistGuidePatch(family.id, setupGuidePatchForStep('first_quest'))
 }
 
-export async function markSetupGuideAdminVisited(family: Family | null | undefined): Promise<void> {
+export async function markSetupGuideAdminVisited(
+  family: Family | null | undefined,
+  memberCounts?: { parentCount: number; childCount: number },
+): Promise<void> {
   if (!family?.id) return
   const state = setupGuideStateFromFamily(family)
   if (!state) return
-  const patch = setupGuidePatchForAdminVisit(state)
+  const members = memberCounts
+    ? totalFamilyMembers(memberCounts.parentCount, memberCounts.childCount)
+    : 2
+  const patch = setupGuidePatchForAdminVisit(state, members)
   await persistGuidePatch(family.id, patch)
 }
 

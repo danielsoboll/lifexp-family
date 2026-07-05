@@ -6,22 +6,29 @@ import AutofillSafeTextInput from './AutofillSafeTextInput'
 import IosContactAutofillDecoy from './IosContactAutofillDecoy'
 import MemberAvatarPicker from './MemberAvatarPicker'
 import {
+  isParentOnboardingGender,
   ONBOARDING_MEMBER_OPTIONS,
   type OnboardingMemberGender,
 } from '../lib/family/onboardingMember'
 import {
   coerceOnboardingPortrait,
+  coercePortraitForCategory,
+  memberAvatarCategoryForChild,
+  resolveChildAvatar,
   resolveOnboardingAvatar,
   type AvatarPortraitId,
 } from '../lib/family/memberAvatar'
+import { parseAgeInput, type ChildGender } from '../lib/family/memberGender'
 import { PRESSABLE_3D_CLASS, FORM_FIELD_INPUT_CLASS } from '../lib/appShell'
-import { personLabelInputProps } from '../lib/formInputAutofill'
+import { integerInputProps, personLabelInputProps } from '../lib/formInputAutofill'
 
 type OnboardingProfileFieldsProps = {
   displayName: string
   onDisplayNameChange: (value: string) => void
   gender: OnboardingMemberGender
   onGenderChange: (value: OnboardingMemberGender) => void
+  ageInput: string
+  onAgeInputChange: (value: string) => void
   portraitId: AvatarPortraitId | null
   onPortraitIdChange: (portraitId: AvatarPortraitId) => void
   nameLabel?: string
@@ -34,6 +41,8 @@ export default function OnboardingProfileFields({
   onDisplayNameChange,
   gender,
   onGenderChange,
+  ageInput,
+  onAgeInputChange,
   portraitId,
   onPortraitIdChange,
   nameLabel = 'Wie heißt du?',
@@ -41,15 +50,36 @@ export default function OnboardingProfileFields({
   hideAboveRef,
 }: OnboardingProfileFieldsProps) {
   const nameSectionRef = useRef<HTMLDivElement>(null)
+  const ageSectionRef = useRef<HTMLDivElement>(null)
+  const isChild = !isParentOnboardingGender(gender)
+  const parsedAge = useMemo(() => parseAgeInput(ageInput), [ageInput])
 
-  const avatarResolved = useMemo(
-    () => resolveOnboardingAvatar(gender, portraitId),
-    [gender, portraitId],
-  )
+  const avatarResolved = useMemo(() => {
+    if (isChild) {
+      return resolveChildAvatar(gender as ChildGender, parsedAge, portraitId)
+    }
+    return resolveOnboardingAvatar(gender, portraitId)
+  }, [gender, isChild, parsedAge, portraitId])
+
+  const syncChildPortrait = (nextGender: ChildGender, nextAge: number | null, current: AvatarPortraitId | null) => {
+    const category = memberAvatarCategoryForChild(nextGender, nextAge)
+    const nextPortrait = coercePortraitForCategory(category, current)
+    if (nextPortrait) onPortraitIdChange(nextPortrait)
+  }
 
   const handleGenderChange = (next: OnboardingMemberGender) => {
     onGenderChange(next)
-    onPortraitIdChange(coerceOnboardingPortrait(next, portraitId))
+    if (isParentOnboardingGender(next)) {
+      onPortraitIdChange(coerceOnboardingPortrait(next, portraitId))
+      return
+    }
+    syncChildPortrait(next, parseAgeInput(ageInput), portraitId)
+  }
+
+  const handleAgeChange = (value: string) => {
+    onAgeInputChange(value)
+    if (!isChild) return
+    syncChildPortrait(gender as ChildGender, parseAgeInput(value), portraitId)
   }
 
   return (
@@ -98,6 +128,30 @@ export default function OnboardingProfileFields({
           })}
         </div>
       </fieldset>
+
+      {isChild ? (
+        <div ref={ageSectionRef}>
+          <label htmlFor="lifexp-onboarding-age" className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Wie alt bist du?
+          </label>
+          <AutofillSafeTextInput
+            id="lifexp-onboarding-age"
+            required
+            min={0}
+            max={99}
+            value={ageInput}
+            onChange={(e) => handleAgeChange(e.target.value)}
+            placeholder="z. B. 8"
+            scrollBlockRef={ageSectionRef}
+            scrollOnFocus="slow"
+            sheetScrollRef={sheetScrollRef}
+            hideAboveRef={hideAboveRef}
+            scrollTopInsetPx={8}
+            className={FORM_FIELD_INPUT_CLASS}
+            autofillProps={integerInputProps('lifexp-onboarding-age')}
+          />
+        </div>
+      ) : null}
 
       <MemberAvatarPicker
         resolved={avatarResolved}

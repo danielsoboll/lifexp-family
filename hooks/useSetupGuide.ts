@@ -60,12 +60,17 @@ export function useSetupGuide({ family, parentCount, childCount, canAdmin, membe
     return () => window.clearTimeout(timer)
   }, [step])
 
-  const copy = displayStep ? setupGuideCopy(displayStep) : null
+  const copy = displayStep
+    ? setupGuideCopy(displayStep, { welcomeMembersIntroSeen: state?.welcomeMembersIntroSeen })
+    : null
 
   const dismiss = useCallback(() => {
     if (!family || !displayStep) return
     if (displayStep === 'member_ready' && memberId) {
       markMemberJoinReadySeen(memberId)
+      return
+    }
+    if (displayStep === 'first_quest' || displayStep === 'invite_code' || displayStep === 'member_profile') {
       return
     }
     void dismissSetupGuideStep(family, displayStep)
@@ -75,6 +80,7 @@ export function useSetupGuide({ family, parentCount, childCount, canAdmin, membe
 
   return {
     step: displayStep,
+    resolvedStep: step,
     copy,
     visible,
     activeTarget,

@@ -7,6 +7,7 @@ import { loadFamilyOnboardingDraft } from './onboardingDraft'
 export type OnboardingFormSnapshot = {
   displayName: string
   gender: OnboardingMemberGender
+  ageInput: string
   portraitId: AvatarPortraitId | null
 }
 
@@ -35,6 +36,7 @@ export function readCreateFormSnapshot(fallback: CreateFormSnapshot): CreateForm
     familyName: readInputValue('lifexp-create-family-title', fallback.familyName),
     displayName: readInputValue('lifexp-onboarding-who', fallback.displayName),
     gender: fallback.gender,
+    ageInput: readInputValue('lifexp-onboarding-age', fallback.ageInput),
     portraitId: fallback.portraitId,
   }
 }
@@ -44,6 +46,7 @@ export function readJoinFormSnapshot(fallback: JoinFormSnapshot): JoinFormSnapsh
     inviteCode: readInputValue('join-invite-code', fallback.inviteCode),
     displayName: readInputValue('lifexp-onboarding-who', fallback.displayName),
     gender: fallback.gender,
+    ageInput: readInputValue('lifexp-onboarding-age', fallback.ageInput),
     portraitId: fallback.portraitId,
   }
 }
