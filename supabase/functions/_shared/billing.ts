@@ -1,5 +1,8 @@
-import Stripe from 'https://esm.sh/stripe@14.25.0?target=deno'
+import Stripe from 'https://esm.sh/stripe@14.25.0?target=denonext'
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+
+/** Deno Edge Functions nutzen Web Crypto — für Webhook-Signaturprüfung erforderlich. */
+export const stripeCryptoProvider = Stripe.createSubtleCryptoProvider()
 
 export function getStripe(): Stripe {
   const secret = Deno.env.get('STRIPE_SECRET_KEY')

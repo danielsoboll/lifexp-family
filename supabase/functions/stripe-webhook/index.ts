@@ -1,16 +1,16 @@
-import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
-import Stripe from 'https://esm.sh/stripe@14.25.0?target=deno'
+import Stripe from 'https://esm.sh/stripe@14.25.0?target=denonext'
 
 import {
+  getStripe,
   resolveFamilyIdFromStripeObject,
+  stripeCryptoProvider,
   syncFamilyFromCheckoutSession,
   syncFamilyFromSubscription,
-  getStripe,
 } from '../_shared/billing.ts'
 import { jsonResponse } from '../_shared/cors.ts'
 import { getServiceClient } from '../_shared/supabase.ts'
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return jsonResponse({ error: 'Method not allowed' }, 405)
   }
@@ -20,21 +20,30 @@ serve(async (req) => {
     return jsonResponse({ error: 'STRIPE_WEBHOOK_SECRET fehlt.' }, 500)
   }
 
-  const signature = req.headers.get('stripe-signature')
+  const signature = req.headers.get('stripe-signature') ?? req.headers.get('Stripe-Signature')
   if (!signature) {
     return jsonResponse({ error: 'Stripe-Signatur fehlt.' }, 400)
   }
 
+  // Raw body — niemals req.json() vor der Signaturprüfung (Stripe HMAC braucht exakte Bytes).
+  const body = await req.text()
+
   const stripe = getStripe()
   const admin = getServiceClient()
-  const body = await req.text()
 
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
+    event = await stripe.webhooks.constructEventAsync(
+      body,
+      signature,
+      webhookSecret,
+      undefined,
+      stripeCryptoProvider,
+    )
   } catch (error) {
-    console.error('stripe-webhook signature', error)
-    return jsonResponse({ error: 'Ungültige Signatur.' }, 400)
+    const message = error instanceof Error ? error.message : 'Ungültige Signatur.'
+    console.error('stripe-webhook signature', message)
+    return jsonResponse({ error: message }, 400)
   }
 
   try {

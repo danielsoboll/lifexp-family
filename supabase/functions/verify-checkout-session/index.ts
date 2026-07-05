@@ -13,6 +13,7 @@ serve(async (req) => {
   }
 
   try {
+    // Kein Stripe-Webhook — nur session_id vom Frontend; req.json() ist hier korrekt.
     const body = (await req.json()) as { session_id?: string }
     const sessionId = body.session_id?.trim()
     if (!sessionId) {
