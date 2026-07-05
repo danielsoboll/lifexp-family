@@ -10,6 +10,7 @@ import ProgressBar from './ProgressBar'
 import QuestCompletionAssigneePhotosDisplay from './QuestCompletionAssigneePhotosDisplay'
 import QuestCompletionPhotoSheet from './QuestCompletionPhotoSheet'
 import QuestCompletionReactionDisplay from './QuestCompletionReactionDisplay'
+import QuestFinalConfirmButton from './QuestFinalConfirmButton'
 import XpGoalVerticalBar from './XpGoalVerticalBar'
 import DailyStreakCheckin from './DailyStreakCheckin'
 import DangerConfirmAction from './DangerConfirmAction'
@@ -24,7 +25,7 @@ import { cetToday } from '../lib/cetDate'
 import { fetchMemberStreakClaimedToday } from '../lib/family/dailyStreak'
 import { persistMemberStreakIntroSeen } from '../lib/family/streakIntroHint'
 import { fetchQuestsWithCompletions, questAppliesToMember } from '../lib/family/quests'
-import { fulfillmentForMemberOnQuest, aggregateQuestFulfillmentStatus } from '../lib/family/questConfirmation'
+import { fulfillmentForMemberOnQuest, aggregateQuestFulfillmentStatus, canSessionConfirmQuestCompletion } from '../lib/family/questConfirmation'
 import { fetchMemberPersonalGoalBarState, type MemberPersonalGoalBarState } from '../lib/family/personalGoals'
 import { fetchQuestCompletionEnrichment, type QuestCompletionEnrichment } from '../lib/family/questCompletionPlus'
 import { personalGoalSymbolEmoji } from '../lib/family/personalGoalSymbols'
@@ -57,6 +58,7 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
     parent: sessionParent,
     activeChild,
     canAdmin,
+    session,
   } = useFamily()
   const [quests, setQuests] = useState<QuestWithCompletion[]>([])
   const [questsLoading, setQuestsLoading] = useState(true)
@@ -83,7 +85,7 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
     if (!family) return
     let cancelled = false
 
-    void (async () => {
+    const loadQuests = async () => {
       setQuestsLoading(true)
       const { quests: rows, error: fetchError } = await fetchQuestsWithCompletions(family.id, {
         fromTaskDate: cetToday(),
@@ -98,10 +100,13 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
       }
       setError(null)
       setQuests(rows.filter((q) => questAppliesToMember(q.child_id, q.assignees, memberKind, memberId)))
-    })()
+    }
 
+    void loadQuests()
+    window.addEventListener(FAMILY_DATA_CHANGED_EVENT, loadQuests)
     return () => {
       cancelled = true
+      window.removeEventListener(FAMILY_DATA_CHANGED_EVENT, loadQuests)
     }
   }, [family?.id, memberKind, memberId])
 
@@ -431,6 +436,20 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
               const enrichment =
                 completion && completion.id !== 'local' ? completionEnrichment.get(completion.id) : undefined
 
+              const canFinalConfirm =
+                !isSelf &&
+                awaiting &&
+                completion &&
+                completion.id !== 'local' &&
+                session &&
+                canSessionConfirmQuestCompletion({
+                  quest,
+                  session,
+                  assigneeChildId: completion.childId,
+                  assigneeParentId: completion.parentId,
+                  canAdmin,
+                })
+
               return (
                 <li
                   key={quest.id}
@@ -482,6 +501,13 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
                     >
                       {busyQuestId === quest.id ? 'Speichern …' : 'Schritt 1: Als erledigt melden'}
                     </button>
+                  ) : null}
+                  {canFinalConfirm && completion ? (
+                    <QuestFinalConfirmButton
+                      completionId={completion.id}
+                      xpReward={quest.xp_reward}
+                      assigneeName={displayName}
+                    />
                   ) : null}
                   {canAdminRemove && completion ? (
                     <div className="mt-2.5">

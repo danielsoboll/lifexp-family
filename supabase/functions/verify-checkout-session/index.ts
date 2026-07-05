@@ -1,7 +1,8 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 
-import { getStripe } from '../_shared/billing.ts'
+import { getStripe, syncFamilyFromCheckoutSession } from '../_shared/billing.ts'
 import { handleCors, jsonResponse } from '../_shared/cors.ts'
+import { getServiceClient } from '../_shared/supabase.ts'
 
 serve(async (req) => {
   const cors = handleCors(req)
@@ -41,12 +42,21 @@ serve(async (req) => {
       return jsonResponse({ error: 'Checkout noch nicht abgeschlossen.' }, 409)
     }
 
+    const paymentStatus = session.payment_status ?? 'unpaid'
+    if (paymentStatus !== 'paid' && paymentStatus !== 'no_payment_required') {
+      return jsonResponse({ error: 'Zahlung noch nicht abgeschlossen.' }, 409)
+    }
+
+    const admin = getServiceClient()
+    const { synced } = await syncFamilyFromCheckoutSession(admin, session)
+
     return jsonResponse({
       family_id: familyId,
       member_kind: memberKind,
       member_id: memberId,
-      payment_status: session.payment_status ?? 'unpaid',
+      payment_status: paymentStatus,
       status: session.status,
+      plus_synced: synced,
     })
   } catch (error) {
     console.error('verify-checkout-session', error)

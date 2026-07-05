@@ -2,9 +2,9 @@ import { cetToday, normalizeDateKey } from '../cetDate'
 import { getStoredParentId, readFamilySession } from '../familySession'
 import { supabase } from '../supabase'
 import { assertFamilyAdminSession, resyncFamilyXpHistoryForDate } from './admin'
-import { formatParentDisplayName } from './familyDisplayName'
 import { fetchQuestAssignmentsForQuests, questAppliesToAssignee } from './questAssignments'
-import { sessionIsQuestCreator, assigneeDisplayNameFromCompletion, isCompletionForSessionMember } from './questConfirmation'
+import { sessionIsQuestCreator, assigneeDisplayNameFromCompletion, isCompletionForSessionMember, canSessionConfirmQuestCompletion } from './questConfirmation'
+import { formatParentDisplayName } from './familyDisplayName'
 import { fetchMemberXpBudget } from './questXpBudget'
 import { clampQuestXp } from './questRules'
 import type { ParentMember } from './members'
@@ -248,12 +248,7 @@ export async function confirmQuestByCreator(
   const questRaw = row.quests as Quest | Quest[] | null
   const quest = Array.isArray(questRaw) ? questRaw[0] ?? null : questRaw
   if (!quest) return { error: new Error('Quest nicht gefunden.') }
-  if (!sessionIsQuestCreator(quest, session)) {
-    return { error: new Error('Nur der Ersteller kann die Quest bestätigen.') }
-  }
 
-  const xpAwarded = clampQuestXp(quest.xp_reward)
-  const entryDate = normalizeDateKey(row.completed_on as string)
   const childId = row.child_id as string | null
   const parentId = row.parent_id as string | null
   const familyId = row.family_id as string
@@ -264,6 +259,17 @@ export async function confirmQuestByCreator(
   ) {
     return { error: new Error('Eigene Erledigung bestätigst du nicht selbst — nur andere Familienmitglieder.') }
   }
+
+  const isCreator = sessionIsQuestCreator(quest, session)
+  if (!isCreator) {
+    const adminError = await assertFamilyAdminSession(familyId)
+    if (adminError.error) {
+      return { error: new Error('Nur der Quest-Ersteller oder ein Admin kann die Quest bestätigen.') }
+    }
+  }
+
+  const xpAwarded = clampQuestXp(quest.xp_reward)
+  const entryDate = normalizeDateKey(row.completed_on as string)
 
   const now = new Date().toISOString()
 
@@ -330,6 +336,7 @@ export async function fetchPendingCreatorConfirmations(
   familyId: string,
   parents: ReadonlyArray<ParentMember>,
   children: ReadonlyArray<ChildWithTodayXp>,
+  canAdmin: boolean,
 ): Promise<{ items: PendingCreatorConfirmation[]; error: Error | null }> {
   const session = readFamilySession()
   if (!session) return { items: [], error: null }
@@ -350,16 +357,18 @@ export async function fetchPendingCreatorConfirmations(
   for (const row of data ?? []) {
     const questRaw = row.quests as Quest | Quest[] | null
     const quest = Array.isArray(questRaw) ? questRaw[0] ?? null : questRaw
-    if (!quest || !sessionIsQuestCreator(quest, session)) continue
+    if (!quest) continue
     const assigneeConfirmedAt = row.assignee_confirmed_at as string
     if (!assigneeConfirmedAt) continue
 
     if (
-      isCompletionForSessionMember(
+      !canSessionConfirmQuestCompletion({
+        quest,
         session,
-        row.child_id as string | null,
-        row.parent_id as string | null,
-      )
+        assigneeChildId: row.child_id as string | null,
+        assigneeParentId: row.parent_id as string | null,
+        canAdmin,
+      })
     ) {
       continue
     }

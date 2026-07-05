@@ -143,7 +143,7 @@ export async function syncFamilyFromSubscription(
     ? new Date(subscription.trial_end * 1000).toISOString()
     : null
 
-  // Einziger Schreibpfad für Billing-Felder (Service Role / Webhook).
+  // Einziger Schreibpfad für Billing-Felder (Service Role / Webhook / Checkout-Sync).
   const { error } = await admin
     .from('families')
     .update({
@@ -158,6 +158,74 @@ export async function syncFamilyFromSubscription(
     .eq('id', familyId)
 
   if (error) throw new Error(error.message)
+}
+
+export async function syncFamilyFromCheckoutSession(
+  admin: SupabaseClient,
+  session: Stripe.Checkout.Session,
+): Promise<{ familyId: string | null; synced: boolean }> {
+  if (session.mode !== 'subscription' || session.status !== 'complete') {
+    return { familyId: null, synced: false }
+  }
+
+  const paymentStatus = session.payment_status ?? 'unpaid'
+  if (paymentStatus !== 'paid' && paymentStatus !== 'no_payment_required') {
+    return { familyId: null, synced: false }
+  }
+
+  const familyId = await resolveFamilyIdFromStripeObject(
+    admin,
+    session.metadata,
+    typeof session.subscription === 'string' ? session.subscription : session.subscription?.id,
+    typeof session.customer === 'string' ? session.customer : session.customer?.id,
+  )
+  if (!familyId) return { familyId: null, synced: false }
+
+  const subscriptionId =
+    typeof session.subscription === 'string' ? session.subscription : session.subscription?.id
+  const customerId =
+    typeof session.customer === 'string' ? session.customer : session.customer?.id
+  if (!subscriptionId || !customerId) return { familyId, synced: false }
+
+  const stripe = getStripe()
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+  await syncFamilyFromSubscription(admin, familyId, subscription, customerId)
+  return { familyId, synced: true }
+}
+
+export async function syncFamilyBillingFromStripe(
+  admin: SupabaseClient,
+  familyId: string,
+): Promise<{ synced: boolean; subscriptionStatus: string | null }> {
+  const family = await fetchFamilyForBilling(admin, familyId)
+  const stripe = getStripe()
+
+  if (family.stripe_subscription_id) {
+    const subscription = await stripe.subscriptions.retrieve(family.stripe_subscription_id)
+    const customerId =
+      typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id
+    await syncFamilyFromSubscription(admin, familyId, subscription, customerId)
+    return { synced: true, subscriptionStatus: subscription.status }
+  }
+
+  if (family.stripe_customer_id) {
+    const subscriptions = await stripe.subscriptions.list({
+      customer: family.stripe_customer_id,
+      status: 'all',
+      limit: 10,
+    })
+    const preferred =
+      subscriptions.data.find((row) => row.status === 'active' || row.status === 'trialing') ??
+      subscriptions.data[0]
+    if (!preferred) return { synced: false, subscriptionStatus: null }
+
+    const customerId =
+      typeof preferred.customer === 'string' ? preferred.customer : preferred.customer.id
+    await syncFamilyFromSubscription(admin, familyId, preferred, customerId)
+    return { synced: true, subscriptionStatus: preferred.status }
+  }
+
+  return { synced: false, subscriptionStatus: null }
 }
 
 export async function resolveFamilyIdFromStripeObject(

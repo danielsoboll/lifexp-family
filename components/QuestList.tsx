@@ -18,6 +18,7 @@ function renderQuestCard(
     children: ReturnType<typeof useFamily>['children']
     parents: ReturnType<typeof useFamily>['parents']
     session: ReturnType<typeof useFamily>['session']
+    canAdmin: boolean
     grouped?: boolean
     familyWide?: boolean
     familyAccentKey?: MemberAccentKey
@@ -37,12 +38,14 @@ function renderQuestCard(
       familyAccentKey={props.familyAccentKey}
       manageable={manageable}
       onManage={manageable ? () => props.onManage(quest) : undefined}
+      session={props.session}
+      canAdmin={props.canAdmin}
     />
   )
 }
 
 export default function QuestList() {
-  const { family, children, parents, session } = useFamily()
+  const { family, children, parents, session, canAdmin } = useFamily()
   const [quests, setQuests] = useState<QuestWithCompletion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -85,9 +88,10 @@ export default function QuestList() {
       children,
       parents,
       session,
+      canAdmin,
       onManage: setEditQuest,
     }),
-    [children, parents, session],
+    [children, parents, session, canAdmin],
   )
 
   if (!family) return null

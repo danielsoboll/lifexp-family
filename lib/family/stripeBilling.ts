@@ -89,3 +89,28 @@ export async function verifyStripeCheckoutSession(sessionId: string): Promise<Ve
 
   return payload
 }
+
+/** Stripe-Abo manuell synchronisieren (Fallback wenn Webhook verzögert/fehlgeschlagen). */
+export async function syncPlusBillingFromStripe(familyId: string): Promise<{ synced: boolean }> {
+  const session = readFamilySession()
+  if (!session) {
+    throw new Error('Keine aktive Familien-Sitzung — bitte erneut einloggen.')
+  }
+
+  const response = await fetch(`${functionsBaseUrl()}/sync-family-billing`, {
+    method: 'POST',
+    headers: edgeHeaders(),
+    body: JSON.stringify({
+      family_id: familyId,
+      member_kind: session.memberKind,
+      member_id: session.memberId,
+    }),
+  })
+
+  const payload = (await response.json()) as { synced?: boolean; error?: string }
+  if (!response.ok) {
+    throw new Error(payload.error ?? 'Synchronisation fehlgeschlagen.')
+  }
+
+  return { synced: payload.synced === true }
+}

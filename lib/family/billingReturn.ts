@@ -134,6 +134,7 @@ export type VerifiedCheckoutSession = {
   member_id?: string | null
   payment_status: string
   status: string
+  plus_synced?: boolean
 }
 
 /** Stripe session_id + gespeichertes Snapshot oder Checkout-Metadata — Fallback wenn Cookies fehlen. */

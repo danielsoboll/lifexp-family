@@ -2,11 +2,15 @@
 
 import { useState } from 'react'
 
-import { useFamily } from './FamilyProvider'
+import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
 import FamilyPlusPriceDisplay from './FamilyPlusPriceDisplay'
 import { familyPlusTarifLine, isFamilyPlus } from '../lib/family/familyPlus'
 import { FAMILY_PLUS_CTA_LABEL, FAMILY_PLUS_TAGLINE } from '../lib/family/familyPlusFeatures'
-import { createPlusCheckoutSession, createPlusPortalSession } from '../lib/family/stripeBilling'
+import {
+  createPlusCheckoutSession,
+  createPlusPortalSession,
+  syncPlusBillingFromStripe,
+} from '../lib/family/stripeBilling'
 import type { Family } from '../lib/family/types'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 
@@ -24,7 +28,7 @@ export default function FamilyPlusBillingControls({
 }: FamilyPlusBillingControlsProps) {
   const { family: familyFromContext, canAdmin, refresh } = useFamily()
   const family = familyProp ?? familyFromContext
-  const [busy, setBusy] = useState<'checkout' | 'portal' | null>(null)
+  const [busy, setBusy] = useState<'checkout' | 'portal' | 'sync' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   if (!family) return null
@@ -60,6 +64,24 @@ export default function FamilyPlusBillingControls({
       window.location.assign(url)
     } catch (portalError) {
       setError(portalError instanceof Error ? portalError.message : 'Portal konnte nicht geöffnet werden.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const syncBilling = async () => {
+    setError(null)
+    if (!canAdmin) {
+      setError('Nur Familien-Admins können das Abo verwalten.')
+      return
+    }
+    setBusy('sync')
+    try {
+      await syncPlusBillingFromStripe(family.id)
+      await refresh()
+      notifyFamilyDataChanged()
+    } catch (syncError) {
+      setError(syncError instanceof Error ? syncError.message : 'Synchronisation fehlgeschlagen.')
     } finally {
       setBusy(null)
     }
@@ -107,16 +129,25 @@ export default function FamilyPlusBillingControls({
           >
             {busy === 'checkout' ? 'Weiter zu Stripe …' : FAMILY_PLUS_CTA_LABEL}
           </button>
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => void syncBilling()}
+            className="w-full text-xs font-medium text-slate-700 underline underline-offset-2 disabled:opacity-60 dark:text-slate-300"
+          >
+            {busy === 'sync' ? 'Synchronisiere mit Stripe …' : 'Bereits bezahlt? Status von Stripe holen'}
+          </button>
         </>
       )}
 
       {plusActive ? (
         <button
           type="button"
-          className="text-xs font-medium text-slate-700 underline underline-offset-2 dark:text-slate-300"
-          onClick={() => void refresh()}
+          disabled={busy !== null}
+          className="text-xs font-medium text-slate-700 underline underline-offset-2 disabled:opacity-60 dark:text-slate-300"
+          onClick={() => void syncBilling()}
         >
-          Status aktualisieren
+          {busy === 'sync' ? 'Synchronisiere …' : 'Status aktualisieren'}
         </button>
       ) : null}
 

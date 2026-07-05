@@ -43,7 +43,11 @@ BEGIN
       OR NEW.stripe_subscription_id IS DISTINCT FROM OLD.stripe_subscription_id
       OR NEW.plus_until IS DISTINCT FROM OLD.plus_until
       OR NEW.trial_ends_at IS DISTINCT FROM OLD.trial_ends_at
-    ) AND coalesce(current_setting('request.jwt.claim.role', true), '') <> 'service_role' THEN
+    ) AND coalesce(
+      nullif(current_setting('request.jwt.claim.role', true), ''),
+      nullif(current_setting('request.jwt.claims', true)::jsonb ->> 'role', ''),
+      ''
+    ) <> 'service_role' THEN
       RAISE EXCEPTION 'Family billing fields are managed server-side only';
     END IF;
   END IF;

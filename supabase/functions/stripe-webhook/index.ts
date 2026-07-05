@@ -3,6 +3,7 @@ import Stripe from 'https://esm.sh/stripe@14.25.0?target=deno'
 
 import {
   resolveFamilyIdFromStripeObject,
+  syncFamilyFromCheckoutSession,
   syncFamilyFromSubscription,
   getStripe,
 } from '../_shared/billing.ts'
@@ -41,23 +42,7 @@ serve(async (req) => {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
         if (session.mode !== 'subscription') break
-
-        const familyId = await resolveFamilyIdFromStripeObject(
-          admin,
-          session.metadata,
-          typeof session.subscription === 'string' ? session.subscription : session.subscription?.id,
-          typeof session.customer === 'string' ? session.customer : session.customer?.id,
-        )
-        if (!familyId) break
-
-        const subscriptionId =
-          typeof session.subscription === 'string' ? session.subscription : session.subscription?.id
-        const customerId =
-          typeof session.customer === 'string' ? session.customer : session.customer?.id
-        if (!subscriptionId || !customerId) break
-
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-        await syncFamilyFromSubscription(admin, familyId, subscription, customerId)
+        await syncFamilyFromCheckoutSession(admin, session)
         break
       }
 

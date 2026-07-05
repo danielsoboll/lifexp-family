@@ -1,13 +1,19 @@
 'use client'
 
 import { memberLabelForAssignee } from './MemberSingleSelect'
+import QuestFinalConfirmButton from './QuestFinalConfirmButton'
 import type { ParentMember } from '../lib/family/members'
 import type { ChildWithTodayXp, QuestWithCompletion } from '../lib/family/types'
 import { questPrimaryAssignee } from '../lib/family/quests'
-import { isFamilyWideQuest } from '../lib/family/questConfirmation'
+import {
+  assigneeDisplayNameFromCompletion,
+  isFamilyWideQuest,
+  pendingConfirmableCompletions,
+} from '../lib/family/questConfirmation'
 import { formatQuestDayLabel } from '../lib/family/questRules'
 import { accentKeyForAssignee, memberAccentStyle, type MemberAccentKey } from '../lib/family/memberAccentColor'
 import { formatParentDisplayName } from '../lib/family/familyDisplayName'
+import type { FamilySession } from '../lib/familySession'
 
 type QuestCardProps = {
   quest: QuestWithCompletion
@@ -21,6 +27,8 @@ type QuestCardProps = {
   /** Nur Ersteller: Klick öffnet Bearbeiten/Löschen. */
   manageable?: boolean
   onManage?: () => void
+  session?: FamilySession | null
+  canAdmin?: boolean
 }
 
 const STATUS_LABEL = {
@@ -60,11 +68,14 @@ export default function QuestCard({
   familyAccentKey,
   manageable = false,
   onManage,
+  session = null,
+  canAdmin = false,
 }: QuestCardProps) {
   const assignee = questPrimaryAssignee(quest)
   const assigneeName = assignee ? memberLabelForAssignee(assignee, parents, children) : '—'
   const dayLabel = formatQuestDayLabel(quest.task_date)
   const status = STATUS_LABEL[quest.fulfillmentStatus]
+  const pendingConfirmations = pendingConfirmableCompletions(quest, session, canAdmin)
   const accent =
     familyWide || isFamilyWideQuest(quest)
       ? memberAccentStyle(familyAccentKey ?? 'lavender')
@@ -110,10 +121,25 @@ export default function QuestCard({
       {manageable ? (
         <p className="mt-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400">Tippen zum Bearbeiten</p>
       ) : null}
+      {pendingConfirmations.map((row) => (
+        <QuestFinalConfirmButton
+          key={row.id}
+          completionId={row.id}
+          xpReward={quest.xp_reward}
+          assigneeName={assigneeDisplayNameFromCompletion(
+            row.childId,
+            row.parentId,
+            parents,
+            children,
+            formatParentDisplayName,
+          )}
+          compact
+        />
+      ))}
     </>
   )
 
-  if (manageable && onManage) {
+  if (manageable && onManage && pendingConfirmations.length === 0) {
     return (
       <button
         type="button"
@@ -125,5 +151,18 @@ export default function QuestCard({
     )
   }
 
-  return <article className={`rounded-xl border-2 p-3 shadow-sm ring-1 ${accent.cardClass}`}>{content}</article>
+  return (
+    <article className={`rounded-xl border-2 p-3 shadow-sm ring-1 ${accent.cardClass}`}>
+      {content}
+      {manageable && onManage ? (
+        <button
+          type="button"
+          onClick={onManage}
+          className="mt-2 text-[10px] font-semibold text-slate-500 underline dark:text-slate-400"
+        >
+          Bearbeiten
+        </button>
+      ) : null}
+    </article>
+  )
 }

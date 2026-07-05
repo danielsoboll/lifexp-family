@@ -28,7 +28,7 @@ type ReactionDraft = {
 }
 
 export default function QuestCreatorConfirmSheet() {
-  const { family, parents, children, loading, hasSession, parent, activeChild, memberKind } = useFamily()
+  const { family, parents, children, loading, hasSession, parent, activeChild, memberKind, canAdmin } = useFamily()
   const [items, setItems] = useState<PendingCreatorConfirmation[]>([])
   const [visible, setVisible] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -53,7 +53,12 @@ export default function QuestCreatorConfirmSheet() {
       setItems([])
       return
     }
-    const { items: rows, error: fetchError } = await fetchPendingCreatorConfirmations(family.id, parents, children)
+    const { items: rows, error: fetchError } = await fetchPendingCreatorConfirmations(
+      family.id,
+      parents,
+      children,
+      canAdmin,
+    )
     if (fetchError) {
       setError(fetchError.message)
       setItems([])
@@ -74,7 +79,7 @@ export default function QuestCreatorConfirmSheet() {
     } else {
       setPhotosByCompletion(new Map())
     }
-  }, [family, parents, children, plusActive])
+  }, [family, parents, children, plusActive, canAdmin])
 
   useEffect(() => {
     if (loading || !hasSession || !family) {
@@ -170,7 +175,7 @@ export default function QuestCreatorConfirmSheet() {
               Quests bestätigen
             </h2>
             <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
-              Dein Familienmitglied hat erledigt — bitte bestätigen, damit XP gutgeschrieben werden.
+              Als Ersteller oder Admin: erledigte Quests bestätigen, damit XP gutgeschrieben werden.
             </p>
           </div>
 

@@ -100,10 +100,47 @@ export function isQuestAwaitingCreator(quest: QuestWithCompletion): boolean {
   return quest.fulfillmentStatus === 'awaiting_creator'
 }
 
-export function canSessionConfirmAsCreator(quest: Quest): boolean {
+export function canSessionConfirmQuestCompletion(input: {
+  quest: Quest
+  session: FamilySession | null
+  assigneeChildId: string | null
+  assigneeParentId: string | null
+  canAdmin: boolean
+}): boolean {
+  const session = input.session ?? readFamilySession()
+  if (!session) return false
+  if (isCompletionForSessionMember(session, input.assigneeChildId, input.assigneeParentId)) {
+    return false
+  }
+  if (sessionIsQuestCreator(input.quest, session)) return true
+  return input.canAdmin
+}
+
+export function pendingConfirmableCompletions(
+  quest: QuestWithCompletion,
+  session: FamilySession | null,
+  canAdmin: boolean,
+): QuestCompletionOnDate[] {
+  if (!session) return []
+  return quest.completionsOnDate.filter(
+    (row) =>
+      row.assigneeConfirmedAt &&
+      !row.creatorConfirmedAt &&
+      canSessionConfirmQuestCompletion({
+        quest,
+        session,
+        assigneeChildId: row.childId,
+        assigneeParentId: row.parentId,
+        canAdmin,
+      }),
+  )
+}
+
+export function canSessionConfirmAsCreator(quest: Quest, canAdmin = false): boolean {
   const session = readFamilySession()
   if (!session) return false
-  return sessionIsQuestCreator(quest, session)
+  if (sessionIsQuestCreator(quest, session)) return true
+  return canAdmin
 }
 
 export function assigneeDisplayNameFromCompletion(
