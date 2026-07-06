@@ -58,11 +58,18 @@ export default function XpGoalVerticalBar({
   const circleSize = detail ? 'h-2.5 w-2.5' : compact ? 'h-1.5 w-1.5' : 'h-2 w-2'
   const symbolClass = detail ? 'mb-1 text-xl leading-none' : 'mb-0.5 text-sm leading-none'
   const emptyHintClass = detail
-    ? 'mb-1.5 w-full px-0.5 text-center text-[9px] font-bold leading-[1.2] text-amber-700 dark:text-amber-300'
+    ? emptyState
+      ? 'mb-1.5 w-full px-0.5 text-center text-[9px] font-bold leading-[1.2] dark:text-amber-300'
+      : 'mb-1.5 w-full px-0.5 text-center text-[9px] font-bold leading-[1.2] text-amber-700 dark:text-amber-300'
     : 'mb-1 max-w-[3.25rem] text-center text-[8px] font-semibold leading-tight text-amber-700 dark:text-amber-300'
   const fractionTextClass = detail
     ? 'font-bold tabular-nums leading-none text-slate-950 dark:text-slate-100'
     : 'font-bold tabular-nums leading-none text-slate-950 dark:text-slate-200'
+
+  const barTrackClass = 'bg-slate-200/90 shadow-inner dark:bg-slate-700/90'
+
+  const goalCircleClass =
+    'border-emerald-600 bg-white dark:border-emerald-400 dark:bg-slate-100'
 
   return (
     <div className={`flex w-full flex-col items-center ${className}`.trim()}>
@@ -86,7 +93,7 @@ export default function XpGoalVerticalBar({
       >
         <div className="flex w-full flex-col items-center">
           {emptyState ? (
-            <span className={emptyHintClass}>
+            <span className={`lifexp-no-goal-hint ${emptyHintClass}`}>
               noch
               <br />
               kein
@@ -100,7 +107,7 @@ export default function XpGoalVerticalBar({
           ) : null}
           <span className={`${zielMarginClass} ${zielLabelClass}`}>Ziel</span>
           <div className={`relative ${barWidth} ${barHeight} shrink-0`}>
-            <div className="absolute inset-0 overflow-hidden rounded-full bg-slate-200/90 shadow-inner dark:bg-slate-700/90">
+            <div className={`absolute inset-0 overflow-hidden rounded-full ${barTrackClass}`}>
               {clampedProgress > 0 ? (
                 <div
                   className="absolute bottom-0 left-0 right-0 rounded-full bg-gradient-to-t from-emerald-700 via-emerald-500 to-teal-300 dark:from-emerald-600 dark:via-emerald-400 dark:to-teal-300"
@@ -109,7 +116,7 @@ export default function XpGoalVerticalBar({
               ) : null}
             </div>
             <div
-              className={`absolute left-1/2 top-0 ${circleSize} -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-600 bg-white shadow-sm dark:border-emerald-400 dark:bg-slate-100`}
+              className={`absolute left-1/2 top-0 ${circleSize} -translate-x-1/2 -translate-y-1/2 rounded-full border shadow-sm ${goalCircleClass}`}
               aria-hidden
             />
           </div>

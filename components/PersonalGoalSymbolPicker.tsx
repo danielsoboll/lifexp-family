@@ -23,18 +23,17 @@ export default function PersonalGoalSymbolPicker({
             type="button"
             disabled={disabled}
             title={symbol.label}
+            aria-label={symbol.label}
+            aria-pressed={selected}
             onClick={() => onChange(symbol.id)}
-            className={`flex flex-col items-center gap-0.5 rounded-xl border-2 px-1 py-1.5 text-center transition disabled:opacity-50 ${
+            className={`flex items-center justify-center rounded-xl border-2 px-1 py-2 text-center transition disabled:opacity-50 ${
               selected
                 ? 'border-amber-500 bg-amber-100 dark:border-amber-600 dark:bg-amber-950/50'
                 : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900'
             }`}
           >
-            <span className="text-lg leading-none" aria-hidden>
+            <span className="text-2xl leading-none" aria-hidden>
               {symbol.emoji}
-            </span>
-            <span className="line-clamp-2 text-[9px] font-semibold leading-tight text-slate-950 dark:text-slate-200">
-              {symbol.label}
             </span>
           </button>
         )

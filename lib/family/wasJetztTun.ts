@@ -5,12 +5,28 @@ import { fetchChildById, fetchChildrenForFamily } from './children'
 import { fetchMemberStreakClaimedToday } from './dailyStreak'
 import { fetchParentById } from './families'
 import { formatParentDisplayName } from './familyDisplayName'
+import {
+  countAllQuestsAwaitingFamilyConfirmation,
+  countQuestsAwaitingConfirmation,
+} from './familyQuestConference'
 import { canAdminForChildProfile, canAdminForParentProfile } from './memberAdmin'
 import type { ParentGender } from './memberGender'
+import { fetchMemberDeviceSettings } from './memberSettings'
 import { fetchParentsForFamily } from './members'
-import { fetchMemberPersonalGoals } from './personalGoals'
+import {
+  countPersonalGoalsAwaitingXp,
+  fetchFamilyPersonalGoalsAwaitingXp,
+  fetchMemberPersonalGoals,
+  type PersonalGoalAwaitingXpItem,
+} from './personalGoals'
+import {
+  countFamilyPersonalGoalsAwaitingXp,
+  fetchFamilyPersonalGoals,
+  fetchFamilyPersonalGoalsAwaitingXpList,
+  type FamilyPersonalGoal,
+} from './familyPersonalGoals'
 import { fulfillmentForMemberOnQuest } from './questConfirmation'
-import { fetchQuestsWithCompletions, questAppliesToMember } from './quests'
+import { fetchFamilyQuestBoard, questAppliesToMember } from './quests'
 import type { ChildProfile } from './types'
 import type { ParentMember } from './members'
 
@@ -42,9 +58,21 @@ const SORT = {
   NO_QUESTS: 50,
   AWAITING: 60,
   FILLER: 200,
+  ADMIN_GOAL_XP: 228,
+  ADMIN_FAMILY_GOAL_XP: 225,
+  ADMIN_AWAITING_CONFIRM: 232,
   ADMIN_PLAN: 240,
+  ADMIN_RECOVERY: 510,
   ADMIN_RECURRING: 520,
 } as const
+
+/** Gelegentliche Recovery-Erinnerung — nicht an jedem Tag. */
+function shouldNudgeRecoveryCode(memberId: string, todayKey: string): boolean {
+  const dayNum = Number.parseInt(todayKey.slice(-2), 10)
+  if (!Number.isFinite(dayNum)) return false
+  const slot = memberId.charCodeAt(0) % 4
+  return dayNum % 4 === slot
+}
 
 function memberSelfHref(memberKind: 'parent' | 'child', memberId: string): string {
   return memberKind === 'child' ? `/children/${memberId}` : `/parents/${memberId}`
@@ -193,6 +221,13 @@ function buildFamilyWasJetztTunPool(input: {
   questsAssignedToday: number
   awaitingQuests: number
   personalGoalCount: number
+  personalGoalsAwaitingXp: number
+  familyPersonalGoalsAwaitingXp: number
+  familyGoalsAwaitingXp: PersonalGoalAwaitingXpItem[]
+  familyPersonalGoalsAwaiting: FamilyPersonalGoal[]
+  familyAwaitingConfirmations: number
+  familyAwaitingConfirmationsActionable: number
+  recoveryCodePending: boolean
   remindStreakMember: UnclaimedStreakMember | null
 }): FamilyWasJetztTunPoolItem[] {
   const pool: FamilyWasJetztTunPoolItem[] = []
@@ -209,7 +244,27 @@ function buildFamilyWasJetztTunPool(input: {
     })
   }
 
-  if (input.personalGoalCount === 0) {
+  if (input.familyPersonalGoalsAwaitingXp > 0) {
+    pool.push({
+      id: 'family-goals-awaiting-xp',
+      href: '/quests#familien-sitzung',
+      emoji: '👨‍👩‍👧‍👦',
+      title: 'Familienziel wartet',
+      subtitle: 'Die nötigen XP müssen von der Familie entschieden werden.',
+      priority: 1,
+      sortOrder: SORT.PERSONAL_GOAL + 4,
+    })
+  } else if (input.personalGoalsAwaitingXp > 0) {
+    pool.push({
+      id: 'personal-goals-awaiting-xp',
+      href: `${input.memberHref}?ziele=1`,
+      emoji: '⭐',
+      title: 'Dein Ziel wartet',
+      subtitle: 'Die für dein Ziel nötigen XP müssen von der Familie entschieden werden.',
+      priority: 1,
+      sortOrder: SORT.PERSONAL_GOAL + 5,
+    })
+  } else if (input.personalGoalCount === 0) {
     const goalCopy = personalGoalCopy(input.memberKind)
     pool.push({
       id: 'personal-goals',
@@ -296,6 +351,57 @@ function buildFamilyWasJetztTunPool(input: {
   })
 
   if (input.canAdmin) {
+    for (const goal of input.familyPersonalGoalsAwaiting) {
+      pool.push({
+        id: `admin-family-goal-xp-${goal.id}`,
+        href: '/quests#familien-sitzung',
+        emoji: '👨‍👩‍👧‍👦',
+        title: 'XP für Familienziel',
+        subtitle: `„${goal.title}" — XP von der Familie festlegen`,
+        priority: 1,
+        sortOrder: SORT.ADMIN_FAMILY_GOAL_XP,
+      })
+    }
+
+    for (const item of input.familyGoalsAwaitingXp) {
+      pool.push({
+        id: `admin-goal-xp-${item.goal.id}`,
+        href: '/quests#familien-sitzung',
+        emoji: '⭐',
+        title: `XP für ${item.memberLabel}`,
+        subtitle: `Ziel „${item.goal.title}" — XP von der Familie festlegen`,
+        priority: 1,
+        sortOrder: SORT.ADMIN_GOAL_XP,
+      })
+    }
+
+    if (input.familyAwaitingConfirmationsActionable > 0) {
+      pool.push({
+        id: 'admin-awaiting-confirmations',
+        href: '/quests#familien-sitzung',
+        emoji: '✅',
+        title: 'Quests bestätigen',
+        subtitle:
+          input.familyAwaitingConfirmationsActionable === 1
+            ? `${input.familyAwaitingConfirmationsActionable} Meldung wartet auf dein OK`
+            : `${input.familyAwaitingConfirmationsActionable} Meldungen warten auf dein OK`,
+        priority: 1,
+        sortOrder: SORT.ADMIN_AWAITING_CONFIRM,
+      })
+    } else if (input.familyAwaitingConfirmations > 0) {
+      pool.push({
+        id: 'family-awaiting-confirmations',
+        href: '/quests#familien-sitzung',
+        emoji: '✅',
+        title: 'Familien-Sitzung',
+        subtitle:
+          input.familyAwaitingConfirmations === 1
+            ? 'Eine Quest wartet auf OK von der Familie'
+            : `${input.familyAwaitingConfirmations} Quests warten auf OK von der Familie`,
+        sortOrder: SORT.ADMIN_AWAITING_CONFIRM,
+      })
+    }
+
     pool.push({
       id: 'plan-quest',
       href: '/quests/new',
@@ -304,6 +410,18 @@ function buildFamilyWasJetztTunPool(input: {
       subtitle: 'Neue Aufgabe einstellen oder zuweisen',
       sortOrder: SORT.ADMIN_PLAN,
     })
+
+    if (input.recoveryCodePending) {
+      pool.push({
+        id: 'admin-recovery-code',
+        href: '/was-jetzt-tun/recovery',
+        emoji: '🔐',
+        title: 'Recovery-Code sichern',
+        subtitle: 'Screenshot machen — damit dein Profil bei Gerätewechsel erhalten bleibt',
+        sortOrder: SORT.ADMIN_RECOVERY,
+      })
+    }
+
     pool.push({
       id: 'quests-recurring',
       href: '/quests/recurring',
@@ -334,23 +452,31 @@ export async function fetchFamilyWasJetztTunState(): Promise<FamilyWasJetztTunSt
   const { familyId, memberKind, memberId } = session
   const memberHref = memberSelfHref(memberKind, memberId)
 
+  const todayKey = cetToday()
+
   const [
-    { quests, error: questsError },
+    { board, error: questsError },
     { claimed: streakClaimed, error: streakError },
     { goals, error: goalsError },
     profileResult,
     { parents, error: parentsError },
     { children, error: childrenError },
     streakClaimedIds,
+    deviceSettingsResult,
   ] = await Promise.all([
-    fetchQuestsWithCompletions(familyId, { fromTaskDate: cetToday(), toTaskDate: cetToday() }),
+    fetchFamilyQuestBoard(familyId),
     fetchMemberStreakClaimedToday({ familyId, memberKind, memberId }),
     fetchMemberPersonalGoals(familyId, { memberKind, memberId }),
     memberKind === 'child' ? fetchChildById(memberId) : fetchParentById(memberId),
     fetchParentsForFamily(familyId),
     fetchChildrenForFamily(familyId),
     fetchFamilyStreakClaimedMemberIds(familyId),
+    fetchMemberDeviceSettings(memberKind, memberId),
   ])
+
+  const familyGoalsResult = await fetchFamilyPersonalGoalsAwaitingXp(familyId, parents, children)
+  const familyPersonalGoalsResult = await fetchFamilyPersonalGoalsAwaitingXpList(familyId)
+  const allFamilyPersonalGoals = await fetchFamilyPersonalGoals(familyId)
 
   const fetchError =
     questsError ??
@@ -364,6 +490,14 @@ export async function fetchFamilyWasJetztTunState(): Promise<FamilyWasJetztTunSt
     return { suggestedSteps: [], error: fetchError }
   }
 
+  const deviceSettings = deviceSettingsResult.error
+    ? { appInstalled: false, appLater: false, recCode: null, recCodeOk: true, error: null }
+    : deviceSettingsResult
+
+  const familyGoalsAwaitingXp = familyGoalsResult.error ? [] : familyGoalsResult.items
+  const familyPersonalGoalsAwaiting = familyPersonalGoalsResult.error ? [] : familyPersonalGoalsResult.goals
+  const allFamilyPersonalGoalsList = allFamilyPersonalGoals.error ? [] : allFamilyPersonalGoals.goals
+
   const canAdmin =
     memberKind === 'child' && 'child' in profileResult && profileResult.child
       ? canAdminForChildProfile(
@@ -375,7 +509,10 @@ export async function fetchFamilyWasJetztTunState(): Promise<FamilyWasJetztTunSt
         ? canAdminForParentProfile(profileResult.parent.gender, profileResult.parent.can_admin)
         : false
 
-  const memberQuests = quests.filter((quest) =>
+  const allFamilyQuests = [...board.todayAndTomorrow, ...board.yesterdayOpen]
+  const sessionForConfirm = readFamilySession()
+
+  const memberQuests = allFamilyQuests.filter((quest) =>
     questAppliesToMember(quest.child_id, quest.assignees, memberKind, memberId),
   )
 
@@ -396,6 +533,12 @@ export async function fetchFamilyWasJetztTunState(): Promise<FamilyWasJetztTunSt
     memberId,
   )
 
+  const recoveryCodePending =
+    canAdmin &&
+    !deviceSettings.recCodeOk &&
+    Boolean(deviceSettings.recCode) &&
+    shouldNudgeRecoveryCode(memberId, todayKey)
+
   const pool = buildFamilyWasJetztTunPool({
     memberKind,
     memberHref,
@@ -405,6 +548,17 @@ export async function fetchFamilyWasJetztTunState(): Promise<FamilyWasJetztTunSt
     questsAssignedToday: memberQuests.length,
     awaitingQuests,
     personalGoalCount: goals.length,
+    personalGoalsAwaitingXp: countPersonalGoalsAwaitingXp(goals),
+    familyPersonalGoalsAwaitingXp: countFamilyPersonalGoalsAwaitingXp(allFamilyPersonalGoalsList),
+    familyGoalsAwaitingXp: familyGoalsAwaitingXp,
+    familyPersonalGoalsAwaiting: familyPersonalGoalsAwaiting,
+    familyAwaitingConfirmations: countAllQuestsAwaitingFamilyConfirmation(allFamilyQuests),
+    familyAwaitingConfirmationsActionable: countQuestsAwaitingConfirmation(
+      allFamilyQuests,
+      sessionForConfirm,
+      canAdmin,
+    ),
+    recoveryCodePending,
     remindStreakMember,
   })
 

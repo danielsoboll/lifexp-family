@@ -27,9 +27,9 @@ export const FAMILY_PLUS_PRICE_TAGLINE = 'Ein Preis für die ganze Familie!'
 export const FAMILY_PLUS_NON_ADMIN_HINT_HEADLINE = 'Noch mehr für eure Familie'
 export const FAMILY_PLUS_NON_ADMIN_HINT_INTRO = 'Mit PLUS bekommt eure ganze Familie:'
 export const FAMILY_PLUS_NON_ADMIN_HINT_HIGHLIGHTS = [
-  { emoji: '🎯', label: 'Mehr Quests' },
-  { emoji: '📷', label: 'Fotos & Likes' },
-  { emoji: '🔁', label: 'Automatische Aufgaben' },
+  { emoji: '📷', label: 'Fotos & Nachrichten' },
+  { emoji: '😊', label: 'Avatar-Antworten' },
+  { emoji: '🔁', label: 'Automatische Quests' },
 ] as const
 export const FAMILY_PLUS_NON_ADMIN_HINT_FOOTER =
   'Frag Mama oder Papa, ob ihr PLUS ausprobieren möchtet. 😊'
@@ -41,13 +41,29 @@ export const FAMILY_PLUS_NON_ADMIN_HINT = `${FAMILY_PLUS_NON_ADMIN_HINT_INTRO} $
 export const FAMILY_PLUS_ACTIVATED_BANNER =
   'PLUS ist aktiv! Alle Zusatzfunktionen sind freigeschaltet (wir bauen sie Schritt für Schritt aus).'
 
+/** Willkommen — wenn PLUS aktiv ist (Sheet, Einstellungen). */
+export const FAMILY_PLUS_ACTIVE_WELCOME = {
+  headline: '🎉 Willkommen bei LifeXP Family PLUS!',
+  body: [
+    'Dein Familienabo ist jetzt aktiv.',
+    'Alle PLUS-Funktionen sind freigeschaltet und wir erweitern sie kontinuierlich.',
+  ],
+  availableHeading: 'Heute bereits verfügbar',
+  availableItems: [
+    { emoji: '📷', label: 'Fotos & Avatar-Antworten' },
+    { emoji: '🔁', label: 'Wiederkehrende Quests' },
+    { emoji: '⭐', label: 'Weitere PLUS-Funktionen folgen' },
+  ],
+} as const
+
 /** Marketing-Übersicht — noch nicht als Produktfunktion implementiert. */
 export const FAMILY_PLUS_FEATURES: FamilyPlusFeature[] = [
   {
-    id: 'daily_parent_work',
-    emoji: '💼',
-    title: 'Tägliche Aufgabe — Arbeit (Papa & Mama)',
-    description: '+5 XP an jedem Wochentag — Urlaubstage frei wählbar',
+    id: 'quest_photos_reactions',
+    emoji: '📷',
+    title: 'Fotos schicken & persönliche Antwort',
+    description:
+      'Kind meldet z. B. „Zimmer aufgeräumt“, schickt ein Foto — Mama bestätigt von unterwegs mit Avatar-Gesicht und kurzer Nachricht.',
   },
   {
     id: 'recurring_quests',
@@ -56,22 +72,22 @@ export const FAMILY_PLUS_FEATURES: FamilyPlusFeature[] = [
     description: 'Jeden Tag, Mo–Fr, alle 2 Tage oder wöchentlich — automatisch eingetragen',
   },
   {
-    id: 'daily_teeth',
-    emoji: '🪥',
-    title: 'Tägliche Aufgabe — Zähne putzen',
-    description: '+3 XP jeden Tag (z. B. für die Kleinen)',
-  },
-  {
     id: 'every_other_room',
     emoji: '🧹',
-    title: 'Alle 2 Tage — Zimmer aufräumen (Kinder)',
-    description: '+4 XP für alle Kinder — automatisch im Rhythmus',
+    title: 'Zimmer aufräumen im Rhythmus',
+    description: '+4 XP für alle Kinder alle 2 Tage — einmal einrichten, läuft von selbst',
   },
   {
-    id: 'chat_photos',
-    emoji: '📷',
-    title: 'Bilder im Familien-Chat',
-    description: 'Fotos senden — Eltern können mit Like bestätigen',
+    id: 'daily_teeth',
+    emoji: '🪥',
+    title: 'Zähne putzen jeden Morgen',
+    description: '+3 XP für die Kleinen — als wiederkehrende Quest hinterlegt',
+  },
+  {
+    id: 'daily_parent_work',
+    emoji: '💼',
+    title: 'Arbeit für Papa & Mama',
+    description: '+5 XP an Wochentagen — Urlaubstage frei wählbar',
   },
 ]
 

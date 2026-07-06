@@ -125,6 +125,7 @@ export type Quest = {
   category: string
   recurrence: QuestRecurrence
   task_date: string
+  completion_deadline?: string
   is_active: boolean
   sort_order: number
   created_by: string | null

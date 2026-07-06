@@ -7,20 +7,21 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background-top: #475569;
-  --background-mid: #64748b;
-  --background-bottom: #7b8fa3;
+  --background-top: #94a3b8;
+  --background-mid: #b8c4d0;
+  --background-bottom: #d4dce6;
   --background: var(--background-mid);
-  --foreground: #0f172a;
-  --surface: #e8ecf1;
-  --surface-raised: #f1f5f9;
+  --foreground: #334155;
+  --surface: #f4f7fa;
+  --surface-raised: #f8fafc;
   --border-strong: #94a3b8;
   --border-subtle: #cbd5e1;
-  --muted: #0f172a;
-  --muted-soft: #1e293b;
+  --muted: #475569;
+  --muted-soft: #64748b;
   --accent: #059669;
   --accent-soft: #d1fae5;
   --ring: rgba(5, 150, 105, 0.35);
+  --lifexp-press-duration: 200ms;
 }
 
 .dark {
@@ -34,6 +35,7 @@
   --accent: #34d399;
   --accent-soft: #064e3b;
   --ring: rgba(52, 211, 153, 0.35);
+  --lifexp-press-duration: 200ms;
 }
 
 @theme inline {
@@ -118,7 +120,7 @@ html:not(.dark) :is(
   .text-stone-700,
   .text-stone-800
 ) {
-  color: #020617 !important; /* slate-950 */
+  color: #334155 !important; /* slate-700 — etwas weicher im Tagesmodus */
 }
 
 html:not(.dark) :is(
@@ -134,12 +136,22 @@ html:not(.dark) :is(
   [class*="text-stone-700/"],
   [class*="text-stone-800/"]
 ) {
-  color: rgb(2 6 23 / 0.92) !important;
+  color: rgb(51 65 85 / 0.88) !important;
 }
 
 html:not(.dark) .text-slate-900,
 html:not(.dark) [class*="text-slate-900/"] {
-  color: #020617 !important;
+  color: #1e293b !important; /* slate-800 */
+}
+
+html:not(.dark) .text-slate-950,
+html:not(.dark) [class*="text-slate-950/"] {
+  color: #334155 !important;
+}
+
+/* „Noch kein Ziel“ — nur Tagesmodus, dunkel-orange */
+html:not(.dark) .lifexp-no-goal-hint {
+  color: #c2410c !important;
 }
 
 html.lifexp-keyboard-open.dark {
@@ -167,18 +179,18 @@ html.lifexp-keyboard-open.dark body::before {
   transform-origin: center bottom;
   transform: translateY(0);
   transition:
-    transform 160ms cubic-bezier(0.33, 1, 0.68, 1),
-    box-shadow 160ms cubic-bezier(0.33, 1, 0.68, 1),
-    border-color 160ms ease-out,
-    background-color 160ms ease-out,
-    background-image 160ms ease-out,
-    color 160ms ease-out,
-    opacity 160ms ease-out;
+    transform var(--lifexp-press-duration) cubic-bezier(0.33, 1, 0.68, 1),
+    box-shadow var(--lifexp-press-duration) cubic-bezier(0.33, 1, 0.68, 1),
+    border-color var(--lifexp-press-duration) ease-out,
+    background-color var(--lifexp-press-duration) ease-out,
+    background-image var(--lifexp-press-duration) ease-out,
+    color var(--lifexp-press-duration) ease-out,
+    opacity var(--lifexp-press-duration) ease-out;
   box-shadow:
-    inset 0 1px 0 rgba(255, 250, 240, 0.35),
-    inset 0 -3px 0 rgba(68, 64, 60, 0.18),
-    0 6px 0 rgba(120, 113, 108, 0.5),
-    0 9px 18px -6px rgba(41, 37, 36, 0.32);
+    inset 0 1px 0 rgba(255, 250, 240, 0.42),
+    inset 0 -2px 0 rgba(148, 163, 184, 0.22),
+    0 3px 0 rgba(148, 163, 184, 0.38),
+    0 5px 14px -5px rgba(51, 65, 85, 0.18);
 }
 
 /* Steinfläche: warmer, matter Verlauf statt Glanz. */
@@ -274,24 +286,24 @@ html.lifexp-keyboard-open.dark body::before {
 }
 
 :where(button:not(:disabled), a.lifexp-pressable-3d, a.rounded-2xl.border-2, a.rounded-xl.border-2, a.rounded-full.border-2):hover {
-  transform: translateY(2px);
+  transform: translateY(1px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 250, 240, 0.22),
-    inset 0 -2px 0 rgba(68, 64, 60, 0.16),
-    0 4px 0 rgba(120, 113, 108, 0.42),
-    0 6px 14px -5px rgba(41, 37, 36, 0.26);
+    inset 0 1px 0 rgba(255, 250, 240, 0.3),
+    inset 0 -1px 0 rgba(148, 163, 184, 0.18),
+    0 2px 0 rgba(148, 163, 184, 0.32),
+    0 4px 12px -4px rgba(51, 65, 85, 0.14);
 }
 
 :where(button:not(:disabled), a.lifexp-pressable-3d, a.rounded-2xl.border-2, a.rounded-xl.border-2, a.rounded-full.border-2):active {
-  transform: translateY(6px) scale(0.99);
+  transform: translateY(3px) scale(0.992);
   box-shadow:
-    inset 0 5px 12px rgba(41, 37, 36, 0.34),
-    inset 0 1px 0 rgba(255, 250, 240, 0.08),
-    0 1px 0 rgba(87, 83, 78, 0.28);
+    inset 0 3px 8px rgba(51, 65, 85, 0.16),
+    inset 0 1px 0 rgba(255, 250, 240, 0.12),
+    0 1px 0 rgba(148, 163, 184, 0.22);
 }
 
 :where(button:disabled) {
-  transform: translateY(5px);
+  transform: translateY(2px);
   cursor: not-allowed;
   box-shadow:
     inset 0 4px 10px rgba(41, 37, 36, 0.22),
@@ -334,15 +346,84 @@ html.lifexp-keyboard-open.dark body::before {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :where(button, a.lifexp-pressable-3d, a.rounded-2xl.border-2, a.rounded-xl.border-2, a.rounded-full.border-2) {
+  :where(
+    button,
+    a.lifexp-pressable-3d,
+    a.lifexp-tile-3d,
+    a.rounded-2xl.border-2,
+    a.rounded-xl.border-2,
+    a.rounded-full.border-2
+  ) {
     transition-duration: 0ms;
   }
 
-  :where(button:not(:disabled), a.lifexp-pressable-3d, a.rounded-2xl.border-2, a.rounded-xl.border-2, a.rounded-full.border-2):hover,
-  :where(button:not(:disabled), a.lifexp-pressable-3d, a.rounded-2xl.border-2, a.rounded-xl.border-2, a.rounded-full.border-2):active,
-  :where(button:disabled) {
+  :where(
+    button:not(:disabled),
+    a.lifexp-pressable-3d,
+    a.lifexp-tile-3d,
+    a.rounded-2xl.border-2,
+    a.rounded-xl.border-2,
+    a.rounded-full.border-2
+  ):hover,
+  :where(
+    button:not(:disabled),
+    a.lifexp-pressable-3d,
+    a.lifexp-tile-3d,
+    a.rounded-2xl.border-2,
+    a.rounded-xl.border-2,
+    a.rounded-full.border-2
+  ):active,
+  :where(button:disabled),
+  :where(a.lifexp-tile-3d:active) {
     transform: none;
   }
+}
+
+/*
+ * Leichtes 3D für Avatar-Kacheln & klickbare Karten (Mitglieder-Slots).
+ */
+:where(a.lifexp-tile-3d, button.lifexp-tile-3d) {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateY(0);
+  transition:
+    transform var(--lifexp-press-duration) cubic-bezier(0.33, 1, 0.68, 1),
+    box-shadow var(--lifexp-press-duration) cubic-bezier(0.33, 1, 0.68, 1),
+    border-color var(--lifexp-press-duration) ease-out;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 2px 0 rgba(148, 163, 184, 0.32),
+    0 4px 10px -4px rgba(51, 65, 85, 0.14);
+}
+
+:where(a.lifexp-tile-3d, button.lifexp-tile-3d):hover {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 1px 0 rgba(148, 163, 184, 0.28),
+    0 3px 8px -4px rgba(51, 65, 85, 0.12);
+}
+
+:where(a.lifexp-tile-3d, button.lifexp-tile-3d):active {
+  transform: translateY(2px) scale(0.988);
+  box-shadow:
+    inset 0 2px 6px rgba(51, 65, 85, 0.12),
+    0 1px 0 rgba(148, 163, 184, 0.2);
+}
+
+.dark :where(a.lifexp-tile-3d, button.lifexp-tile-3d) {
+  box-shadow:
+    inset 0 1px 0 rgba(214, 211, 209, 0.1),
+    0 2px 0 rgba(28, 25, 23, 0.55),
+    0 4px 10px -4px rgba(0, 0, 0, 0.35);
+}
+
+.dark :where(a.lifexp-tile-3d, button.lifexp-tile-3d):active {
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.42),
+    0 1px 0 rgba(12, 10, 9, 0.35);
 }
 
 /* Leichter Schraffur-Hintergrund hinter Text (Bereich: Unterpunkte ok, Ziel-XP fehlt). */

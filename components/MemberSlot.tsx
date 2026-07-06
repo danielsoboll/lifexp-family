@@ -3,7 +3,7 @@ import Link from 'next/link'
 import MemberCrownBadge from './MemberCrownBadge'
 import MemberDailyXpBar from './MemberDailyXpBar'
 import type { DailyCrownKind } from '../lib/family/dailyCrown'
-import { CARD_SURFACE_CLASS } from '../lib/appShell'
+import { CARD_SURFACE_CLASS, TILE_3D_CLASS } from '../lib/appShell'
 
 type MemberSlotProps = {
   name: string
@@ -61,7 +61,7 @@ export default function MemberSlot({
   const inner = (
     <article
       data-setup-guide-target={setupGuideTarget}
-      className={`${CARD_SURFACE_CLASS} flex flex-col items-center rounded-2xl p-2 text-center transition hover:border-emerald-400/80 ${highlightClass}`}
+      className={`${CARD_SURFACE_CLASS} flex flex-col items-center rounded-2xl p-2 text-center hover:border-emerald-400/80 ${highlightClass}`}
     >
       {visual}
       <div className="mt-1.5 w-full px-0.5">
@@ -78,7 +78,7 @@ export default function MemberSlot({
   return (
     <Link
       href={href}
-      className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+      className={`${TILE_3D_CLASS} block rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600`}
       onClick={() => onNavigate?.()}
     >
       {inner}

@@ -28,6 +28,18 @@ export function canSessionModifyQuest(
   return sessionIsQuestCreator(quest, session)
 }
 
+/** Ersteller (offen) oder Admin (noch nicht endgültig bestätigt) darf Quest-Eintrag entfernen. */
+export function canSessionDeleteQuest(
+  quest: QuestWithCompletion,
+  session: FamilySession | null = readFamilySession(),
+  canAdmin = false,
+): boolean {
+  if (!session) return false
+  if (quest.fulfillmentStatus === 'done') return false
+  if (canAdmin) return true
+  return canSessionModifyQuest(quest, session) && questIsOpenForEditing(quest)
+}
+
 export function questIsOpenForEditing(quest: Pick<QuestWithCompletion, 'fulfillmentStatus'>): boolean {
   return quest.fulfillmentStatus === 'open'
 }

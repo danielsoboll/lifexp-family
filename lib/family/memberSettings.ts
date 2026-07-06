@@ -5,6 +5,16 @@ function memberTable(memberKind: FamilySessionMemberKind): 'parent_profiles' | '
   return memberKind === 'parent' ? 'parent_profiles' : 'child_profiles'
 }
 
+function isMemberDeviceSettingsSchemaError(error: { message?: string; code?: string }): boolean {
+  return Boolean(
+    error.message?.includes('rec_code') ||
+      error.message?.includes('app_installed') ||
+      error.message?.includes('app_later') ||
+      error.message?.includes('schema cache') ||
+      error.code === 'PGRST205',
+  )
+}
+
 async function updateMemberField(
   memberKind: FamilySessionMemberKind,
   memberId: string,
@@ -62,6 +72,15 @@ export async function fetchMemberDeviceSettings(
     .maybeSingle()
 
   if (error) {
+    if (isMemberDeviceSettingsSchemaError(error)) {
+      return {
+        appInstalled: false,
+        appLater: false,
+        recCode: null,
+        recCodeOk: true,
+        error: null,
+      }
+    }
     return {
       appInstalled: false,
       appLater: false,

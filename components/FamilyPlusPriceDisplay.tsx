@@ -5,6 +5,8 @@ import {
   FAMILY_PLUS_PRICE_PERIOD,
   FAMILY_PLUS_PRICE_TAGLINE,
 } from '../lib/family/familyPlusFeatures'
+import { usePlusCheckout } from '../hooks/usePlusCheckout'
+import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 type FamilyPlusPriceDisplayProps = {
   /** hero = großer Preis-Block; inline = schmaler Streifen neben CTA */
@@ -12,15 +14,28 @@ type FamilyPlusPriceDisplayProps = {
   className?: string
 }
 
+function checkoutSurfaceClass(clickable: boolean, base: string): string {
+  if (!clickable) return base
+  return `${PRESSABLE_3D_CLASS} ${base} w-full cursor-pointer text-left transition disabled:cursor-not-allowed disabled:opacity-70`
+}
+
 export default function FamilyPlusPriceDisplay({
   variant = 'hero',
   className = '',
 }: FamilyPlusPriceDisplayProps) {
+  const checkout = usePlusCheckout()
+  const clickable = checkout?.canStartCheckout === true
+  const checkoutBusy = checkout?.busy === 'checkout'
+  const onPress = clickable ? () => void checkout!.startCheckout() : undefined
+
   if (variant === 'inline') {
-    return (
-      <div
-        className={`flex items-center justify-between gap-3 rounded-xl border-2 border-amber-400/90 bg-gradient-to-r from-amber-100 via-amber-50 to-amber-100/80 px-3.5 py-2.5 dark:border-amber-600/70 dark:from-amber-950/55 dark:via-amber-950/35 dark:to-amber-900/45 ${className}`}
-      >
+    const surfaceClass = checkoutSurfaceClass(
+      clickable,
+      `flex items-center justify-between gap-3 rounded-xl border-2 border-amber-400/90 bg-gradient-to-r from-amber-100 via-amber-50 to-amber-100/80 px-3.5 py-2.5 dark:border-amber-600/70 dark:from-amber-950/55 dark:via-amber-950/35 dark:to-amber-900/45 ${className}`,
+    )
+
+    const content = (
+      <>
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800/90 dark:text-amber-300/90">
             LifeXP Family PLUS
@@ -33,14 +48,33 @@ export default function FamilyPlusPriceDisplay({
           </p>
           <p className="mt-0.5 text-xs font-bold text-amber-900/90 dark:text-amber-200/90">{FAMILY_PLUS_PRICE_PERIOD}</p>
         </div>
-      </div>
+      </>
     )
+
+    if (clickable) {
+      return (
+        <button
+          type="button"
+          disabled={checkoutBusy}
+          onClick={onPress}
+          className={surfaceClass}
+          aria-label={`LifeXP Family PLUS — ${FAMILY_PLUS_PRICE_AMOUNT} ${FAMILY_PLUS_PRICE_PERIOD}, zu Stripe`}
+        >
+          {content}
+        </button>
+      )
+    }
+
+    return <div className={surfaceClass}>{content}</div>
   }
 
-  return (
-    <div
-      className={`rounded-2xl border-2 border-amber-400/95 bg-gradient-to-b from-amber-100 via-amber-50/95 to-white px-4 py-3 text-center shadow-[0_4px_16px_-8px_rgba(217,119,6,0.4)] ring-1 ring-amber-300/40 dark:border-amber-600/80 dark:from-amber-950/60 dark:via-amber-950/40 dark:to-amber-950/20 dark:ring-amber-700/30 ${className}`}
-    >
+  const surfaceClass = checkoutSurfaceClass(
+    clickable,
+    `rounded-2xl border-2 border-amber-400/95 bg-gradient-to-b from-amber-100 via-amber-50/95 to-white px-4 py-3 text-center shadow-[0_4px_16px_-8px_rgba(217,119,6,0.4)] ring-1 ring-amber-300/40 dark:border-amber-600/80 dark:from-amber-950/60 dark:via-amber-950/40 dark:to-amber-950/20 dark:ring-amber-700/30 ${className}`,
+  )
+
+  const content = (
+    <>
       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-amber-800/90 dark:text-amber-300/90">
         LifeXP Family PLUS
       </p>
@@ -51,6 +85,25 @@ export default function FamilyPlusPriceDisplay({
         <span className="pb-0.5 text-sm font-bold text-amber-900/90 dark:text-amber-200/90">/ Monat</span>
       </div>
       <p className="mt-1 text-sm font-bold text-amber-950/90 dark:text-amber-100/90">{FAMILY_PLUS_PRICE_TAGLINE}</p>
-    </div>
+      {checkoutBusy ? (
+        <p className="mt-2 text-xs font-semibold text-amber-900/90 dark:text-amber-200/90">Weiter zu Stripe …</p>
+      ) : null}
+    </>
   )
+
+  if (clickable) {
+    return (
+      <button
+        type="button"
+        disabled={checkoutBusy}
+        onClick={onPress}
+        className={surfaceClass}
+        aria-label={`LifeXP Family PLUS — ${FAMILY_PLUS_PRICE_AMOUNT} pro Monat, zu Stripe`}
+      >
+        {content}
+      </button>
+    )
+  }
+
+  return <div className={surfaceClass}>{content}</div>
 }

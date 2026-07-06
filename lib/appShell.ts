@@ -1,5 +1,5 @@
 /** Gemeinsamer Seitenhintergrund (alle Haupt-Layouts). */
-export const MAIN_SHELL_CLASS = 'min-h-dvh text-slate-900 dark:text-slate-100'
+export const MAIN_SHELL_CLASS = 'min-h-dvh text-slate-800 dark:text-slate-100'
 
 /** Onboarding-Vollbild: kein deckendes bg-slate-50 — Seitenverlauf bleibt sichtbar. */
 export const ONBOARDING_BACKDROP_CLASS =
@@ -13,24 +13,24 @@ export const MAIN_PAGE_INSET_CLASS =
 export const HOME_PAGE_INSET_CLASS =
   'pt-[max(1rem,env(safe-area-inset-top))] pb-[max(8rem,calc(6rem+env(safe-area-inset-bottom)))]'
 
-/** Karten/Buttons im Tagesmodus: Graustufen statt Weiss-auf-Weiss. */
+/** Karten/Buttons im Tagesmodus: helle Graustufen statt Weiss-auf-Weiss. */
 export const CARD_SURFACE_CLASS =
-  'border-2 border-slate-400/85 bg-slate-100 shadow-[0_4px_16px_-4px_rgba(15,23,42,0.14)] ring-1 ring-slate-500/15 dark:border-slate-600 dark:bg-slate-900/90 dark:ring-slate-700/50'
+  'border-2 border-slate-300/90 bg-slate-50 shadow-[0_3px_12px_-4px_rgba(51,65,85,0.12)] ring-1 ring-slate-400/12 dark:border-slate-600 dark:bg-slate-900/90 dark:ring-slate-700/50'
 
-/** Sekundärtext auf Seitenverlauf — gut lesbar im Tagesmodus (nicht slate-500 auf slate-500-Verlauf). */
-export const MUTED_BODY_TEXT_CLASS = 'text-sm text-slate-950 dark:text-slate-400'
+/** Sekundärtext auf Seitenverlauf — gut lesbar im Tagesmodus. */
+export const MUTED_BODY_TEXT_CLASS = 'text-sm text-slate-700 dark:text-slate-400'
 
 /** Kleinere Hilfetexte (Listen, Metadaten, Leer-Zustände). */
-export const MUTED_CAPTION_TEXT_CLASS = 'text-xs text-slate-950 dark:text-slate-400'
+export const MUTED_CAPTION_TEXT_CLASS = 'text-xs text-slate-700 dark:text-slate-400'
 
-/** Metadaten / Labels auf Kartenflächen (bg-slate-100). */
-export const MUTED_ON_SURFACE_TEXT_CLASS = 'text-slate-950 dark:text-slate-400'
+/** Metadaten / Labels auf Kartenflächen. */
+export const MUTED_ON_SURFACE_TEXT_CLASS = 'text-slate-700 dark:text-slate-400'
 
 /** Formular-Labels und Zwischenüberschriften im Tagesmodus. */
-export const MUTED_LABEL_TEXT_CLASS = 'text-slate-950 dark:text-slate-200'
+export const MUTED_LABEL_TEXT_CLASS = 'text-slate-700 dark:text-slate-200'
 
 /** Dekorative Icons (Chevrons, Trenner) — lesbar, aber zurückhaltend. */
-export const MUTED_ICON_TEXT_CLASS = 'text-slate-950 dark:text-slate-500'
+export const MUTED_ICON_TEXT_CLASS = 'text-slate-600 dark:text-slate-500'
 
 /** Kartenfläche für 3D-Steintafel-Buttons. */
 export const CARD_BUTTON_SURFACE_CLASS =
@@ -45,6 +45,9 @@ export const CHOICE_SURFACE_CLASS =
  * Alternativ: `rounded-*` + `border-2` auf dem Link.
  */
 export const PRESSABLE_3D_CLASS = 'lifexp-pressable-3d'
+
+/** Leichtes 3D für Avatar-Kacheln und klickbare Member-Cards. */
+export const TILE_3D_CLASS = 'lifexp-tile-3d'
 
 /** Zurück-Link zur Familien-Startseite. */
 export const HOME_BACK_LABEL = 'Übersicht'

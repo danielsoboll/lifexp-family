@@ -5,6 +5,7 @@ import Link from 'next/link'
 import PageHeaderBar from '../../components/PageHeaderBar'
 import QuestList from '../../components/QuestList'
 import RecurringQuestsEntryAction from '../../components/RecurringQuestsEntryAction'
+import FamilyPersonalGoalsPanel from '../../components/FamilyPersonalGoalsPanel'
 import { useFamily } from '../../components/FamilyProvider'
 import { usePlusDiscoverHeader } from '../../hooks/usePlusDiscoverHeader'
 import { MAIN_PAGE_INSET_CLASS, MAIN_SHELL_CLASS, HOME_BACK_LABEL, PRESSABLE_3D_CLASS } from '../../lib/appShell'
@@ -22,8 +23,8 @@ export default function QuestsPage() {
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Family-Quests</h1>
             <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
-            Von der Familie eingetragen — heute und morgen. Wiederkehrende Vorlagen verwaltest du separat.
-          </p>
+              Von der Familie eingetragen — heute und morgen.
+            </p>
           </div>
           <Link
             href="/quests/new"
@@ -38,6 +39,7 @@ export default function QuestsPage() {
             Eintragen
           </Link>
         </div>
+        {family ? <FamilyPersonalGoalsPanel compact /> : null}
         <RecurringQuestsEntryAction show={showHeader} plusActive={plusActive} />
       </div>
       {family ? <QuestList /> : null}

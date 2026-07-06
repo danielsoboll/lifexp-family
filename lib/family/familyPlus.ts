@@ -33,7 +33,9 @@ export function isFamilyPlus(
 
   if (isPlusPaidThrough(family.plus_until)) return true
 
-  return family.plan === 'plus' && (!status || ACTIVE_PLUS_STATUSES.has(status))
+  if (family.plan !== 'plus') return false
+  if (!status) return false
+  return ACTIVE_PLUS_STATUSES.has(status)
 }
 
 function formatPlusUntilDe(plusUntil: string): string {

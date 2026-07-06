@@ -42,6 +42,19 @@ export const IMPRESSUM_SECTIONS: LegalSection[] = [
     paragraphs: ['313/5802/1643'],
   },
   {
+    title: 'Angebot',
+    paragraphs: [
+      'LifeXP Family ist eine webbasierte Familien-App (Progressive Web App) zum gemeinsamen Planen und Abhaken von Quests, Sammeln von XP, Belohnungen und optionalen Zusatzfunktionen im kostenpflichtigen Tarif „LifeXP Family PLUS“.',
+      'Vertragsbedingungen für die Nutzung und das PLUS-Abo finden Sie in unseren AGB. Hinweise zur Datenverarbeitung und zur Haftung sind unter Datenschutz bzw. Haftung abrufbar.',
+    ],
+  },
+  {
+    title: 'Zahlungsabwicklung (PLUS)',
+    paragraphs: [
+      'Die Bezahlung des PLUS-Abos erfolgt über den Zahlungsdienstleister Stripe (Stripe Payments Europe, Ltd.). Vertragspartner für die App-Leistung bleibt die SLC IT-Consulting GmbH; Zahlungsdaten werden im Rahmen des Checkouts von Stripe verarbeitet (siehe Datenschutzerklärung).',
+    ],
+  },
+  {
     title: 'Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV',
     paragraphs: [
       'Dipl.-Ing. (FH) Daniel Soboll',
@@ -52,7 +65,7 @@ export const IMPRESSUM_SECTIONS: LegalSection[] = [
   {
     title: 'EU-Streitschlichtung',
     paragraphs: [
-      'Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit: https://ec.europa.eu/consumers/odr/',
+      'Die Europäische Kommission stellt eine Plattform zur Online-Streitschbeilegung (OS) bereit: https://ec.europa.eu/consumers/odr/',
       'Unsere E-Mail-Adresse finden Sie oben im Impressum.',
     ],
   },
@@ -74,94 +87,109 @@ export const DATENSCHUTZ_SECTIONS: LegalSection[] = [
   {
     title: '1. Verantwortlicher',
     paragraphs: [
-      'Verantwortlich für die Datenverarbeitung im Sinne der Datenschutz-Grundverordnung (DSGVO) ist der in unserem Impressum genannte Anbieter von LifeXP.',
+      'Verantwortlich für die Datenverarbeitung im Sinne der Datenschutz-Grundverordnung (DSGVO) ist der in unserem Impressum genannte Anbieter von LifeXP Family.',
       'Bei Fragen zum Datenschutz können Sie uns über die dort angegebene Kontaktadresse erreichen.',
     ],
   },
   {
     title: '2. Überblick',
     paragraphs: [
-      'LifeXP ist eine persönliche Fortschritts- und Gewohnheits-App. Sie können Tageseinträge zu Bewegung, Ernährung, Wissen, Stimmung und weiteren Bereichen erfassen. Dabei entstehen personenbezogene Daten, die wir nur zum Betrieb und zur Verbesserung der App verarbeiten.',
-      'LifeXP verwendet derzeit keine Benutzerkonten. Persönliche Eingaben werden überwiegend lokal im Browser bzw. in der installierten Web-App auf Ihrem Gerät gespeichert. Bei Löschung der lokalen Browserdaten können diese Daten verloren gehen.',
+      'LifeXP Family ist eine Familien-App für Quests, XP, Belohnungen und gemeinsame Motivation. Familien legen Profile für Eltern und Kinder an, verwalten Aufgaben und — optional — nutzen kostenpflichtige PLUS-Funktionen.',
+      'Personenbezogene Daten werden auf Ihrem Gerät (localStorage, Cookies) und serverseitig in einer Datenbank bei Supabase gespeichert. Zahlungsdaten für PLUS werden über Stripe verarbeitet.',
       'Diese Datenschutzerklärung erläutert, welche Daten verarbeitet werden, zu welchem Zweck, auf welcher Rechtsgrundlage und welche Rechte Sie haben.',
     ],
   },
   {
     title: '3. Welche Daten wir verarbeiten',
-    paragraphs: ['Je nach Nutzung der App können insbesondere folgende Daten anfallen:'],
+    paragraphs: ['Je nach Nutzung können insbesondere folgende Daten anfallen:'],
     listItems: [
-      'Profildaten (z. B. Benutzername, gewähltes Ziel, Avatar-Einstellungen, Startdatum)',
-      'Tages- und Fortschrittsdaten (XP, Level, Streaks, Einträge in den Bereichen Bewegung, Ernährung, Wissen, Mein Tag, Plus)',
-      'Ernährungs- und Bewegungsangaben, die Sie aktiv eintragen',
-      'Antworten auf Wissensfragen und Notizen in optionalen Bereichen',
-      'Technische Nutzungsdaten (z. B. Zeitpunkt von Sync-Vorgängen, Fehlermeldungen bei der Kommunikation mit dem Backend)',
-      'Geräte- und Browserinformationen, soweit für den Betrieb der Web-App erforderlich',
+      'Familiendaten (Familienname, Einladungscode, Zeitzone, Tarif/Plan, Abo-Status)',
+      'Elternprofile (Anzeigename, gewählter Avatar, Rolle in der Familie, ggf. Verknüpfung zu einem Auth-Konto für Abo-Verwaltung)',
+      'Kinderprofile (Anzeigename, Geburtsjahr oder Alter, Avatar, XP/Level, Notizen, Sortierung)',
+      'Quests und Fortschritt (Titel, Beschreibung, XP, Kategorien, Wiederholungen, Erledigungsstände, Verlauf)',
+      'Belohnungen, Einlösungen, Herausforderungen und persönliche bzw. Familienziele',
+      'Bei PLUS: wiederkehrende Quests, Foto-Nachweise und Avatar-Antworten, soweit Sie diese Funktionen nutzen',
+      'Sitzungsdaten (Familien-ID, Mitgliedstyp Eltern/Kind, Mitglieds-ID) in Cookie und localStorage',
+      'Wiederherstellungscode beim Anlegen oder Beitritt einer Familie (zur Wiederherstellung des Zugangs auf neuen Geräten)',
+      'Bei PLUS-Abschluss: Stripe-Kunden- und Abo-Kennungen, Zahlungsstatus (keine vollständigen Kartendaten bei uns)',
+      'Technische Zugriffsdaten (z. B. IP-Adresse, Zeitstempel, Request-Metadaten) beim Hosting',
     ],
   },
   {
     title: '4. Zweck der Verarbeitung',
-    paragraphs: ['Wir verarbeiten Ihre Daten, um'],
+    paragraphs: ['Wir verarbeiten Daten, um'],
     listItems: [
-      'Ihnen die App-Funktionen bereitzustellen und Ihren Fortschritt darzustellen',
-      'Einträge geräteübergreifend zu synchronisieren, sofern Sie ein Profil nutzen',
-      'Einstellungen, Streaks, XP und personalisierte Hinweise korrekt zu berechnen',
-      'Die Stabilität, Sicherheit und Weiterentwicklung der App sicherzustellen',
-      'Gesetzliche Pflichten zu erfüllen',
+      'LifeXP Family bereitzustellen und Familienmitgliedern den jeweiligen Zugang zu ermöglichen',
+      'Quests, XP, Belohnungen, Verlauf und Familienfunktionen zu synchronisieren',
+      'Einladungen, Gerätewechsel und Wiederherstellung des Familienzugangs zu unterstützen',
+      'das PLUS-Abo zu verwalten, zu verlängern und den Leistungsumfang freizuschalten',
+      'Stabilität, Sicherheit und Weiterentwicklung der App sicherzustellen',
+      'gesetzliche Pflichten zu erfüllen (z. B. steuerliche Aufbewahrung bei Zahlungen)',
     ],
   },
   {
     title: '5. Rechtsgrundlagen',
     paragraphs: ['Die Verarbeitung erfolgt je nach Kontext auf folgenden Rechtsgrundlagen der DSGVO:'],
     listItems: [
-      'Art. 6 Abs. 1 lit. b DSGVO — Vertragserfüllung bzw. vorvertragliche Maßnahmen (Bereitstellung der App)',
-      'Art. 6 Abs. 1 lit. a DSGVO — Einwilligung, soweit Sie optional zustimmen (z. B. Installation als PWA)',
-      'Art. 6 Abs. 1 lit. f DSGVO — berechtigtes Interesse an einem sicheren, funktionsfähigen Betrieb',
+      'Art. 6 Abs. 1 lit. b DSGVO — Vertragserfüllung bzw. vorvertragliche Maßnahmen (Nutzung der App, PLUS-Abo)',
+      'Art. 6 Abs. 1 lit. a DSGVO — Einwilligung, soweit Sie optional zustimmen (z. B. PWA-Installation, sofern erforderlich)',
+      'Art. 6 Abs. 1 lit. f DSGVO — berechtigtes Interesse an sicherem Betrieb, Missbrauchsprävention und technischer Administration',
+      'Art. 6 Abs. 1 lit. c DSGVO — rechtliche Verpflichtungen (z. B. Aufbewahrung von Rechnungsdaten)',
     ],
   },
   {
-    title: '6. Lokale Speicherung im Endgerät (TDDDG, localStorage, Cookies)',
+    title: '6. Speicherung auf Ihrem Gerät (TDDDG, localStorage, Cookies)',
     paragraphs: [
-      'LifeXP speichert Teile Ihrer Einstellungen und Sitzungsinformationen lokal auf Ihrem Gerät, damit Sie beim erneuten Öffnen der App weiterarbeiten können. Dazu können u. a. Benutzername, Theme-Einstellung, Onboarding-Status, Wochenplan-Anker und zwischengespeicherte Profilpräferenzen gehören.',
-      'Technisch notwendige Cookies bzw. vergleichbare Speichermechanismen dienen der Wiedererkennung Ihrer Sitzung und der zuverlässigen Nutzung als installierte Web-App (PWA). Diese Speicherung ist für den Betrieb erforderlich und erfolgt, soweit einschlägig, auf Grundlage von § 25 Abs. 2 Nr. 2 TDDDG (Telekommunikation-Digitale-Dienste-Datenschutz-Gesetz), weil sie technisch unbedingt erforderlich ist.',
-      'Sie können lokale Daten jederzeit über die Browser-Einstellungen löschen. Beachten Sie, dass dabei auch Fortschritt und Einstellungen auf dem Gerät verloren gehen können, sofern sie nicht zusätzlich serverseitig gesichert sind.',
+      'Damit Sie nach dem Schließen des Browsers oder nach PWA-Start wieder in Ihrer Familie eingeloggt sind, speichern wir Sitzungsinformationen lokal (localStorage) und in einem technisch notwendigen Cookie (lifexp_fs). Dazu gehören Familien-ID, Mitgliedstyp und Mitglieds-ID. Theme-Einstellungen und Onboarding-Entwürfe können ebenfalls lokal zwischengespeichert werden.',
+      'Diese Speicherung ist für den Betrieb erforderlich und erfolgt auf Grundlage von § 25 Abs. 2 Nr. 2 TDDDG (Telekommunikation-Digitale-Dienste-Datenschutz-Gesetz), weil sie technisch unbedingt erforderlich ist.',
+      'Sie können lokale Daten über die Browser-Einstellungen löschen. Dadurch kann der Familienzugang auf dem Gerät verloren gehen, bis Sie sich erneut anmelden oder — falls vorgesehen — Ihren Wiederherstellungscode nutzen.',
     ],
   },
   {
     title: '7. Server, Hosting und Supabase',
     paragraphs: [
-      'Profil- und Tagesdaten werden in einer Datenbank bei Supabase gespeichert und über verschlüsselte Verbindungen (HTTPS/TLS) übertragen. Supabase kann als Auftragsverarbeiter nach Art. 28 DSGVO eingesetzt werden.',
-      'Hosting- und Infrastruktur-Dienstleister verarbeiten technische Zugriffsdaten (z. B. IP-Adresse, Zeitstempel, Request-Metadaten), soweit dies für Auslieferung, Sicherheit und Fehleranalyse erforderlich ist.',
-      'Eine Übermittlung in Drittländer außerhalb der EU/des EWR erfolgt nur, wenn geeignete Garantien bestehen (z. B. Standardvertragsklauseln) oder eine andere gesetzliche Grundlage vorliegt.',
+      'Familien-, Quest- und Fortschrittsdaten werden in einer Datenbank bei Supabase gespeichert und über verschlüsselte Verbindungen (HTTPS/TLS) übertragen. Supabase wird als Auftragsverarbeiter nach Art. 28 DSGVO eingesetzt.',
+      'Hosting- und Infrastruktur-Dienstleister verarbeiten technische Zugriffsdaten, soweit dies für Auslieferung, Sicherheit und Fehleranalyse erforderlich ist.',
+      'Eine Übermittlung in Drittländer außerhalb der EU/des EWR erfolgt nur, wenn geeignete Garantien bestehen (z. B. Standardvertragsklauseln) oder eine andere gesetzliche Grundlage vorliegt. Details können sich je nach gewähltem Rechenzentrum und Subdienstleister unterscheiden; aktuelle Informationen stellen wir auf Anfrage bereit.',
     ],
   },
   {
-    title: '8. Progressive Web App (PWA)',
+    title: '8. Zahlungsabwicklung über Stripe (PLUS)',
     paragraphs: [
-      'Wenn Sie LifeXP zum Startbildschirm hinzufügen, wird die App lokal zwischengespeichert (Service Worker / App-Cache), damit sie schneller startet und offline Teile der Oberfläche laden kann. Dabei werden keine zusätzlichen personenbezogenen Profile an Dritte weitergegeben.',
+      'Für LifeXP Family PLUS nutzen wir Stripe als Zahlungsdienstleister. Beim Checkout werden Sie zu Stripe weitergeleitet. Dort geben Sie Zahlungsdaten (z. B. Karte) direkt bei Stripe ein.',
+      'Wir erhalten von Stripe u. a. Kundenkennung, Abo-Status, Vertragszeiträume und Zahlungsereignisse, um PLUS freizuschalten und zu verwalten. Vollständige Kartendaten speichern wir nicht.',
+      'Stripe kann Daten als eigenständiger Verantwortlicher oder Auftragsverarbeiter verarbeiten. Informationen finden Sie in der Datenschutzerklärung von Stripe: https://stripe.com/de/privacy',
+    ],
+  },
+  {
+    title: '9. Progressive Web App (PWA)',
+    paragraphs: [
+      'Wenn Sie LifeXP Family zum Startbildschirm hinzufügen, wird die App lokal zwischengespeichert (Service Worker / App-Cache), damit sie schneller startet und Teile der Oberfläche offline laden kann.',
       'Push-Benachrichtigungen oder Standortdaten werden derzeit nicht abgefragt, sofern in der App nicht ausdrücklich anders angegeben.',
     ],
   },
   {
-    title: '9. Weitergabe an Dritte',
+    title: '10. Weitergabe an Dritte',
     paragraphs: [
-      'Wir verkaufen Ihre Daten nicht. Eine Weitergabe erfolgt nur, wenn dies zur Vertragserfüllung notwendig ist (z. B. an Hosting-/Datenbank-Dienstleister), wir gesetzlich dazu verpflichtet sind oder Sie eingewilligt haben.',
+      'Wir verkaufen Ihre Daten nicht. Eine Weitergabe erfolgt nur, wenn dies zur Vertragserfüllung notwendig ist (z. B. an Supabase, Hosting-Anbieter, Stripe), wir gesetzlich dazu verpflichtet sind oder Sie eingewilligt haben.',
+      'Innerhalb einer Familie sind Quest-Inhalte, XP und — bei PLUS — geteilte Fotos oder Antworten für berechtigte Familienmitglieder sichtbar, die Sie bzw. andere Admins angelegt haben.',
       'Empfänger sind vertraglich verpflichtet, Daten nur nach Weisung und unter Einhaltung des Datenschutzes zu verarbeiten.',
     ],
   },
   {
-    title: '10. Speicherdauer',
+    title: '11. Speicherdauer',
     paragraphs: [
       'Wir speichern personenbezogene Daten nur so lange, wie es für die genannten Zwecke erforderlich ist oder gesetzliche Aufbewahrungsfristen bestehen.',
-      'Profil- und Tagesdaten bleiben grundsätzlich bestehen, solange Sie die App nutzen. Nach Löschung Ihres Profils bzw. auf entsprechenden Löschantrag werden Daten gelöscht oder anonymisiert, sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen.',
-      'Über die Funktion „Profil löschen“ können alle gespeicherten Nutzerdaten dauerhaft entfernt werden.',
+      'Familiendaten bleiben grundsätzlich bestehen, solange die Familie die App nutzt. Nach Löschung der Familie bzw. auf berechtigten Löschantrag werden Daten gelöscht oder anonymisiert, sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen.',
+      'Abo- und Zahlungsbezogene Daten können wir für die Dauer gesetzlicher Aufbewahrungsfristen (z. B. steuer- und handelsrechtlich) vorhalten.',
       'Technische Protokolldaten werden in der Regel nur kurzzeitig vorgehalten.',
     ],
   },
   {
-    title: '11. Ihre Rechte',
+    title: '12. Ihre Rechte',
     paragraphs: [
       'Sie haben gegenüber dem Verantwortlichen u. a. folgende Rechte:',
-      'Zur Ausübung des Löschungsrechts können Sie die Funktion „Profil löschen“ in der App nutzen oder uns unter der im Impressum genannten E-Mail-Adresse kontaktieren.',
+      'Zur Ausübung Ihrer Rechte kontaktieren Sie uns unter der im Impressum genannten E-Mail-Adresse. Bitte geben Sie an, welche Familie und welches Profil betroffen ist.',
     ],
     listItems: [
       'Auskunft über die verarbeiteten Daten (Art. 15 DSGVO)',
@@ -174,29 +202,32 @@ export const DATENSCHUTZ_SECTIONS: LegalSection[] = [
     ],
   },
   {
-    title: '12. Beschwerderecht',
+    title: '13. Beschwerderecht',
     paragraphs: [
       'Sie haben das Recht, sich bei einer Datenschutz-Aufsichtsbehörde zu beschweren, insbesondere in dem Mitgliedstaat Ihres gewöhnlichen Aufenthalts, Ihres Arbeitsplatzes oder des Ortes des mutmaßlichen Verstoßes.',
+      'Zuständige Aufsichtsbehörde in Nordrhein-Westfalen: Landesbeauftragte für Datenschutz und Informationsfreiheit NRW, https://www.ldi.nrw.de',
     ],
   },
   {
-    title: '13. Datensicherheit',
+    title: '14. Datensicherheit',
     paragraphs: [
       'Wir treffen angemessene technische und organisatorische Maßnahmen, um Ihre Daten vor Verlust, Missbrauch und unbefugtem Zugriff zu schützen. Absolute Sicherheit kann bei internetbasierten Diensten nicht garantiert werden.',
-      'Bitte schützen Sie Ihr Gerät und Ihren Browserzugang, insbesondere wenn Sie LifeXP auf einem gemeinsam genutzten Gerät nutzen.',
+      'Bewahren Sie Wiederherstellungscodes sicher auf und schützen Sie Geräte, auf denen Familienmitglieder angemeldet sind — insbesondere bei gemeinsam genutzten Tablets oder Smartphones.',
     ],
   },
   {
-    title: '14. Minderjährige',
+    title: '15. Kinder und Eltern',
     paragraphs: [
-      'LifeXP richtet sich nicht an Kinder unter 16 Jahren. Wenn Sie Kenntnis davon erlangen, dass Daten Minderjähriger ohne Zustimmung der Erziehungsberechtigten verarbeitet wurden, kontaktieren Sie uns — wir werden die Daten löschen, soweit gesetzlich zulässig.',
+      'LifeXP Family richtet sich an Familien; Kinder nutzen die App in der Regel über ein von Eltern eingerichtetes Profil. Vertragspartner und verantwortliche Ansprechperson für datenschutzrechtliche Fragen ist die handelnde erwachsene Person (in der Regel ein Elternteil bzw. Familien-Admin).',
+      'Eltern sind dafür verantwortlich, dass die Nutzung durch Kinder altersgerecht erfolgt und dass eingestellte Inhalte (z. B. Fotos, Quest-Texte) rechtlich zulässig sind.',
+      'Wenn Sie Kenntnis davon erlangen, dass Daten ohne erforderliche Zustimmung der Erziehungsberechtigten verarbeitet wurden, kontaktieren Sie uns — wir werden die Daten löschen, soweit gesetzlich zulässig.',
     ],
   },
   {
-    title: '15. Änderungen dieser Datenschutzerklärung',
+    title: '16. Änderungen dieser Datenschutzerklärung',
     paragraphs: [
       'Wir passen diese Erklärung an, wenn sich die App, eingesetzte Dienste oder rechtliche Anforderungen ändern. Die jeweils aktuelle Fassung ist unter /datenschutz abrufbar.',
-      'Stand: Juni 2026',
+      'Stand: Juli 2026',
     ],
   },
 ]
@@ -206,28 +237,43 @@ export const HAFTUNG_SECTIONS: LegalSection[] = [
     title: 'Haftung für Inhalte',
     paragraphs: [
       'Als Diensteanbieter sind wir gemäß § 7 Abs. 1 des Digitale-Dienste-Gesetzes (DDG) für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Die Haftung für fremde bzw. von Nutzern bereitgestellte Informationen richtet sich nach § 7 DDG in Verbindung mit den Artikeln 4 bis 8 der Verordnung (EU) 2022/2065 über digitale Dienste (Digital Services Act, DSA). Wir sind insbesondere nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen.',
-      'Verpflichtungen zur Entfernung oder Sperrung der Nutzung von Informationen nach den allgemeinen Gesetzen bleiben hiervon unberührt. Eine diesbezügliche Haftung ist jedoch erst ab dem Zeitpunkt der Kenntnis einer konkreten Rechtsverletzung möglich. Bei Bekanntwerden entsprechender Rechtsverletzungen werden wir diese Inhalte umgehend entfernen.',
+      'Quest-Texte, Fotos, Belohnungsbeschreibungen und sonstige Einträge stellen Inhalte der jeweiligen Familie bzw. Nutzer dar. Verpflichtungen zur Entfernung oder Sperrung nach den allgemeinen Gesetzen bleiben unberührt. Eine Haftung ist erst ab Kenntnis einer konkreten Rechtsverletzung möglich; bei Bekanntwerden werden wir Inhalte umgehend prüfen und ggf. entfernen.',
     ],
   },
   {
     title: 'Haftung für Links',
     paragraphs: [
-      'Unser Angebot kann Links zu externen Websites Dritter enthalten, auf deren Inhalte wir keinen Einfluss haben. Deshalb können wir für diese fremden Inhalte auch keine Gewähr übernehmen. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber verantwortlich.',
-      'Die verlinkten Seiten wurden zum Zeitpunkt der Verlinkung auf mögliche Rechtsverstöße überprüft. Eine permanente inhaltliche Kontrolle der verlinkten Seiten ist jedoch ohne konkrete Anhaltspunkte einer Rechtsverletzung nicht zumutbar. Bei Bekanntwerden von Rechtsverletzungen werden wir derartige Links umgehend entfernen.',
+      'Unser Angebot kann Links zu externen Websites Dritter enthalten (z. B. Stripe-Checkout, Stripe-Kundenportal), auf deren Inhalte wir keinen Einfluss haben. Für diese fremden Inhalte übernehmen wir keine Gewähr. Verantwortlich ist der jeweilige Anbieter oder Betreiber.',
+      'Die verlinkten Seiten wurden zum Zeitpunkt der Verlinkung auf mögliche Rechtsverstöße überprüft. Eine permanente inhaltliche Kontrolle ist ohne konkrete Anhaltspunkte nicht zumutbar. Bei Bekanntwerden von Rechtsverletzungen entfernen wir derartige Links umgehend.',
     ],
   },
   {
-    title: 'Keine medizinische oder therapeutische Beratung',
+    title: 'Keine Erziehungs-, medizinische oder therapeutische Beratung',
     paragraphs: [
-      'LifeXP dient der persönlichen Dokumentation von Gewohnheiten, Fortschritt und Alltagseindrücken. Die App ersetzt keine medizinische, ernährungswissenschaftliche oder psychologische Beratung, Diagnose oder Behandlung.',
-      'Entscheidungen zu Gesundheit, Training, Ernährung oder Medikamenten sollten Sie in Abstimmung mit qualifizierten Fachpersonen treffen. Für Schäden, die aus der alleinigen Nutzung der App ohne fachliche Beratung entstehen, übernehmen wir keine Haftung, soweit gesetzlich zulässig.',
+      'LifeXP Family dient der spielerischen Organisation von Aufgaben, Motivation und Familienabläufen. Die App ersetzt keine Erziehungsberatung, medizinische, ernährungswissenschaftliche oder psychologische Beratung, Diagnose oder Behandlung.',
+      'Entscheidungen zu Gesundheit, Erziehung, Medienkonsum oder Alltagsstruktur treffen Eltern und Erziehungsberechtigte eigenverantwortlich. Für Schäden, die aus der alleinigen Nutzung der App ohne fachliche Beratung entstehen, übernehmen wir keine Haftung, soweit gesetzlich zulässig.',
     ],
   },
   {
-    title: 'Verfügbarkeit und Gewährleistung der App',
+    title: 'Verfügbarkeit, kostenlose und kostenpflichtige Funktionen',
     paragraphs: [
-      'Wir bemühen uns um einen störungsfreien Betrieb von LifeXP. Wartung, Updates, Netzwerkprobleme oder höhere Gewalt können jedoch zu vorübergehenden Einschränkungen führen.',
-      'Für den Verlust von lokal gespeicherten Daten infolge von Browser-Löschungen, Gerätewechsel oder technischen Störungen wird — soweit gesetzlich zulässig — keine Haftung übernommen, sofern kein vorsätzliches oder grob fahrlässiges Verschulden vorliegt.',
+      'Wir bemühen uns um einen störungsfreien Betrieb von LifeXP Family. Wartung, Updates, Netzwerkprobleme, Störungen bei Drittanbietern (z. B. Supabase, Stripe) oder höhere Gewalt können jedoch zu vorübergehenden Einschränkungen führen.',
+      'Der kostenlose Funktionsumfang kann sich weiterentwickeln. PLUS-Funktionen werden schrittweise ausgebaut; ein Anspruch auf bestimmte noch angekündigte Features besteht nur im Rahmen der AGB und des jeweils gebuchten Leistungsumstands.',
+      'Bei Ausfall oder eingeschränkter Verfügbarkeit besteht — außerhalb der gesetzlichen Gewährleistungsrechte — kein Anspruch auf Schadensersatz, soweit gesetzlich zulässig.',
+    ],
+  },
+  {
+    title: 'Datenverlust und Gerätewechsel',
+    paragraphs: [
+      'Für den Verlust von lokal gespeicherten Sitzungs- oder Einstellungsdaten infolge von Browser-Löschungen, Gerätewechsel oder technischen Störungen auf dem Endgerät wird — soweit gesetzlich zulässig — keine Haftung übernommen, sofern kein vorsätzliches oder grob fahrlässiges Versulden vorliegt.',
+      'Nutzen Sie den vorgesehenen Wiederherstellungscode und sichern Sie den Familienzugang, bevor Sie Gerätedaten löschen.',
+    ],
+  },
+  {
+    title: 'Haftungsbeschränkung',
+    paragraphs: [
+      'Wir haften unbeschränkt bei Vorsatz und grober Fahrlässigkeit sowie bei Schäden aus der Verletzung des Lebens, des Körpers oder der Gesundheit. Bei leicht fahrlässiger Verletzung wesentlicher Vertragspflichten (Kardinalpflichten) ist die Haftung auf den vertragstypischen, vorhersehbaren Schaden begrenzt. Im Übrigen ist die Haftung — soweit gesetzlich zulässig — ausgeschlossen.',
+      'Dies gilt entsprechend für Erfüllungsgehilfen und gesetzliche Vertreter.',
     ],
   },
   {
@@ -238,6 +284,129 @@ export const HAFTUNG_SECTIONS: LegalSection[] = [
   },
   {
     title: 'Stand',
-    paragraphs: ['Stand: Juni 2026'],
+    paragraphs: ['Stand: Juli 2026'],
+  },
+]
+
+export const AGB_SECTIONS: LegalSection[] = [
+  {
+    title: '1. Geltungsbereich und Anbieter',
+    paragraphs: [
+      'Diese Allgemeinen Geschäftsbedingungen (AGB) regeln die Nutzung der webbasierten Anwendung „LifeXP Family“ (nachfolgend „App“) der SLC IT-Consulting GmbH, Wenkenstr. 67, 32105 Bad Salzuflen (nachfolgend „Anbieter“, „wir“).',
+      'Abweichende Bedingungen des Nutzers gelten nicht, es sei denn, wir stimmen ihrer Geltung ausdrücklich schriftlich zu.',
+      'Die App richtet sich an Verbraucher im Sinne des § 13 BGB und kann auch von nicht-verbraucherischen Nutzern verwendet werden. Bei Widersprüchen zugunsten des Verbrauchers gehen zwingende Verbraucherschutzvorschriften vor.',
+    ],
+  },
+  {
+    title: '2. Leistungsgegenstand',
+    paragraphs: [
+      'LifeXP Family ermöglicht Familien, Profile für Eltern und Kinder anzulegen, Quests zu planen, XP und Belohnungen zu verwalten sowie den Fortschritt gemeinsam einzusehen.',
+      'Der kostenlose Tarif umfasst den jeweils freigeschalteten Basisfunktionsumfang. Der kostenpflichtige Tarif „LifeXP Family PLUS“ erweitert den Umfang um zusätzliche Funktionen (z. B. wiederkehrende Quests, Foto-Nachweise, erweiterte Automatisierungen). Der konkrete PLUS-Umfang ergibt sich aus der App-Beschreibung zum Zeitpunkt der Buchung; einzelne Funktionen können schrittweise freigeschaltet werden.',
+      'Es besteht kein Anspruch auf ununterbrochene Verfügbarkeit. Wartung, Updates und Weiterentwicklung können die Nutzung vorübergehend einschränken.',
+    ],
+  },
+  {
+    title: '3. Registrierung, Familienzugang und Nutzerrollen',
+    paragraphs: [
+      'Zur Nutzung legt eine erwachsene Person eine Familie an oder tritt per Einladung bei. Familien-Admins verwalten Mitglieder, Einstellungen und — sofern zutreffend — das PLUS-Abo.',
+      'Der Zugang erfolgt über gerätespezifische Sitzungsdaten und ggf. einen Wiederherstellungscode. Admins sind verpflichtet, Wiederherstellungscodes sicher aufzubewahren und nur vertrauenswürdigen Familienmitgliedern Zugang zu geben.',
+      'Kinderprofile richten sich an Minderjährige, werden aber durch Erziehungsberechtigte eingerichtet und verantwortet. Eltern stellen sicher, dass Kinder die App altersgerecht nutzen.',
+    ],
+  },
+  {
+    title: '4. Vertragsschluss für PLUS',
+    paragraphs: [
+      'Die Darstellung von PLUS in der App stellt kein bindendes Angebot dar, sondern eine Einladung zur Abgabe einer Bestellung.',
+      'Mit Klick auf den Checkout-Button und Abschluss des Zahlungsvorgangs bei Stripe geben Sie als Familien-Admin ein verbindliches Angebot zum Abschluss eines monatlichen PLUS-Abonnements ab. Der Vertrag kommt zustande, wenn wir die Bestellung annehmen — in der Regel durch Freischaltung von PLUS nach erfolgreicher Zahlung.',
+      'Vertragssprache ist Deutsch. Der Vertragstext (AGB, Bestellübersicht) kann in der App abgespeichert bzw. ausgedruckt werden.',
+    ],
+  },
+  {
+    title: '5. Preise und Zahlung',
+    paragraphs: [
+      'Der Preis für LifeXP Family PLUS beträgt derzeit 4,99 € pro Monat für die gesamte Familie. Alle Preise verstehen sich in Euro und enthalten die gesetzliche Umsatzsteuer, sofern anwendbar.',
+      'Die Zahlung erfolgt monatlich im Voraus über Stripe (Kreditkarte, Debitkarte oder andere von Stripe angebotene Zahlungsarten). Ein PLUS-Abo gilt pro Familie; alle Familienmitglieder nutzen PLUS ohne Mehrpreis.',
+      'Bei Zahlungsverzug oder fehlgeschlagenen Abbuchungen können wir PLUS vorübergehend sperren, bis der ausstehende Betrag beglichen ist.',
+    ],
+  },
+  {
+    title: '6. Laufzeit, Verlängerung und Kündigung',
+    paragraphs: [
+      'PLUS wird als monatliches Abonnement mit automatischer Verlängerung um jeweils einen Monat abgeschlossen, sofern nicht gekündigt wird.',
+      'Sie können das Abo jederzeit zum Ende des laufenden Abrechnungszeitraums kündigen — über das Stripe-Kundenportal („Abo verwalten“ in den Einstellungen) oder per E-Mail an die im Impressum genannte Adresse unter Angabe der Familie.',
+      'Nach Wirksamwerden der Kündigung endet PLUS mit Ablauf des bezahlten Zeitraums; es erfolgt keine anteilige Erstattung bereits gezahlter Monatsbeiträge, sofern nicht gesetzlich zwingend anders vorgeschrieben.',
+      'Das Recht zur außerordentlichen Kündigung aus wichtigem Grund bleibt unberührt.',
+    ],
+  },
+  {
+    title: '7. Widerrufsrecht für Verbraucher',
+    paragraphs: [
+      'Sofern Sie Verbraucher sind, steht Ihnen ein Widerrufsrecht zu.',
+    ],
+    listItems: [
+      'Widerrufsfrist: 14 Tage ab Vertragsschluss.',
+      'Um Ihr Widerrufsrecht auszuüben, teilen Sie uns (SLC IT-Consulting GmbH, Wenkenstr. 67, 32105 Bad Salzuflen, E-Mail: d.soboll@slc-it.de) mittels einer eindeutigen Erklärung (z. B. E-Mail) mit, dass Sie den Vertrag widerrufen möchten.',
+      'Zur Wahrung der Frist reicht die rechtzeitige Absendung der Erklärung.',
+    ],
+  },
+  {
+    title: '8. Vorzeitige Leistungserbringung und Erlöschen des Widerrufsrechts',
+    paragraphs: [
+      'PLUS ist ein digitaler Dienst, der nach Vertragsschluss sofort bereitgestellt wird. Wenn Sie als Verbraucher ausdrücklich verlangen, dass wir vor Ablauf der Widerrufsfrist mit der Leistung beginnen, und Sie Ihre Kenntnis davon bestätigen, dass Sie Ihr Widerrufsrecht bei vollständiger Vertragserfüllung verlieren, erlischt das Widerrufsrecht gemäß § 356 Abs. 5 BGB, sobald wir die Leistung vollständig erbracht haben.',
+      'Haben Sie verlangt, dass die Leistung vor Ablauf der Widerrufsfrist beginnt, und widerrufen Sie dennoch, schulden Sie uns eine angemessene Vergütung für die bis zum Widerruf erbrachte Leistung.',
+    ],
+  },
+  {
+    title: '9. Nutzungsrechte',
+    paragraphs: [
+      'Wir räumen Ihnen ein einfaches, nicht übertragbares, nicht unterlizenzierbares Recht ein, die App für private Familienzwecke im Rahmen dieser AGB zu nutzen.',
+      'Reverse Engineering, automatisiertes Auslesen, Weiterverkauf oder kommerzielle Nutzung ohne unsere Zustimmung sind untersagt.',
+    ],
+  },
+  {
+    title: '10. Pflichten der Nutzer',
+    paragraphs: ['Sie verpflichten sich insbesondere,'],
+    listItems: [
+      'keine rechtswidrigen, beleidigenden oder urheberrechtsverletzenden Inhalte (Texte, Fotos) hochzuladen oder zu verbreiten',
+      'Zugangsdaten und Wiederherstellungscodes vertraulich zu behandeln',
+      'keine Sicherheitsmechanismen zu umgehen und die App nicht missbräuchlich zu belasten',
+      'als Erziehungsberechtigte die Nutzung durch Kinder zu beaufsichtigen und altersgerecht zu gestalten',
+    ],
+  },
+  {
+    title: '11. Gewährleistung',
+    paragraphs: [
+      'Es gelten die gesetzlichen Gewährleistungsrechte. Bei digitalen Diensten schulden wir die Bereitstellung der vertraglich vereinbarten Funktionen; nicht jede angekündigte künftige Funktion muss bereits zum Buchungszeitpunkt vollständig implementiert sein, sofern der Kernleistungsumfang von PLUS erkennbar beschrieben ist.',
+      'Bei Mängeln kontaktieren Sie uns unter der Impressums-Adresse. Wir bemühen uns um zeitnahe Abhilfe.',
+    ],
+  },
+  {
+    title: '12. Haftung',
+    paragraphs: [
+      'Weitere Haftungsregelungen finden Sie auf der Seite Haftung. Im Verhältnis zu Verbrauchern gelten die zwingenden gesetzlichen Haftungsvorschriften.',
+      'Für leicht fahrlässige Pflichtverletzungen haften wir nur bei Verletzung wesentlicher Vertragspflichten und begrenzt auf den vorhersehbaren, typischen Schaden. Die Haftung für Schäden aus der Verletzung des Lebens, des Körpers oder der Gesundheit sowie nach dem Produkthaftungsgesetz bleibt unberührt.',
+    ],
+  },
+  {
+    title: '13. Datenschutz',
+    paragraphs: [
+      'Informationen zur Verarbeitung personenbezogener Daten finden Sie in unserer Datenschutzerklärung unter /datenschutz.',
+    ],
+  },
+  {
+    title: '14. Änderungen der AGB und des Leistungsumfangs',
+    paragraphs: [
+      'Wir können diese AGB mit Wirkung für die Zukunft anpassen, wenn hierfür sachliche Gründe bestehen (z. B. Gesetzesänderungen, neue Funktionen, Preisanpassungen). Über wesentliche Änderungen informieren wir in der App oder per E-Mail. Widersprechen Verbraucher nicht innerhalb von sechs Wochen nach Zugang der Mitteilung, gelten die geänderten AGB als angenommen; hierauf weisen wir in der Mitteilung gesondert hin.',
+      'Preiserhöhungen für laufende PLUS-Abos teilen wir rechtzeitig mit; Sie können in diesem Fall zum Zeitpunkt des Inkrafttretens kündigen.',
+    ],
+  },
+  {
+    title: '15. Schlussbestimmungen',
+    paragraphs: [
+      'Es gilt das Recht der Bundesrepublik Deutschland unter Ausschluss des UN-Kaufrechts. Gegenüber Verbrauchern mit gewöhnlichem Aufenthalt in der EU bleiben zwingende Verbraucherschutzvorschriften des Aufenthaltsstaats unberührt.',
+      'Ist der Nutzer Kaufmann, juristische Person des öffentlichen Rechts oder öffentlich-rechtliches Sondervermögen, ist ausschließlicher Gerichtsstand für alle Streitigkeiten Bad Salzuflen, sofern gesetzlich zulässig.',
+      'Sollten einzelne Bestimmungen unwirksam sein, bleibt die Wirksamkeit der übrigen Regelungen unberührt.',
+      'Stand: Juli 2026',
+    ],
   },
 ]

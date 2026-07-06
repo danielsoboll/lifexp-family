@@ -1,23 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-
+import FamilyPlusActiveWelcome from './FamilyPlusActiveWelcome'
 import FamilyPlusBillingControls from './FamilyPlusBillingControls'
 import FamilyPlusAboCallout from './FamilyPlusAboCallout'
 import FamilyPlusFeaturesList from './FamilyPlusFeaturesList'
 import FamilyPlusPriceDisplay from './FamilyPlusPriceDisplay'
 import SheetPortal from './SheetPortal'
+import { PlusCheckoutProvider } from '../hooks/usePlusCheckout'
 import { useFamily } from './FamilyProvider'
 import {
-  FAMILY_PLUS_ACTIVATED_BANNER,
   FAMILY_PLUS_SHEET,
 } from '../lib/family/familyPlusFeatures'
 import { isFamilyPlus } from '../lib/family/familyPlus'
-import {
-  hasSeenPlusActivatedNotice,
-  markPlusActivatedNoticeSeen,
-  PLUS_ACTIVATED_NOTICE_CHANGED_EVENT,
-} from '../lib/family/plusActivatedNotice'
 import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 type FamilyPlusFeaturesSheetProps = {
@@ -27,24 +21,6 @@ type FamilyPlusFeaturesSheetProps = {
 export default function FamilyPlusFeaturesSheet({ onClose }: FamilyPlusFeaturesSheetProps) {
   const { family } = useFamily()
   const plusActive = isFamilyPlus(family)
-  const [showActivatedBanner, setShowActivatedBanner] = useState(false)
-
-  useEffect(() => {
-    if (!family?.id || !plusActive) {
-      setShowActivatedBanner(false)
-      return
-    }
-    const refresh = () => setShowActivatedBanner(!hasSeenPlusActivatedNotice(family.id))
-    refresh()
-    window.addEventListener(PLUS_ACTIVATED_NOTICE_CHANGED_EVENT, refresh)
-    return () => window.removeEventListener(PLUS_ACTIVATED_NOTICE_CHANGED_EVENT, refresh)
-  }, [family?.id, plusActive])
-
-  const dismissActivatedBanner = () => {
-    if (!family?.id) return
-    markPlusActivatedNoticeSeen(family.id)
-    setShowActivatedBanner(false)
-  }
 
   return (
     <SheetPortal>
@@ -72,33 +48,28 @@ export default function FamilyPlusFeaturesSheet({ onClose }: FamilyPlusFeaturesS
             >
               {plusActive ? FAMILY_PLUS_SHEET.titleActive : FAMILY_PLUS_SHEET.titleFree}
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-slate-950 dark:text-slate-300">
-              {plusActive ? FAMILY_PLUS_SHEET.introActive : FAMILY_PLUS_SHEET.introFree}
-            </p>
-            {plusActive && showActivatedBanner ? (
-              <div className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-3 dark:border-emerald-800 dark:bg-emerald-950/40">
-                <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">{FAMILY_PLUS_ACTIVATED_BANNER}</p>
-                <button
-                  type="button"
-                  onClick={dismissActivatedBanner}
-                  className="mt-2 text-xs font-semibold text-emerald-800 underline underline-offset-2 dark:text-emerald-200"
-                >
-                  Verstanden
-                </button>
-              </div>
-            ) : null}
             {!plusActive ? (
-              <div className="mt-4 space-y-3">
-                <FamilyPlusPriceDisplay variant="hero" />
-                <FamilyPlusAboCallout showPrice={false} />
-              </div>
-            ) : null}
-
-            <FamilyPlusFeaturesList />
-
-            <div className="mt-5">
-              <FamilyPlusBillingControls compact showPriceBadge={false} />
-            </div>
+              <PlusCheckoutProvider>
+                <p className="mt-2 text-sm leading-relaxed text-slate-950 dark:text-slate-300">
+                  {FAMILY_PLUS_SHEET.introFree}
+                </p>
+                <div className="mt-4 space-y-3">
+                  <FamilyPlusPriceDisplay variant="hero" />
+                  <FamilyPlusAboCallout showPrice={false} />
+                </div>
+                <FamilyPlusFeaturesList />
+                <div className="mt-5">
+                  <FamilyPlusBillingControls compact showPriceBadge={false} showActiveWelcome={false} />
+                </div>
+              </PlusCheckoutProvider>
+            ) : (
+              <>
+                <FamilyPlusActiveWelcome className="mt-4" />
+                <div className="mt-5">
+                  <FamilyPlusBillingControls compact showPriceBadge={false} showActiveWelcome={false} />
+                </div>
+              </>
+            )}
           </div>
 
           <button

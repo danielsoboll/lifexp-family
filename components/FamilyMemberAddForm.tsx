@@ -10,11 +10,13 @@ import {
   MAX_CHILDREN_PER_FAMILY,
 } from '../lib/family/memberLimits'
 import {
+  coerceOnboardingPortrait,
   coercePortraitForCategory,
   memberAvatarCategoryForChild,
   memberAvatarCategoryForParent,
   portraitSrc,
   resolveChildAvatar,
+  resolveOnboardingAvatar,
   resolveParentAvatar,
   type AvatarPortraitId,
 } from '../lib/family/memberAvatar'
@@ -56,6 +58,9 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
     if (memberKind === 'adult') {
       return resolveParentAvatar(adultGender, portraitId ? portraitSrc(portraitId) : null)
     }
+    if (parsedAge === null) {
+      return resolveOnboardingAvatar(childGender, portraitId)
+    }
     return resolveChildAvatar(childGender, parsedAge, portraitId)
   }, [memberKind, adultGender, childGender, parsedAge, portraitId])
 
@@ -68,6 +73,10 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
     if (kind === 'adult') {
       const category = memberAvatarCategoryForParent(gender as ParentGender)
       setPortraitId(coercePortraitForCategory(category, current))
+      return
+    }
+    if (age === null) {
+      setPortraitId(coerceOnboardingPortrait(gender as ChildGender, current))
       return
     }
     const category = memberAvatarCategoryForChild(gender as ChildGender, age)
@@ -173,11 +182,7 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
   }
 
   const canSubmit =
-    !loading &&
-    displayName.trim().length > 0 &&
-    (memberKind === 'adult' || !childrenFull) &&
-    !(resolved.error && resolved.options.length === 0) &&
-    (memberKind === 'adult' || parsedAge !== null)
+    !loading && displayName.trim().length > 0 && (memberKind === 'adult' || !childrenFull)
 
   const submitLabel = memberKind === 'adult' ? 'Erwachsenen hinzufügen' : 'Kind hinzufügen'
 

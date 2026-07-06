@@ -6,6 +6,7 @@ import FamilyPlusAboCallout from './FamilyPlusAboCallout'
 import FamilyPlusBillingControls from './FamilyPlusBillingControls'
 import FamilyPlusFeaturesList from './FamilyPlusFeaturesList'
 import FamilyPlusPriceDisplay from './FamilyPlusPriceDisplay'
+import { PlusCheckoutProvider } from '../hooks/usePlusCheckout'
 import { useFamily } from './FamilyProvider'
 import { isFamilyPlus } from '../lib/family/familyPlus'
 import { FAMILY_PLUS_TAGLINE } from '../lib/family/familyPlusFeatures'
@@ -34,21 +35,23 @@ export default function FamilyPlusPaywall({
   }
 
   return (
-    <div className={`${CARD_SURFACE_CLASS} space-y-4 rounded-2xl p-4`}>
-      <div>
-        <p className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
-          LifeXP Family PLUS
-        </p>
-        <h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{featureTitle}</h2>
-        <p className="mt-2 text-sm text-slate-950 dark:text-slate-300">{FAMILY_PLUS_TAGLINE}</p>
-        {featureDescription ? (
-          <p className="mt-2 text-sm text-slate-950 dark:text-slate-300">{featureDescription}</p>
-        ) : null}
+    <PlusCheckoutProvider>
+      <div className={`${CARD_SURFACE_CLASS} space-y-4 rounded-2xl p-4`}>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+            LifeXP Family PLUS
+          </p>
+          <h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{featureTitle}</h2>
+          <p className="mt-2 text-sm text-slate-950 dark:text-slate-300">{FAMILY_PLUS_TAGLINE}</p>
+          {featureDescription ? (
+            <p className="mt-2 text-sm text-slate-950 dark:text-slate-300">{featureDescription}</p>
+          ) : null}
+        </div>
+        <FamilyPlusPriceDisplay variant="hero" />
+        <FamilyPlusAboCallout showPrice={false} />
+        <FamilyPlusFeaturesList className="mt-0" />
+        <FamilyPlusBillingControls family={family} showPriceBadge={false} />
       </div>
-      <FamilyPlusPriceDisplay variant="hero" />
-      <FamilyPlusAboCallout showPrice={false} />
-      <FamilyPlusFeaturesList className="mt-0" />
-      <FamilyPlusBillingControls family={family} showPriceBadge={false} />
-    </div>
+    </PlusCheckoutProvider>
   )
 }

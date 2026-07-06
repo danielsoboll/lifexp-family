@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import DangerConfirmAction from './DangerConfirmAction'
+import LifeXpConfirmSheet from './LifeXpConfirmSheet'
+import LifeXpNotice from './LifeXpNotice'
 import QuestAssigneePicker, {
   assigneesFromChoice,
   questAssigneeChoiceFromQuest,
@@ -11,12 +13,19 @@ import QuestAssigneePicker, {
 import QuestDayToggle from './QuestDayToggle'
 import QuestXpSlider from './QuestXpSlider'
 import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
-import { deleteQuestByCreator, updateQuestForAssignees } from '../lib/family/quests'
-import { canSessionModifyQuest, questIsOpenForEditing } from '../lib/family/questConfirmation'
+import { deleteQuest, updateQuestForAssignees } from '../lib/family/quests'
+import {
+  canSessionModifyQuest,
+  canSessionDeleteQuest,
+  questIsOpenForEditing,
+} from '../lib/family/questConfirmation'
 import type { QuestAssignee, QuestWithCompletion } from '../lib/family/types'
 import {
-  QUEST_XP_HIGH_CONFIRM_THRESHOLD,
+  QUEST_HIGH_XP_CONFIRM_BODY,
+  QUEST_HIGH_XP_CONFIRM_EYEBROW,
   questDayChoiceToDateKey,
+  questHighXpConfirmTitle,
+  questXpNeedsHighConfirm,
   taskDateToQuestDayChoice,
   type QuestDayChoice,
 } from '../lib/family/questRules'
@@ -31,7 +40,7 @@ type QuestEditSheetProps = {
 }
 
 export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetProps) {
-  const { family, parents, children, memberKind, parent, activeChild, session } = useFamily()
+  const { family, parents, children, memberKind, parent, activeChild, session, canAdmin } = useFamily()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [xpReward, setXpReward] = useState(3)
@@ -43,6 +52,7 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
   const [loading, setLoading] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [visible, setVisible] = useState(false)
+  const [highXpConfirmOpen, setHighXpConfirmOpen] = useState(false)
 
   const excludeMember = useMemo((): QuestAssignee | null => {
     if (memberKind === 'parent' && parent) return { type: 'parent', id: parent.id }
@@ -52,6 +62,9 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
 
   const isCreator = quest && session ? canSessionModifyQuest(quest, session) : false
   const editable = quest ? questIsOpenForEditing(quest) : false
+  const canEdit = Boolean(isCreator && editable && !quest?.recurring_template_id)
+  const canDelete = quest && session ? canSessionDeleteQuest(quest, session, canAdmin) : false
+  const isRecurringInstance = Boolean(quest?.recurring_template_id)
 
   useEffect(() => {
     if (!quest || !open) return
@@ -88,7 +101,7 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
   const maxSliderXp = remainingXp === null ? 10 : Math.min(10, Math.max(1, remainingXp))
 
   useEffect(() => {
-    if (!family || !quest || !open || !editable || budgetAssignees.length === 0) {
+    if (!family || !quest || !open || !canEdit || budgetAssignees.length === 0) {
       setRemainingXp(null)
       return
     }
@@ -118,19 +131,11 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
     return () => {
       cancelled = true
     }
-  }, [family, quest, open, editable, budgetAssignees, taskDate])
+  }, [family, quest, open, canEdit, budgetAssignees, taskDate])
 
   if (!open || !quest || !family) return null
 
-  const handleSave = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (!editable || selectedAssignees.length === 0) return
-
-    if (xpReward >= QUEST_XP_HIGH_CONFIRM_THRESHOLD && xpReward > quest.xp_reward) {
-      const ok = window.confirm('Ist dir das wirklich so wichtig?')
-      if (!ok) return
-    }
-
+  const saveQuest = async () => {
     setLoading(true)
     setError(null)
 
@@ -151,14 +156,27 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
     }
 
     notifyFamilyDataChanged()
+    setHighXpConfirmOpen(false)
     onClose()
   }
 
+  const handleSave = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!canEdit || selectedAssignees.length === 0) return
+
+    if (questXpNeedsHighConfirm(xpReward) && xpReward > quest.xp_reward) {
+      setHighXpConfirmOpen(true)
+      return
+    }
+
+    await saveQuest()
+  }
+
   const handleDelete = async (): Promise<boolean> => {
-    if (!editable) return false
+    if (!canDelete) return false
     setDeleteBusy(true)
     setDeleteError(null)
-    const { error: removeError } = await deleteQuestByCreator(quest.id, family.id)
+    const { error: removeError } = await deleteQuest(quest.id, family.id)
     setDeleteBusy(false)
     if (removeError) {
       setDeleteError(removeError.message)
@@ -169,11 +187,14 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
     return true
   }
 
+  const sheetTitle = canEdit ? 'Quest bearbeiten' : canDelete ? 'Quest-Eintrag entfernen' : 'Quest'
+
   return (
-    <div
-      className={`fixed inset-0 z-[115] flex items-end justify-center transition-opacity duration-300 sm:items-center ${
-        visible ? 'bg-slate-950/50 opacity-100' : 'pointer-events-none bg-slate-950/0 opacity-0'
-      }`}
+    <>
+      <div
+        className={`fixed inset-0 z-[115] flex items-end justify-center transition-opacity duration-300 sm:items-center ${
+          visible ? 'bg-slate-950/50 opacity-100' : 'pointer-events-none bg-slate-950/0 opacity-0'
+        }`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="quest-edit-sheet-title"
@@ -189,22 +210,30 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
           <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300/80 dark:bg-slate-600 sm:hidden" aria-hidden />
           <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-700">
             <h2 id="quest-edit-sheet-title" className="text-lg font-bold text-slate-900 dark:text-slate-100">
-              Quest bearbeiten
+              {sheetTitle}
             </h2>
-            {!isCreator ? (
+            {canEdit ? (
+              <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">Von dir eingetragen — anpassen oder entfernen.</p>
+            ) : canDelete && isRecurringInstance ? (
               <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
-                Nur der Ersteller kann diese Quest ändern.
+                Wiederkehrende Aufgabe — nur dieser Tages-Eintrag wird entfernt, die Vorlage bleibt bestehen.
               </p>
-            ) : !editable ? (
+            ) : canDelete ? (
               <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
-                Schon in Bearbeitung — Ändern oder Löschen nicht mehr möglich.
+                Als Admin kannst du diesen offenen Quest-Eintrag entfernen.
+              </p>
+            ) : quest.fulfillmentStatus === 'done' ? (
+              <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
+                Quest ist erledigt — zum Entfernen zuerst den Abschluss zurücksetzen.
               </p>
             ) : (
-              <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">Von dir eingetragen — anpassen oder entfernen.</p>
+              <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
+                Nur der Ersteller oder ein Admin kann diese Quest verwalten.
+              </p>
             )}
           </div>
 
-          {isCreator && editable ? (
+          {canEdit ? (
             <form autoComplete="off" onSubmit={(e) => void handleSave(e)} className={`${CARD_SURFACE_CLASS} mx-4 my-4 space-y-4 rounded-2xl p-4`}>
               <QuestAssigneePicker
                 parents={parents}
@@ -247,11 +276,7 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
                 maxAllowed={maxSliderXp}
                 disabled={budgetAssignees.length > 0 && remainingXp === 0}
               />
-              {error ? (
-                <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
-                  {error}
-                </p>
-              ) : null}
+              {error ? <LifeXpNotice tone="error">{error}</LifeXpNotice> : null}
               <button
                 type="submit"
                 disabled={loading || selectedAssignees.length === 0 || (budgetAssignees.length > 0 && remainingXp === 0)}
@@ -268,6 +293,25 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
                 error={deleteError}
               />
             </form>
+          ) : canDelete ? (
+            <div className={`${CARD_SURFACE_CLASS} mx-4 my-4 space-y-4 rounded-2xl p-4`}>
+              <p className="font-bold text-slate-900 dark:text-slate-100">{quest.title}</p>
+              {quest.description ? (
+                <p className="text-sm text-slate-950 dark:text-slate-400">{quest.description}</p>
+              ) : null}
+              <DangerConfirmAction
+                triggerLabel="Eintrag entfernen"
+                confirmTitle="Quest-Eintrag wirklich entfernen?"
+                confirmDescription={
+                  isRecurringInstance
+                    ? 'Dieser Tages-Eintrag verschwindet. Die wiederkehrende Vorlage und künftige Tage bleiben unverändert.'
+                    : 'Die Quest verschwindet aus Family-Quests. Noch nicht bestätigte Fortschritte gehen verloren.'
+                }
+                onConfirm={handleDelete}
+                busy={deleteBusy}
+                error={deleteError}
+              />
+            </div>
           ) : (
             <div className="px-5 py-4">
               <p className="font-bold text-slate-900 dark:text-slate-100">{quest.title}</p>
@@ -289,5 +333,19 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
         </div>
       </div>
     </div>
+
+      {highXpConfirmOpen ? (
+        <LifeXpConfirmSheet
+          eyebrow={QUEST_HIGH_XP_CONFIRM_EYEBROW}
+          emoji="🎯"
+          title={questHighXpConfirmTitle(xpReward)}
+          body={QUEST_HIGH_XP_CONFIRM_BODY}
+          confirmLabel="Änderungen speichern"
+          confirmBusy={loading}
+          onConfirm={() => void saveQuest()}
+          onCancel={() => setHighXpConfirmOpen(false)}
+        />
+      ) : null}
+    </>
   )
 }

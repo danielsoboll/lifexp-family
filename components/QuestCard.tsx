@@ -24,8 +24,9 @@ type QuestCardProps = {
   /** Familien-Quest (Alle) — neutrale Kartenfarbe. */
   familyWide?: boolean
   familyAccentKey?: MemberAccentKey
-  /** Nur Ersteller: Klick öffnet Bearbeiten/Löschen. */
+  /** Nur Ersteller: Klick öffnet Bearbeiten/Löschen. Admins: Entfernen (z. B. wiederkehrende Einträge). */
   manageable?: boolean
+  manageMode?: 'edit' | 'delete'
   onManage?: () => void
   session?: FamilySession | null
   canAdmin?: boolean
@@ -67,6 +68,7 @@ export default function QuestCard({
   familyWide = false,
   familyAccentKey,
   manageable = false,
+  manageMode,
   onManage,
   session = null,
   canAdmin = false,
@@ -119,7 +121,9 @@ export default function QuestCard({
         von {creatorLabel(quest, parents, children)}
       </p>
       {manageable ? (
-        <p className="mt-1 text-[10px] font-semibold text-slate-950 dark:text-slate-400">Tippen zum Bearbeiten</p>
+        <p className="mt-1 text-[10px] font-semibold text-slate-950 dark:text-slate-400">
+          {manageMode === 'delete' ? 'Tippen zum Entfernen' : 'Tippen zum Bearbeiten'}
+        </p>
       ) : null}
       {pendingConfirmations.map((row) => (
         <QuestFinalConfirmButton
@@ -144,7 +148,7 @@ export default function QuestCard({
       <button
         type="button"
         onClick={onManage}
-        className={`w-full rounded-xl border-2 p-3 text-left shadow-sm ring-1 transition hover:brightness-[1.02] active:scale-[0.99] ${accent.cardClass}`}
+        className={`w-full rounded-xl border-2 p-3 text-left shadow-sm ring-1 transition-[transform,box-shadow,filter] duration-200 hover:brightness-[1.02] active:scale-[0.988] ${accent.cardClass}`}
       >
         {content}
       </button>
@@ -160,7 +164,7 @@ export default function QuestCard({
           onClick={onManage}
           className="mt-2 text-[10px] font-semibold text-slate-950 underline dark:text-slate-400"
         >
-          Bearbeiten
+          {manageMode === 'delete' ? 'Entfernen' : 'Bearbeiten'}
         </button>
       ) : null}
     </article>

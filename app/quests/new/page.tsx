@@ -16,7 +16,11 @@ import type { QuestAssignee } from '../../../lib/family/types'
 import {
   QUEST_XP_HIGH_CONFIRM_THRESHOLD,
   QUEST_XP_MIN,
+  QUEST_HIGH_XP_CONFIRM_BODY,
+  QUEST_HIGH_XP_CONFIRM_EYEBROW,
   questDayChoiceToDateKey,
+  questHighXpConfirmTitle,
+  questXpNeedsHighConfirm,
   type QuestDayChoice,
 } from '../../../lib/family/questRules'
 import { buildAllFamilyAssignees } from '../../../lib/family/questMemberGroups'
@@ -28,6 +32,8 @@ import {
   soloQuestBlockedMessage,
 } from '../../../lib/family/setupGuide'
 import FamilySetupGuideBubble from '../../../components/FamilySetupGuideBubble'
+import LifeXpConfirmSheet from '../../../components/LifeXpConfirmSheet'
+import LifeXpNotice from '../../../components/LifeXpNotice'
 import { usePlusDiscoverHeader } from '../../../hooks/usePlusDiscoverHeader'
 import { CARD_SURFACE_CLASS, MAIN_PAGE_INSET_CLASS, MAIN_SHELL_CLASS, PRESSABLE_3D_CLASS } from '../../../lib/appShell'
 import { multilineTextInputProps, oneLineTextInputProps } from '../../../lib/formInputAutofill'
@@ -47,6 +53,7 @@ export default function NewQuestPage() {
   const [budgetLoading, setBudgetLoading] = useState(false)
   const budgetRequestRef = useRef(0)
   const [familyQuestsReady, setFamilyQuestsReady] = useState<boolean | null>(null)
+  const [highXpConfirmOpen, setHighXpConfirmOpen] = useState(false)
   const { headerAction: plusHeaderAction, portals: plusPortals } = usePlusDiscoverHeader()
 
   const excludeMember = useMemo((): QuestAssignee | null => {
@@ -211,12 +218,18 @@ export default function NewQuestPage() {
       return
     }
 
-    if (xpReward >= QUEST_XP_HIGH_CONFIRM_THRESHOLD) {
-      const ok = window.confirm('Ist dir das wirklich so wichtig?')
-      if (!ok) return
+    if (questXpNeedsHighConfirm(xpReward)) {
+      setHighXpConfirmOpen(true)
+      return
     }
 
+    await submitQuest()
+  }
+
+  const submitQuest = async () => {
+    if (!family) return
     setLoading(true)
+    setError(null)
 
     try {
       const { error: createError } = await createQuestsForAssignees({
@@ -237,6 +250,7 @@ export default function NewQuestPage() {
       router.push('/quests')
     } finally {
       setLoading(false)
+      setHighXpConfirmOpen(false)
     }
   }
 
@@ -305,16 +319,16 @@ export default function NewQuestPage() {
           disabled={budgetAssignees.length > 0 && remainingXp !== null && remainingXp < QUEST_XP_MIN}
         />
         {familyWide && familyQuestsReady === false ? (
-          <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+          <LifeXpNotice tone="warning">
             Familien-Quests („Alle“) brauchen noch eine Datenbank-Migration: Abschnitt 4 in{' '}
             <code className="text-xs">supabase/pending_migrations.sql</code> im Supabase SQL Editor ausführen.
-          </p>
+          </LifeXpNotice>
         ) : null}
         {budgetAssignees.length > 0 && budgetLoading ? (
           <p className="text-xs text-slate-950 dark:text-slate-400">XP-Budget wird geprüft …</p>
         ) : null}
         {budgetError ? (
-          <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+          <LifeXpNotice tone="warning">
             XP-Budget konnte nicht geladen werden: {budgetError}
             {budgetError.toLowerCase().includes('task_date') ||
             budgetError.toLowerCase().includes('creator_confirmed') ? (
@@ -324,33 +338,29 @@ export default function NewQuestPage() {
                 <code className="text-xs">supabase/pending_migrations.sql</code> (Abschnitte 7–8) ausführen.
               </>
             ) : null}
-          </p>
+          </LifeXpNotice>
         ) : null}
         {budgetAssignees.length > 0 && remainingXp !== null ? (
-          <p className="text-xs text-slate-950 dark:text-slate-400">
+          <LifeXpNotice tone="info">
             {familyWide ? (
               <>
-                Für die anderen Familienmitglieder sind an dem Tag noch mindestens <strong>{remainingXp} XP</strong> frei
-                (max. 30 pro Person).
+                Für die anderen Familienmitglieder sind an dem Tag noch mindestens <strong>{remainingXp} XP</strong>{' '}
+                frei (max. 30 pro Person).
               </>
             ) : (
               <>
                 An dem Tag sind für diese Person noch <strong>{remainingXp} XP</strong> frei (max. 30 pro Tag).
               </>
             )}
-          </p>
+          </LifeXpNotice>
         ) : null}
         {submitBlockedByXp ? (
-          <p className="text-xs text-amber-800 dark:text-amber-200">
-            Für mindestens ein Familienmitglied reicht das Tages-XP-Limit nicht — wähle weniger XP oder „Morgen“, dann
-            erneut tippen.
-          </p>
+          <LifeXpNotice tone="warning">
+            Für mindestens ein Familienmitglied reicht das Tages-XP-Limit nicht — wähle weniger XP oder „Morgen“,
+            dann erneut tippen.
+          </LifeXpNotice>
         ) : null}
-        {error ? (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
-            {error}
-          </p>
-        ) : null}
+        {error ? <LifeXpNotice tone="error">{error}</LifeXpNotice> : null}
         <button
           type="submit"
           disabled={!canSubmit}
@@ -368,6 +378,19 @@ export default function NewQuestPage() {
           showArrow={false}
           showBrandMark={false}
           onDismiss={() => router.push('/admin')}
+        />
+      ) : null}
+
+      {highXpConfirmOpen ? (
+        <LifeXpConfirmSheet
+          eyebrow={QUEST_HIGH_XP_CONFIRM_EYEBROW}
+          emoji="🎯"
+          title={questHighXpConfirmTitle(xpReward)}
+          body={QUEST_HIGH_XP_CONFIRM_BODY}
+          confirmLabel={submitLabel}
+          confirmBusy={loading}
+          onConfirm={() => void submitQuest()}
+          onCancel={() => setHighXpConfirmOpen(false)}
         />
       ) : null}
 

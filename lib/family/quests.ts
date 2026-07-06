@@ -1,9 +1,10 @@
-import { cetAddDays, cetToday, normalizeDateKey } from '../cetDate'
+import { cetAddDays, cetToday, cetYesterday, normalizeDateKey } from '../cetDate'
 import { readFamilySession } from '../familySession'
 import { supabase } from '../supabase'
+import { assertFamilyAdminSession } from './admin'
 import { fetchQuestAssignmentsForQuests, replaceQuestAssignments } from './questAssignments'
 import { assigneesForFamilyQuestXpBudget, fetchMemberXpBudget } from './questXpBudget'
-import { clampQuestXp, isAllowedQuestTaskDate } from './questRules'
+import { clampQuestXp, isAllowedQuestTaskDate, isQuestFromYesterday } from './questRules'
 import { aggregateQuestFulfillmentStatus, sessionIsQuestCreator } from './questConfirmation'
 import type { Quest, QuestAssignee, QuestRecurrence, QuestWithCompletion, QuestAssigneeCompletion, QuestCompletionOnDate } from './types'
 
@@ -31,10 +32,23 @@ export function compareQuestsForOverview(a: Quest, b: Quest): number {
   return a.created_at.localeCompare(b.created_at)
 }
 
+/** Abgelaufene Quests (älter als Gestern) deaktivieren — nicht mehr in der App sichtbar. */
+export async function deactivateExpiredQuestsForFamily(familyId: string): Promise<void> {
+  const yesterday = cetYesterday()
+  await supabase
+    .from('quests')
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq('family_id', familyId)
+    .eq('is_active', true)
+    .lt('task_date', yesterday)
+}
+
 export async function fetchQuestsForFamily(
   familyId: string,
   options: FetchQuestsOptions = {},
 ): Promise<{ quests: Quest[]; error: Error | null }> {
+  await deactivateExpiredQuestsForFamily(familyId)
+
   let query = supabase
     .from('quests')
     .select('*')
@@ -169,12 +183,41 @@ export async function fetchQuestsWithCompletions(
   return { quests: enriched, error: null }
 }
 
+export type FamilyQuestBoard = {
+  todayAndTomorrow: QuestWithCompletion[]
+  yesterdayOpen: QuestWithCompletion[]
+}
+
+export async function fetchFamilyQuestBoard(
+  familyId: string,
+): Promise<{ board: FamilyQuestBoard; error: Error | null }> {
+  const today = cetToday()
+  const yesterday = cetYesterday()
+  const tomorrow = cetAddDays(today, 1)
+
+  const { quests, error } = await fetchQuestsWithCompletions(familyId, {
+    fromTaskDate: yesterday,
+    toTaskDate: tomorrow,
+  })
+  if (error) return { board: { todayAndTomorrow: [], yesterdayOpen: [] }, error }
+
+  const todayAndTomorrow = quests.filter((quest) => {
+    const key = normalizeDateKey(quest.task_date)
+    return key >= today && key <= tomorrow
+  })
+
+  const yesterdayOpen = quests.filter(
+    (quest) => isQuestFromYesterday(quest.task_date) && quest.fulfillmentStatus !== 'done',
+  )
+
+  return { board: { todayAndTomorrow, yesterdayOpen }, error: null }
+}
+
 export async function fetchTodayAndTomorrowQuests(
   familyId: string,
 ): Promise<{ quests: QuestWithCompletion[]; error: Error | null }> {
-  const today = cetToday()
-  const tomorrow = cetAddDays(today, 1)
-  return fetchQuestsWithCompletions(familyId, { fromTaskDate: today, toTaskDate: tomorrow })
+  const { board, error } = await fetchFamilyQuestBoard(familyId)
+  return { quests: board.todayAndTomorrow, error }
 }
 
 function validateCreatorNotAssignee(
@@ -254,6 +297,54 @@ export type UpdateQuestInput = {
   xpReward: number
   taskDate: string
   assignees: QuestAssignee[]
+}
+
+async function assertCanDeleteQuest(
+  questId: string,
+  familyId: string,
+): Promise<{ quest: Quest | null; error: Error | null }> {
+  const session = readFamilySession()
+  if (!session) return { quest: null, error: new Error('Bitte zuerst anmelden.') }
+
+  const { data, error } = await supabase
+    .from('quests')
+    .select('*')
+    .eq('id', questId)
+    .eq('family_id', familyId)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (error) return { quest: null, error: new Error(error.message) }
+  if (!data) return { quest: null, error: new Error('Quest nicht gefunden.') }
+
+  const quest = data as Quest
+  const taskDate = normalizeDateKey(quest.task_date)
+  const { data: completions, error: completionError } = await supabase
+    .from('quest_completions')
+    .select('assignee_confirmed_at, creator_confirmed_at')
+    .eq('quest_id', questId)
+    .eq('completed_on', taskDate)
+
+  if (completionError) return { quest: null, error: new Error(completionError.message) }
+
+  if ((completions ?? []).some((row) => row.creator_confirmed_at)) {
+    return {
+      quest: null,
+      error: new Error('Quest ist schon bestätigt — zuerst den Abschluss zurücksetzen.'),
+    }
+  }
+
+  if (sessionIsQuestCreator(quest, session)) {
+    if ((completions ?? []).some((row) => row.assignee_confirmed_at)) {
+      return { quest: null, error: new Error('Quest wurde schon bearbeitet — Ändern oder Löschen nicht mehr möglich.') }
+    }
+    return { quest, error: null }
+  }
+
+  const { error: adminError } = await assertFamilyAdminSession(familyId)
+  if (adminError) return { quest: null, error: adminError }
+
+  return { quest, error: null }
 }
 
 async function assertCreatorCanModifyQuest(
@@ -359,8 +450,8 @@ export async function updateQuestForAssignees(input: UpdateQuestInput): Promise<
   return { error: null }
 }
 
-export async function deleteQuestByCreator(questId: string, familyId: string): Promise<{ error: Error | null }> {
-  const { error: assertError } = await assertCreatorCanModifyQuest(questId, familyId)
+export async function deleteQuest(questId: string, familyId: string): Promise<{ error: Error | null }> {
+  const { error: assertError } = await assertCanDeleteQuest(questId, familyId)
   if (assertError) return { error: assertError }
 
   const { error } = await supabase
@@ -371,6 +462,11 @@ export async function deleteQuestByCreator(questId: string, familyId: string): P
 
   if (error) return { error: new Error(error.message) }
   return { error: null }
+}
+
+/** @deprecated Nutze deleteQuest */
+export async function deleteQuestByCreator(questId: string, familyId: string): Promise<{ error: Error | null }> {
+  return deleteQuest(questId, familyId)
 }
 
 export async function createQuestsForAssignees(

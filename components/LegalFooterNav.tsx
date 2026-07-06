@@ -30,6 +30,12 @@ export default function LegalFooterNav({ className = '' }: LegalFooterNavProps) 
       <Link href="/haftung" className={linkClass}>
         Haftung
       </Link>
+      <span className={separatorClass} aria-hidden>
+        |
+      </span>
+      <Link href="/agb" className={linkClass}>
+        AGB
+      </Link>
     </nav>
   )
 }

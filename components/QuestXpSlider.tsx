@@ -1,6 +1,7 @@
 'use client'
 
-import { QUEST_XP_MAX, QUEST_XP_MIN } from '../lib/family/questRules'
+import LifeXpNotice from './LifeXpNotice'
+import { QUEST_XP_HIGH_CONFIRM_THRESHOLD, QUEST_XP_MAX, QUEST_XP_MIN, QUEST_HIGH_XP_INLINE_HINT } from '../lib/family/questRules'
 import { CARD_SURFACE_CLASS } from '../lib/appShell'
 
 type QuestXpSliderProps = {
@@ -46,6 +47,9 @@ export default function QuestXpSlider({ value, onChange, maxAllowed = QUEST_XP_M
         <span>{QUEST_XP_MIN} XP</span>
         <span>{QUEST_XP_MAX} XP max.</span>
       </div>
+      {clamped >= QUEST_XP_HIGH_CONFIRM_THRESHOLD ? (
+        <LifeXpNotice tone="warning">{QUEST_HIGH_XP_INLINE_HINT}</LifeXpNotice>
+      ) : null}
     </div>
   )
 }

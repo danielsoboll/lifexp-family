@@ -57,7 +57,7 @@ export default function WasJetztTunPage() {
             🎯
           </span>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-amber-950 dark:text-yellow-100">
+            <h1 className="text-2xl font-bold tracking-tight text-amber-950 dark:text-slate-100">
               Was jetzt tun?
             </h1>
             <p className="text-sm text-slate-950 dark:text-slate-400">Deine nächsten Schritte</p>
@@ -80,7 +80,7 @@ export default function WasJetztTunPage() {
             {suggestedSteps.length > 0 ? (
               <section className="flex flex-col gap-5" aria-label="Empfehlungen">
                 <div className="flex flex-col gap-2">
-                  <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-yellow-100/95 dark:text-amber-200">
+                  <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-amber-900 dark:text-slate-400">
                     Empfehlung 1
                   </h2>
                   <FlowHintArrow />

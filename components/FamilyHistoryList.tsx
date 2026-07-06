@@ -9,14 +9,12 @@ import { useFamily } from './FamilyProvider'
 import { formatParentDisplayName } from '../lib/family/familyDisplayName'
 import { resolveChildAvatar, resolveParentAvatar } from '../lib/family/memberAvatar'
 import {
-  DEFAULT_FAMILY_XP_GOAL_TARGET,
   DEFAULT_MEMBER_XP_GOAL_TARGET,
-  fetchActiveFamilyXpGoal,
   fetchActiveMemberXpGoal,
   sumHistoryXp,
-  syncAllXpGoalsForFamily,
   type XpGoalPeriod,
 } from '../lib/family/xpGoals'
+import { fetchFamilyPersonalGoalBarState } from '../lib/family/familyPersonalGoals'
 import { fetchMemberPersonalGoalBarState, syncAllPersonalGoalsForFamily } from '../lib/family/personalGoals'
 import { personalGoalSymbolEmoji } from '../lib/family/personalGoalSymbols'
 import {
@@ -39,16 +37,6 @@ type MemberHistoryState = {
   error: string | null
   goal: XpGoalPeriod | null
   personalSymbolEmoji?: string
-}
-
-function fallbackFamilyGoal(): XpGoalPeriod {
-  return {
-    id: 'fallback',
-    goalName: 'Familienziel',
-    targetXp: DEFAULT_FAMILY_XP_GOAL_TARGET,
-    progressXp: 0,
-    startedAt: '',
-  }
 }
 
 function fallbackMemberGoal(): XpGoalPeriod {
@@ -76,6 +64,8 @@ export default function FamilyHistoryList() {
     loading: boolean
     error: string | null
     goal: XpGoalPeriod | null
+    familySymbolEmoji?: string
+    familyGoalEmpty?: boolean
   }>({
     days: [],
     target: 0,
@@ -85,6 +75,7 @@ export default function FamilyHistoryList() {
     loading: true,
     error: null,
     goal: null,
+    familyGoalEmpty: true,
   })
 
   const [memberHistories, setMemberHistories] = useState<Record<string, MemberHistoryState>>({})
@@ -128,12 +119,11 @@ export default function FamilyHistoryList() {
     const load = async () => {
       setFamilyHistory((prev) => ({ ...prev, loading: true, error: null }))
       await syncFamilyXpHistoryToday(family.id)
-      await syncAllXpGoalsForFamily(family.id)
       await syncAllPersonalGoalsForFamily(family.id)
 
-      const [result, goalResult] = await Promise.all([
+      const [result, familyGoalBar] = await Promise.all([
         fetchFamilyXpHistory({ familyId: family.id, memberCount }),
-        fetchActiveFamilyXpGoal(family.id),
+        fetchFamilyPersonalGoalBarState(family.id),
       ])
       if (cancelled) return
 
@@ -146,6 +136,17 @@ export default function FamilyHistoryList() {
         return
       }
 
+      const activeFamily = familyGoalBar.bar
+      const displayGoal: XpGoalPeriod | null = activeFamily
+        ? {
+            id: activeFamily.goalId,
+            goalName: activeFamily.title,
+            targetXp: activeFamily.target,
+            progressXp: activeFamily.progress,
+            startedAt: '',
+          }
+        : null
+
       setFamilyHistory({
         days: result.days,
         target: result.target,
@@ -154,7 +155,9 @@ export default function FamilyHistoryList() {
         endDate: result.endDate,
         loading: false,
         error: null,
-        goal: goalResult.goal ?? fallbackFamilyGoal(),
+        goal: displayGoal,
+        familySymbolEmoji: activeFamily ? personalGoalSymbolEmoji(activeFamily.symbolId) : undefined,
+        familyGoalEmpty: !activeFamily,
       })
     }
 
@@ -240,7 +243,8 @@ export default function FamilyHistoryList() {
   if (!family) return null
 
   const familyTotalXp = sumHistoryXp(familyHistory.days)
-  const familyGoal = familyHistory.goal ?? fallbackFamilyGoal()
+  const familyGoal = familyHistory.goal
+  const familyHasActiveGoal = Boolean(familyGoal && !familyHistory.familyGoalEmpty)
 
   return (
     <div className="space-y-6 pb-4">
@@ -260,9 +264,11 @@ export default function FamilyHistoryList() {
             <div className="flex items-start gap-2">
               <div className={`${HISTORY_SIDEBAR_CLASS} flex flex-col pt-4`}>
                 <XpGoalVerticalBar
-                  progress={familyGoal.progressXp}
-                  target={familyGoal.targetXp}
+                  emptyState={!familyHasActiveGoal}
+                  progress={familyHasActiveGoal ? familyGoal!.progressXp : 0}
+                  target={familyHasActiveGoal ? familyGoal!.targetXp : 100}
                   totalXp={familyTotalXp}
+                  symbolEmoji={familyHistory.familySymbolEmoji}
                 />
               </div>
               <div className="mt-4 min-w-0 flex-1">

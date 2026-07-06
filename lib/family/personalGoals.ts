@@ -1,7 +1,10 @@
 import { cetToday } from '../cetDate'
 import { readFamilySession } from '../familySession'
 import { supabase } from '../supabase'
+import { formatParentDisplayName } from './familyDisplayName'
+import type { ParentMember } from './members'
 import { isPersonalGoalSymbolId } from './personalGoalSymbols'
+import type { ChildProfile } from './types'
 import type { MemberXpHistoryKey } from './xpHistory'
 
 export type MemberPersonalGoal = {
@@ -73,6 +76,22 @@ export function isPersonalGoalsTableMissingError(error: { message?: string; code
 
 export function memberHasLockedPersonalGoals(goals: readonly MemberPersonalGoal[]): boolean {
   return goals.some((goal) => goal.xpLockedAt !== null)
+}
+
+export function personalGoalAwaitingXp(goal: MemberPersonalGoal): boolean {
+  return goal.xpLockedAt === null && (goal.targetXp === null || goal.targetXp <= 0)
+}
+
+export function countPersonalGoalsAwaitingXp(goals: readonly MemberPersonalGoal[]): number {
+  return goals.filter(personalGoalAwaitingXp).length
+}
+
+export type PersonalGoalAwaitingXpItem = {
+  goal: MemberPersonalGoal
+  memberKind: 'parent' | 'child'
+  memberId: string
+  memberLabel: string
+  memberHref: string
 }
 
 export function memberCanEditPersonalGoals(input: {
@@ -465,4 +484,60 @@ export async function updatePersonalGoalXp(input: {
 
   await syncMemberPersonalGoalsProgress(input.familyId, input.member)
   return { error: null }
+}
+
+function memberHref(memberKind: 'parent' | 'child', memberId: string): string {
+  return memberKind === 'child' ? `/children/${memberId}` : `/parents/${memberId}`
+}
+
+export async function fetchFamilyPersonalGoalsAwaitingXp(
+  familyId: string,
+  parents: ParentMember[],
+  children: ChildProfile[],
+): Promise<{ items: PersonalGoalAwaitingXpItem[]; error: Error | null }> {
+  const { data, error } = await supabase
+    .from('member_personal_goals')
+    .select('*')
+    .eq('family_id', familyId)
+    .is('xp_locked_at', null)
+    .or('target_xp.is.null,target_xp.lte.0')
+    .order('sort_order', { ascending: true })
+
+  if (error) {
+    if (isPersonalGoalsTableMissingError(error)) return { items: [], error: null }
+    return { items: [], error: new Error(error.message) }
+  }
+
+  const items: PersonalGoalAwaitingXpItem[] = []
+  for (const row of (data ?? []) as GoalRow[]) {
+    const goal = mapGoal(row)
+    if (!personalGoalAwaitingXp(goal)) continue
+
+    const memberKind = row.member_kind
+    const memberId = row.member_id as string
+    let memberLabel = 'Familienmitglied'
+    if (memberKind === 'child') {
+      memberLabel = children.find((c) => c.id === memberId)?.display_name?.trim() || 'Kind'
+    } else {
+      const parent = parents.find((p) => p.id === memberId)
+      memberLabel = parent ? formatParentDisplayName(parent.display_name, parent.gender) : 'Erwachsene'
+    }
+
+    items.push({
+      goal,
+      memberKind,
+      memberId,
+      memberLabel,
+      memberHref: memberHref(memberKind, memberId),
+    })
+  }
+
+  items.sort(
+    (a, b) =>
+      a.memberLabel.localeCompare(b.memberLabel, 'de') ||
+      a.goal.sortOrder - b.goal.sortOrder ||
+      a.goal.title.localeCompare(b.goal.title, 'de'),
+  )
+
+  return { items, error: null }
 }

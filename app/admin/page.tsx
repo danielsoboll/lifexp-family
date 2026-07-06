@@ -4,10 +4,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+import AdminFamilyInviteSection from '../../components/AdminFamilyInviteSection'
 import AdminScrollPage from '../../components/AdminScrollPage'
 import ChildMemberEditor from '../../components/ChildMemberEditor'
 import DangerConfirmAction from '../../components/DangerConfirmAction'
-import FamilyInviteSharePanel from '../../components/FamilyInviteSharePanel'
 import ParentMemberEditor from '../../components/ParentMemberEditor'
 import PageHeaderBar from '../../components/PageHeaderBar'
 import { notifyFamilyDataChanged, useFamily } from '../../components/FamilyProvider'
@@ -154,7 +154,7 @@ export default function AdminPage() {
               </span>
             </p>
             {family?.invite_code ? (
-              <FamilyInviteSharePanel inviteCode={family.invite_code} familyName={family.name} />
+              <AdminFamilyInviteSection inviteCode={family.invite_code} familyName={family.name} />
             ) : (
               <p className={MUTED_BODY_TEXT_CLASS}>Einladungscode: —</p>
             )}

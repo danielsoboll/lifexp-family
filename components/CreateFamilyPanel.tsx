@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 
 import OnboardingProfileFields from './OnboardingProfileFields'
 import OnboardingPwaStep from './OnboardingPwaStep'
-import OnboardingRecoveryStep from './OnboardingRecoveryStep'
 import OpenPwaHint from './OpenPwaHint'
 import { useFamilyOnboardingBridge } from '../hooks/useFamilyOnboardingBridge'
 import { createFamilyWithMember } from '../lib/family/families'
@@ -254,9 +253,16 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
     setPortraitId(coerceOnboardingPortrait(snapshot.gender, snapshot.portraitId))
   }
 
-  const finishOnboarding = () => {
+  const finishOnboarding = async (
+    prefs?: OnboardingDevicePrefs,
+    credentials?: { session: FamilySession; recoveryCode: string },
+  ) => {
     onboardingBusyRef.current = true
-    const resolved = resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
+    const resolved =
+      credentials ?? resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
+    if (resolved && prefs) {
+      await syncDevicePrefs(resolved.session, prefs)
+    }
     clearFamilyOnboardingDraft()
     deferFlushOnboardingBridge()
     router.replace('/')
@@ -265,26 +271,13 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
     }
   }
 
-  const goToRecoveryStep = (
-    session: FamilySession,
-    code: string,
-    prefs?: OnboardingDevicePrefs,
-  ) => {
-    onboardingBusyRef.current = true
+  const tryFinishOnboarding = async (prefs?: OnboardingDevicePrefs): Promise<boolean> => {
+    const resolved = resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
+    if (!resolved) return false
     setShowOpenPwaHint(false)
     setPwaInstallAcknowledged(true)
-    setPendingSession(session)
-    setRecoveryCode(code)
-    setStep('recovery')
-    saveDraftQuiet({
-      step: 'recovery',
-      pwaInstallAcknowledged: true,
-      pendingSession: session,
-      recoveryCode: code,
-    })
-    if (prefs) {
-      void syncDevicePrefs(session, prefs)
-    }
+    await finishOnboarding(prefs, resolved)
+    return true
   }
 
   const handleBack = () => {
@@ -382,15 +375,8 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
     await updateMemberAppLater(session.memberKind, session.memberId, prefs.appLater)
   }
 
-  const tryGoToRecovery = (prefs?: OnboardingDevicePrefs): boolean => {
-    const resolved = resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
-    if (!resolved) return false
-    goToRecoveryStep(resolved.session, resolved.recoveryCode, prefs)
-    return true
-  }
-
-  const advanceToRecovery = async (prefs?: OnboardingDevicePrefs) => {
-    if (tryGoToRecovery(prefs)) return
+  const advanceToFinish = async (prefs?: OnboardingDevicePrefs) => {
+    if (await tryFinishOnboarding(prefs)) return
 
     if (
       stepRef.current === 'install' &&
@@ -406,11 +392,18 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
     try {
       const created = await ensureFamilyCreated()
       if (!created) return
-      goToRecoveryStep(created.session, created.recoveryCode, prefs)
+      setPendingSession(created.session)
+      setRecoveryCode(created.recoveryCode)
+      await finishOnboarding(prefs, created)
     } finally {
       setRecoveryBusy(false)
     }
   }
+
+  useEffect(() => {
+    if (step !== 'recovery') return
+    void tryFinishOnboarding()
+  }, [step])
 
   useEffect(() => {
     if (standaloneInstallResumeRef.current) return
@@ -419,15 +412,8 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
     if (!pendingSession || !recoveryCode) return
 
     standaloneInstallResumeRef.current = true
-    onboardingBusyRef.current = true
-    setShowOpenPwaHint(false)
-    setPwaInstallAcknowledged(true)
-    setPendingSession(pendingSession)
-    setRecoveryCode(recoveryCode)
-    setStep('recovery')
-    saveDraftQuiet({ step: 'recovery', pwaInstallAcknowledged: true })
-    void syncDevicePrefs(pendingSession, { appInstalled: true, appLater: false })
-  }, [step, pendingSession, recoveryCode, saveDraftQuiet])
+    void tryFinishOnboarding({ appInstalled: true, appLater: false })
+  }, [step, pendingSession, recoveryCode])
 
   const handleFormSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -456,8 +442,7 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
     saveDraftQuiet({ pwaInstallAcknowledged: true })
 
     if (isStandaloneDisplayMode()) {
-      if (tryGoToRecovery(prefs)) return
-      void advanceToRecovery(prefs)
+      void advanceToFinish(prefs)
       return
     }
 
@@ -465,15 +450,12 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
   }
 
   const handleInstallLater = () => {
-    if (tryGoToRecovery({ appInstalled: false, appLater: true })) return
-    void advanceToRecovery({ appInstalled: false, appLater: true })
+    void advanceToFinish({ appInstalled: false, appLater: true })
   }
 
   const handleContinueInBrowserFromPwaHint = () => {
     setShowOpenPwaHint(false)
-    const prefs = { appInstalled: true, appLater: false }
-    if (tryGoToRecovery(prefs)) return
-    void advanceToRecovery(prefs)
+    void advanceToFinish({ appInstalled: true, appLater: false })
   }
 
   const handleCloseTabFromPwaHint = () => {
@@ -485,8 +467,6 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
   const updateFamilyName = (value: string) => {
     setFamilyName(value)
   }
-
-  const recoveryCredentials = resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
 
   if (step === 'install') {
     return (
@@ -522,33 +502,6 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
           />
         </div>
       </>
-    )
-  }
-
-  if (step === 'recovery' && recoveryCredentials) {
-    return (
-      <OnboardingRecoveryStep
-        recoveryCode={recoveryCredentials.recoveryCode}
-        session={recoveryCredentials.session}
-        onFinished={finishOnboarding}
-      />
-    )
-  }
-
-  if (step === 'recovery') {
-    return (
-      <div className="space-y-4">
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
-          Recovery-Daten fehlen. Bitte gehe zurück und starte den Schritt erneut.
-        </p>
-        <button
-          type="button"
-          onClick={() => navigateCreateStep('form')}
-          className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
-        >
-          ← Zurück zum Formular
-        </button>
-      </div>
     )
   }
 

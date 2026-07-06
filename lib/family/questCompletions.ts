@@ -6,7 +6,7 @@ import { fetchQuestAssignmentsForQuests, questAppliesToAssignee } from './questA
 import { sessionIsQuestCreator, assigneeDisplayNameFromCompletion, isCompletionForSessionMember, canSessionConfirmQuestCompletion } from './questConfirmation'
 import { formatParentDisplayName } from './familyDisplayName'
 import { fetchMemberXpBudget } from './questXpBudget'
-import { clampQuestXp } from './questRules'
+import { clampQuestXp, isQuestExpired } from './questRules'
 import type { ParentMember } from './members'
 import type { ChildWithTodayXp, PendingCreatorConfirmation, Quest } from './types'
 import { recordDailyXpEntry } from './xp'
@@ -44,6 +44,10 @@ async function validateCompletionBudget(input: {
 }): Promise<Error | null> {
   const taskDate = normalizeDateKey(input.quest.task_date)
   if (!taskDate) return new Error('Quest ohne gültiges Datum.')
+
+  if (isQuestExpired(taskDate)) {
+    return new Error('Diese Quest ist abgelaufen und kann nicht mehr erledigt werden.')
+  }
 
   const today = cetToday()
   if (taskDate > today) {

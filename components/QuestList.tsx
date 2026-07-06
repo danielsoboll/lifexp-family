@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react'
 
+import FamilyQuestConferenceSection from './FamilyQuestConferenceSection'
 import FamilyGroupPortrait from './FamilyGroupPortrait'
 import QuestEditSheet from './QuestEditSheet'
+import YesterdayOpenQuestsSection from './YesterdayOpenQuestsSection'
 import { useFamily, FAMILY_DATA_CHANGED_EVENT } from './FamilyProvider'
-import { fetchTodayAndTomorrowQuests } from '../lib/family/quests'
-import { canSessionModifyQuest } from '../lib/family/questConfirmation'
+import { fetchFamilyQuestBoard, type FamilyQuestBoard } from '../lib/family/quests'
+import { canSessionModifyQuest, canSessionDeleteQuest, questIsOpenForEditing } from '../lib/family/questConfirmation'
 import type { QuestWithCompletion } from '../lib/family/types'
-import { groupQuestsForDisplay } from '../lib/family/questMemberGroups'
+import { groupQuestsForDisplay, type QuestDisplayGroup } from '../lib/family/questMemberGroups'
 import { memberAccentStyle, normalizeMemberAccentKey, type MemberAccentKey } from '../lib/family/memberAccentColor'
 import QuestCard from './QuestCard'
 
@@ -25,8 +27,16 @@ function renderQuestCard(
     onManage: (quest: QuestWithCompletion) => void
   },
 ) {
-  const manageable =
-    props.session && !quest.recurring_template_id ? canSessionModifyQuest(quest, props.session) : false
+  const canEdit = Boolean(
+    props.session &&
+      !quest.recurring_template_id &&
+      canSessionModifyQuest(quest, props.session) &&
+      questIsOpenForEditing(quest),
+  )
+  const canDelete = Boolean(
+    props.session && canSessionDeleteQuest(quest, props.session, props.canAdmin),
+  )
+  const manageable = canEdit || canDelete
   return (
     <QuestCard
       key={quest.id}
@@ -37,6 +47,7 @@ function renderQuestCard(
       familyWide={props.familyWide}
       familyAccentKey={props.familyAccentKey}
       manageable={manageable}
+      manageMode={canEdit ? 'edit' : canDelete ? 'delete' : undefined}
       onManage={manageable ? () => props.onManage(quest) : undefined}
       session={props.session}
       canAdmin={props.canAdmin}
@@ -44,9 +55,55 @@ function renderQuestCard(
   )
 }
 
+function renderQuestGroups(
+  groups: QuestDisplayGroup[],
+  cardProps: {
+    children: ReturnType<typeof useFamily>['children']
+    parents: ReturnType<typeof useFamily>['parents']
+    session: ReturnType<typeof useFamily>['session']
+    canAdmin: boolean
+    onManage: (quest: QuestWithCompletion) => void
+  },
+  familyAccentKey: MemberAccentKey,
+) {
+  return groups.map((group) => {
+    if (group.kind === 'family') {
+      const accent = memberAccentStyle(familyAccentKey)
+      return (
+        <section key="family">
+          <div className="flex items-center gap-3">
+            <FamilyGroupPortrait className="w-16 shrink-0" />
+            <h2 className={`text-lg font-bold tracking-tight ${accent.nameClass}`}>{group.label}</h2>
+          </div>
+          <div className="mt-2 space-y-2.5">
+            {group.quests.map((quest) =>
+              renderQuestCard(quest, {
+                ...cardProps,
+                grouped: true,
+                familyWide: true,
+                familyAccentKey,
+              }),
+            )}
+          </div>
+        </section>
+      )
+    }
+
+    const accent = memberAccentStyle(group.accentKey)
+    return (
+      <section key={`${group.assignee.type}:${group.assignee.id}`}>
+        <h2 className={`text-lg font-bold tracking-tight ${accent.nameClass}`}>{group.label}</h2>
+        <div className="mt-2 space-y-2.5">
+          {group.quests.map((quest) => renderQuestCard(quest, { ...cardProps, grouped: true }))}
+        </div>
+      </section>
+    )
+  })
+}
+
 export default function QuestList() {
   const { family, children, parents, session, canAdmin } = useFamily()
-  const [quests, setQuests] = useState<QuestWithCompletion[]>([])
+  const [board, setBoard] = useState<FamilyQuestBoard>({ todayAndTomorrow: [], yesterdayOpen: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editQuest, setEditQuest] = useState<QuestWithCompletion | null>(null)
@@ -57,7 +114,7 @@ export default function QuestList() {
 
     const load = async () => {
       setLoading(true)
-      const { quests: rows, error: fetchError } = await fetchTodayAndTomorrowQuests(family.id)
+      const { board: loaded, error: fetchError } = await fetchFamilyQuestBoard(family.id)
       if (cancelled) return
       setLoading(false)
       if (fetchError) {
@@ -65,7 +122,7 @@ export default function QuestList() {
         return
       }
       setError(null)
-      setQuests(rows)
+      setBoard(loaded)
     }
 
     void load()
@@ -79,8 +136,18 @@ export default function QuestList() {
   }, [family?.id])
 
   const groups = useMemo(
-    () => groupQuestsForDisplay(quests, parents, children, family?.name),
-    [quests, parents, children, family?.name],
+    () => groupQuestsForDisplay(board.todayAndTomorrow, parents, children, family?.name),
+    [board.todayAndTomorrow, parents, children, family?.name],
+  )
+
+  const yesterdayGroups = useMemo(
+    () => groupQuestsForDisplay(board.yesterdayOpen, parents, children, family?.name),
+    [board.yesterdayOpen, parents, children, family?.name],
+  )
+
+  const allQuests = useMemo(
+    () => [...board.todayAndTomorrow, ...board.yesterdayOpen],
+    [board.todayAndTomorrow, board.yesterdayOpen],
   )
 
   const cardProps = useMemo(
@@ -108,53 +175,33 @@ export default function QuestList() {
     )
   }
 
-  if (quests.length === 0) {
-    return (
-      <p className="text-sm text-slate-950 dark:text-slate-400">
-        Noch keine Quests — trage die erste für jemand anderen ein.
-      </p>
-    )
-  }
-
+  const hasToday = board.todayAndTomorrow.length > 0
+  const hasYesterdayOpen = board.yesterdayOpen.length > 0
   const familyAccentKey = normalizeMemberAccentKey(family.accent_key)
 
   return (
     <>
-      <div className="space-y-5">
-        {groups.map((group) => {
-          if (group.kind === 'family') {
-            const accent = memberAccentStyle(familyAccentKey)
-            return (
-              <section key="family">
-                <div className="flex items-center gap-3">
-                  <FamilyGroupPortrait className="w-16 shrink-0" />
-                  <h2 className={`text-lg font-bold tracking-tight ${accent.nameClass}`}>{group.label}</h2>
-                </div>
-                <div className="mt-2 space-y-2.5">
-                  {group.quests.map((quest) =>
-                    renderQuestCard(quest, {
-                      ...cardProps,
-                      grouped: true,
-                      familyWide: true,
-                      familyAccentKey,
-                    }),
-                  )}
-                </div>
-              </section>
-            )
-          }
+      {!hasToday && !hasYesterdayOpen ? (
+        <p className="text-sm text-slate-950 dark:text-slate-400">
+          Noch keine Quests für heute oder morgen.
+        </p>
+      ) : (
+        <div className="space-y-5">
+          {!hasToday && hasYesterdayOpen ? (
+            <p className="text-sm text-slate-950 dark:text-slate-400">
+              Für heute und morgen sind noch keine Quests eingetragen.
+            </p>
+          ) : null}
+          {renderQuestGroups(groups, cardProps, familyAccentKey)}
+          {hasYesterdayOpen ? (
+            <YesterdayOpenQuestsSection>
+              <div className="space-y-5">{renderQuestGroups(yesterdayGroups, cardProps, familyAccentKey)}</div>
+            </YesterdayOpenQuestsSection>
+          ) : null}
+        </div>
+      )}
 
-          const accent = memberAccentStyle(group.accentKey)
-          return (
-            <section key={`${group.assignee.type}:${group.assignee.id}`}>
-              <h2 className={`text-lg font-bold tracking-tight ${accent.nameClass}`}>{group.label}</h2>
-              <div className="mt-2 space-y-2.5">
-                {group.quests.map((quest) => renderQuestCard(quest, { ...cardProps, grouped: true }))}
-              </div>
-            </section>
-          )
-        })}
-      </div>
+      <FamilyQuestConferenceSection quests={allQuests} />
 
       <QuestEditSheet quest={editQuest} open={editQuest !== null} onClose={() => setEditQuest(null)} />
     </>

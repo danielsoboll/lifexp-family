@@ -1,4 +1,4 @@
-export const PUBLIC_LEGAL_PATHS = ['/impressum', '/datenschutz', '/haftung'] as const
+export const PUBLIC_LEGAL_PATHS = ['/impressum', '/datenschutz', '/haftung', '/agb'] as const
 
 export type PublicLegalPath = (typeof PUBLIC_LEGAL_PATHS)[number]
 

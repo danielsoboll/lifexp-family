@@ -10,6 +10,7 @@ import {
   fetchMemberPersonalGoals,
   memberCanEditPersonalGoals,
   memberHasLockedPersonalGoals,
+  countPersonalGoalsAwaitingXp,
   type MemberPersonalGoal,
 } from '../lib/family/personalGoals'
 import { personalGoalSymbolEmoji } from '../lib/family/personalGoalSymbols'
@@ -65,6 +66,7 @@ export default function MemberPersonalGoalsPanel({
 
   const hasGoals = goals.length > 0
   const locked = memberHasLockedPersonalGoals(goals)
+  const goalsAwaitingXp = countPersonalGoalsAwaitingXp(goals)
   const canEdit = memberCanEditPersonalGoals({ goals, isSelf, canAdmin })
   const showButton = isSelf || canAdmin
 
@@ -80,6 +82,15 @@ export default function MemberPersonalGoalsPanel({
 
   return (
     <section className="space-y-3">
+      {isSelf && goalsAwaitingXp > 0 ? (
+        <div className="rounded-xl border-2 border-orange-400/80 bg-gradient-to-b from-orange-50 to-orange-100/80 px-3 py-2.5 dark:border-orange-700/70 dark:from-orange-950/40 dark:to-orange-900/25">
+          <p className="text-sm font-bold text-orange-950 dark:text-orange-100">Dein Ziel wartet</p>
+          <p className="mt-1 text-xs leading-relaxed text-orange-900 dark:text-orange-200">
+            Die für dein Ziel nötigen XP müssen von der Familie entschieden werden.
+          </p>
+        </div>
+      ) : null}
+
       {canAdmin && hasGoals ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-slate-950 dark:text-slate-400">

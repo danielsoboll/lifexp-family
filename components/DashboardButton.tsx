@@ -30,29 +30,31 @@ type DashboardButtonProps = {
 
 const TONE_SURFACE_CLASS = {
   'wjt-primary':
-    'border-yellow-200/50 bg-slate-700/40 ring-yellow-100/20 backdrop-blur-sm dark:border-yellow-600/45 dark:bg-slate-900/80 dark:ring-yellow-900/35',
+    'border-yellow-500/70 bg-gradient-to-b from-slate-600 via-slate-700 to-slate-800 ring-yellow-400/25 dark:border-yellow-600/45 dark:bg-slate-900/80 dark:ring-yellow-900/35 dark:backdrop-blur-sm',
   'wjt-secondary':
-    'border-white/25 bg-slate-600/35 ring-white/10 backdrop-blur-sm dark:border-slate-500/40 dark:bg-slate-900/65 dark:ring-slate-700/40',
+    'border-slate-500/55 bg-gradient-to-b from-slate-600 to-slate-700 ring-slate-400/15 dark:border-slate-500/40 dark:bg-slate-900/65 dark:ring-slate-700/40 dark:backdrop-blur-sm',
 } as const
 
 const TONE_TITLE_CLASS = {
-  'wjt-primary': 'text-yellow-50 dark:text-yellow-100',
+  'wjt-primary': 'text-yellow-50 dark:text-slate-100',
   'wjt-secondary': 'text-stone-50 dark:text-slate-100',
 } as const
 
 const TONE_SUBTITLE_CLASS = {
-  'wjt-primary': 'text-yellow-100/90 dark:text-yellow-200/85',
+  'wjt-primary': 'text-yellow-100/90 dark:text-slate-400',
   'wjt-secondary': 'text-white/82 dark:text-slate-300',
 } as const
 
 const TONE_XP_CLASS = {
-  'wjt-primary': 'text-yellow-100 dark:text-yellow-200/90',
+  'wjt-primary': 'text-yellow-100 dark:text-slate-300',
   'wjt-secondary': 'text-white/78 dark:text-emerald-400',
 } as const
 
 const TONE_ARROW_CLASS = {
-  'wjt-primary': 'text-yellow-100/65 group-hover:text-yellow-50 dark:text-yellow-300/70 dark:group-hover:text-yellow-200',
-  'wjt-secondary': 'text-white/55 group-hover:text-white/80 dark:text-slate-500 dark:group-hover:text-emerald-400',
+  'wjt-primary':
+    'text-yellow-100/65 group-hover:text-yellow-50 dark:text-slate-500 dark:group-hover:text-slate-300',
+  'wjt-secondary':
+    'text-white/55 group-hover:text-white/80 dark:text-slate-500 dark:group-hover:text-emerald-400',
 } as const
 
 function subtitleClassForButton(input: {

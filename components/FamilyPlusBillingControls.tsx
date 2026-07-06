@@ -1,8 +1,10 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 
 import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
+import FamilyPlusActiveWelcome from './FamilyPlusActiveWelcome'
 import FamilyPlusPriceDisplay from './FamilyPlusPriceDisplay'
 import { familyPlusTarifLine, isFamilyPlus } from '../lib/family/familyPlus'
 import { FAMILY_PLUS_CTA_LABEL, FAMILY_PLUS_TAGLINE } from '../lib/family/familyPlusFeatures'
@@ -11,6 +13,7 @@ import {
   createPlusPortalSession,
   syncPlusBillingFromStripe,
 } from '../lib/family/stripeBilling'
+import { usePlusCheckout } from '../hooks/usePlusCheckout'
 import type { Family } from '../lib/family/types'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 
@@ -19,24 +22,19 @@ type FamilyPlusBillingControlsProps = {
   compact?: boolean
   /** Preis-Streifen über dem CTA — aus, wenn oben schon FamilyPlusPriceDisplay steht. */
   showPriceBadge?: boolean
+  /** Willkommensblock — aus, wenn er schon darüber steht (z. B. PLUS-Sheet). */
+  showActiveWelcome?: boolean
 }
 
-export default function FamilyPlusBillingControls({
-  family: familyProp,
-  compact = false,
-  showPriceBadge = true,
-}: FamilyPlusBillingControlsProps) {
-  const { family: familyFromContext, canAdmin, refresh } = useFamily()
-  const family = familyProp ?? familyFromContext
+function useLocalPlusCheckout(family: Family | null | undefined, canAdmin: boolean) {
+  const { refresh } = useFamily()
   const [busy, setBusy] = useState<'checkout' | 'portal' | 'sync' | null>(null)
   const [error, setError] = useState<string | null>(null)
-
-  if (!family) return null
-
-  const plusActive = isFamilyPlus(family)
+  const plusActive = family ? isFamilyPlus(family) : false
 
   const startCheckout = async () => {
     setError(null)
+    if (!family) return
     if (!canAdmin) {
       setError('Nur Familien-Admins können das Abo verwalten.')
       return
@@ -54,6 +52,7 @@ export default function FamilyPlusBillingControls({
 
   const openPortal = async () => {
     setError(null)
+    if (!family) return
     if (!canAdmin) {
       setError('Nur Familien-Admins können das Abo verwalten.')
       return
@@ -71,6 +70,7 @@ export default function FamilyPlusBillingControls({
 
   const syncBilling = async () => {
     setError(null)
+    if (!family) return
     if (!canAdmin) {
       setError('Nur Familien-Admins können das Abo verwalten.')
       return
@@ -87,23 +87,57 @@ export default function FamilyPlusBillingControls({
     }
   }
 
+  return {
+    plusActive,
+    canStartCheckout: Boolean(family && canAdmin && !plusActive),
+    busy,
+    error,
+    startCheckout,
+    openPortal,
+    syncBilling,
+  }
+}
+
+export default function FamilyPlusBillingControls({
+  family: familyProp,
+  compact = false,
+  showPriceBadge = true,
+  showActiveWelcome = true,
+}: FamilyPlusBillingControlsProps) {
+  const { family: familyFromContext, canAdmin, refresh } = useFamily()
+  const family = familyProp ?? familyFromContext
+  const checkoutContext = usePlusCheckout()
+  const localCheckout = useLocalPlusCheckout(family, canAdmin)
+
+  const plusActive = checkoutContext?.plusActive ?? localCheckout.plusActive
+  const busy = checkoutContext?.busy ?? localCheckout.busy
+  const error = checkoutContext?.error ?? localCheckout.error
+  const startCheckout = checkoutContext?.startCheckout ?? localCheckout.startCheckout
+  const openPortal = checkoutContext?.openPortal ?? localCheckout.openPortal
+  const syncBilling = checkoutContext?.syncBilling ?? localCheckout.syncBilling
+
+  if (!family) return null
+
   if (!canAdmin) {
     return (
       <div className="space-y-2">
         {!plusActive ? (
           <p className="text-sm leading-relaxed text-slate-950 dark:text-slate-300">{FAMILY_PLUS_TAGLINE}</p>
+        ) : showActiveWelcome ? (
+          <FamilyPlusActiveWelcome compact />
         ) : null}
-        <p className="text-sm text-slate-950 dark:text-slate-400">
-          {plusActive
-            ? 'LifeXP Family PLUS ist für eure Familie aktiv.'
-            : 'PLUS ist noch nicht aktiv — ein Admin kann es in den Einstellungen aktivieren.'}
-        </p>
+        {!plusActive ? (
+          <p className="text-sm text-slate-950 dark:text-slate-400">
+            PLUS ist noch nicht aktiv — ein Admin kann es in den Einstellungen aktivieren.
+          </p>
+        ) : null}
       </div>
     )
   }
 
   return (
     <div className={compact ? 'space-y-2' : 'space-y-3'}>
+      {plusActive && showActiveWelcome ? <FamilyPlusActiveWelcome compact={compact} /> : null}
       {!plusActive && !compact ? (
         <p className="text-sm leading-relaxed text-slate-950 dark:text-slate-300">{FAMILY_PLUS_TAGLINE}</p>
       ) : null}
@@ -129,6 +163,18 @@ export default function FamilyPlusBillingControls({
           >
             {busy === 'checkout' ? 'Weiter zu Stripe …' : FAMILY_PLUS_CTA_LABEL}
           </button>
+          <p className="text-center text-[11px] leading-relaxed text-slate-800 dark:text-slate-400">
+            Mit Fortfahren zu Stripe schließen Sie ein monatliches PLUS-Abo ab (4,99 €/Monat, jederzeit kündbar). Es
+            gelten unsere{' '}
+            <Link href="/agb" className="font-medium underline underline-offset-2">
+              AGB
+            </Link>{' '}
+            und{' '}
+            <Link href="/datenschutz" className="font-medium underline underline-offset-2">
+              Datenschutzhinweise
+            </Link>
+            .
+          </p>
           <button
             type="button"
             disabled={busy !== null}

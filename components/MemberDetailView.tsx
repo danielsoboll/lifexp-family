@@ -11,6 +11,7 @@ import QuestCompletionAssigneePhotosDisplay from './QuestCompletionAssigneePhoto
 import QuestCompletionPhotoSheet from './QuestCompletionPhotoSheet'
 import QuestCompletionReactionDisplay from './QuestCompletionReactionDisplay'
 import QuestFinalConfirmButton from './QuestFinalConfirmButton'
+import YesterdayOpenQuestsSection from './YesterdayOpenQuestsSection'
 import XpGoalVerticalBar from './XpGoalVerticalBar'
 import DailyStreakCheckin from './DailyStreakCheckin'
 import DangerConfirmAction from './DangerConfirmAction'
@@ -21,16 +22,16 @@ import { formatParentDisplayName } from '../lib/family/familyDisplayName'
 import { isFamilyPlus } from '../lib/family/familyPlus'
 import { resolveChildAvatar, resolveParentAvatar } from '../lib/family/memberAvatar'
 import { completeQuestForChild, completeQuestForParent, adminDeleteQuestCompletion } from '../lib/family/questCompletions'
-import { cetToday } from '../lib/cetDate'
+import { cetToday, normalizeDateKey } from '../lib/cetDate'
 import { fetchMemberStreakClaimedToday } from '../lib/family/dailyStreak'
 import { persistMemberStreakIntroSeen } from '../lib/family/streakIntroHint'
-import { fetchQuestsWithCompletions, questAppliesToMember } from '../lib/family/quests'
+import { fetchFamilyQuestBoard, questAppliesToMember } from '../lib/family/quests'
 import { fulfillmentForMemberOnQuest, aggregateQuestFulfillmentStatus, canSessionConfirmQuestCompletion } from '../lib/family/questConfirmation'
 import { fetchMemberPersonalGoalBarState, type MemberPersonalGoalBarState } from '../lib/family/personalGoals'
 import { fetchQuestCompletionEnrichment, type QuestCompletionEnrichment } from '../lib/family/questCompletionPlus'
 import { personalGoalSymbolEmoji } from '../lib/family/personalGoalSymbols'
 import type { QuestCompletionOnDate, QuestWithCompletion } from '../lib/family/types'
-import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
+import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS, TILE_3D_CLASS } from '../lib/appShell'
 import { useThoughtBubbleVisibility } from '../lib/useThoughtBubbleVisibility'
 
 type MemberDetailViewProps = {
@@ -61,6 +62,7 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
     session,
   } = useFamily()
   const [quests, setQuests] = useState<QuestWithCompletion[]>([])
+  const [yesterdayOpenQuests, setYesterdayOpenQuests] = useState<QuestWithCompletion[]>([])
   const [questsLoading, setQuestsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyQuestId, setBusyQuestId] = useState<string | null>(null)
@@ -87,19 +89,25 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
 
     const loadQuests = async () => {
       setQuestsLoading(true)
-      const { quests: rows, error: fetchError } = await fetchQuestsWithCompletions(family.id, {
-        fromTaskDate: cetToday(),
-        toTaskDate: cetToday(),
-      })
+      const { board, error: fetchError } = await fetchFamilyQuestBoard(family.id)
       if (cancelled) return
       setQuestsLoading(false)
       if (fetchError) {
         setError(fetchError.message)
         setQuests([])
+        setYesterdayOpenQuests([])
         return
       }
       setError(null)
-      setQuests(rows.filter((q) => questAppliesToMember(q.child_id, q.assignees, memberKind, memberId)))
+      const applies = (q: QuestWithCompletion) =>
+        questAppliesToMember(q.child_id, q.assignees, memberKind, memberId)
+      const today = cetToday()
+      setQuests(
+        board.todayAndTomorrow.filter(
+          (q) => applies(q) && normalizeDateKey(q.task_date) === today,
+        ),
+      )
+      setYesterdayOpenQuests(board.yesterdayOpen.filter(applies))
     }
 
     void loadQuests()
@@ -124,8 +132,8 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
 
   useEffect(() => {
     if (!family || questsLoading) return
-    void loadCompletionEnrichment(quests)
-  }, [family, quests, questsLoading, loadCompletionEnrichment])
+    void loadCompletionEnrichment([...quests, ...yesterdayOpenQuests])
+  }, [family, quests, yesterdayOpenQuests, questsLoading, loadCompletionEnrichment])
 
   useEffect(() => {
     if (!plusActive) return
@@ -214,12 +222,17 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
     setGoalsEditorOpen(true)
   }, [searchParams, isSelf, canAdmin])
 
-  const completedCount = useMemo(
-    () => quests.filter((q) => fulfillmentForMemberOnQuest(q, memberKind, memberId) === 'done').length,
-    [quests, memberKind, memberId],
+  const memberQuests = useMemo(
+    () => [...quests, ...yesterdayOpenQuests],
+    [quests, yesterdayOpenQuests],
   )
 
-  const questProgress = quests.length > 0 ? Math.round((completedCount / quests.length) * 100) : 0
+  const completedCount = useMemo(
+    () => memberQuests.filter((q) => fulfillmentForMemberOnQuest(q, memberKind, memberId) === 'done').length,
+    [memberQuests, memberKind, memberId],
+  )
+
+  const questProgress = memberQuests.length > 0 ? Math.round((completedCount / memberQuests.length) * 100) : 0
 
   const completeQuest = async (quest: QuestWithCompletion) => {
     if (!family || !isSelf) return
@@ -318,6 +331,115 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
     return true
   }
 
+  const renderQuestList = (items: QuestWithCompletion[]) => (
+    <ul className="space-y-2">
+      {items.map((quest) => {
+        const status = fulfillmentForMemberOnQuest(quest, memberKind, memberId)
+        const done = status === 'done'
+        const awaiting = status === 'awaiting_creator'
+        const completion = completionForMember(quest, memberKind, memberId)
+        const canAdminRemove = canAdmin && completion && (done || awaiting)
+        const enrichment =
+          completion && completion.id !== 'local' ? completionEnrichment.get(completion.id) : undefined
+
+        const canFinalConfirm =
+          !isSelf &&
+          awaiting &&
+          completion &&
+          completion.id !== 'local' &&
+          session &&
+          canSessionConfirmQuestCompletion({
+            quest,
+            session,
+            assigneeChildId: completion.childId,
+            assigneeParentId: completion.parentId,
+            canAdmin,
+          })
+
+        return (
+          <li
+            key={quest.id}
+            className={`rounded-xl border-2 px-3 py-2.5 ${
+              done
+                ? 'border-emerald-300/80 bg-emerald-50/80 dark:border-emerald-800 dark:bg-emerald-950/30'
+                : awaiting
+                  ? 'border-sky-300/80 bg-sky-50/80 dark:border-sky-800 dark:bg-sky-950/30'
+                  : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900/80'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-semibold text-slate-900 dark:text-slate-100">{quest.title}</p>
+                {quest.description ? (
+                  <p className="mt-0.5 text-xs text-slate-950 dark:text-slate-400">{quest.description}</p>
+                ) : null}
+              </div>
+              <span className="shrink-0 text-xs font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
+                +{quest.xp_reward} XP
+              </span>
+            </div>
+            <p
+              className={`mt-1.5 text-xs font-bold uppercase tracking-wide ${
+                done
+                  ? 'text-emerald-700 dark:text-emerald-300'
+                  : awaiting
+                    ? 'text-sky-700 dark:text-sky-300'
+                    : 'text-slate-950 dark:text-slate-400'
+              }`}
+            >
+              {done ? 'Erledigt' : awaiting ? 'Wartet auf Bestätigung' : 'Offen'}
+            </p>
+            {(done || awaiting) && enrichment && enrichment.photos.length > 0 ? (
+              <QuestCompletionAssigneePhotosDisplay
+                photos={enrichment.photos}
+                label={isSelf ? 'Deine Fotos' : 'Fotos'}
+              />
+            ) : null}
+            {done && enrichment?.reaction ? (
+              <QuestCompletionReactionDisplay reaction={enrichment.reaction} />
+            ) : null}
+            {isSelf && status === 'open' ? (
+              <button
+                type="button"
+                disabled={busyQuestId === quest.id}
+                onClick={() => void completeQuest(quest)}
+                className={`${PRESSABLE_3D_CLASS} mt-2.5 w-full rounded-xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-3 py-2 text-sm font-bold text-white disabled:opacity-60`}
+              >
+                {busyQuestId === quest.id ? 'Speichern …' : 'Schritt 1: Als erledigt melden'}
+              </button>
+            ) : null}
+            {canFinalConfirm && completion ? (
+              <QuestFinalConfirmButton
+                completionId={completion.id}
+                xpReward={quest.xp_reward}
+                assigneeName={displayName}
+              />
+            ) : null}
+            {canAdminRemove && completion ? (
+              <div className="mt-2.5">
+                <DangerConfirmAction
+                  triggerLabel={done ? 'Abschluss löschen' : 'Meldung zurücknehmen'}
+                  confirmTitle={
+                    done
+                      ? `„${quest.title}" wirklich zurücksetzen?`
+                      : `Meldung zu „${quest.title}" zurücknehmen?`
+                  }
+                  confirmDescription={
+                    done
+                      ? `Die ${quest.xp_reward} XP werden von ${displayName} abgezogen. Die Quest ist danach wieder offen.`
+                      : 'Die Quest wartet noch auf Bestätigung — es wurden noch keine XP vergeben.'
+                  }
+                  onConfirm={() => removeCompletion(completion.id, quest.id)}
+                  busy={deleteBusyCompletionId === completion.id}
+                />
+              </div>
+            ) : null}
+          </li>
+        )
+      })}
+    </ul>
+  )
+
   if (familyLoading) {
     return <p className="text-sm text-slate-950 dark:text-slate-400">Wird geladen …</p>
   }
@@ -345,9 +467,9 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
             type="button"
             onClick={openGoalsEditor}
             disabled={!canOpenGoalsEditor}
-            className={`-ml-3.5 flex w-full items-center justify-center rounded-xl px-0.5 py-0.5 transition ${
+            className={`-ml-3.5 flex w-full items-center justify-center rounded-xl px-0.5 py-0.5 ${
               canOpenGoalsEditor
-                ? 'cursor-pointer active:scale-[0.98] hover:bg-slate-100/80 dark:hover:bg-slate-800/50'
+                ? `${TILE_3D_CLASS} cursor-pointer`
                 : 'cursor-default'
             }`}
             aria-label={hasActiveGoal ? 'Ziel-Fortschritt anzeigen' : 'Eigene Ziele anlegen'}
@@ -408,10 +530,10 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
         <div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Quests heute</h2>
           <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">
-            {completedCount} von {quests.length} erledigt
+            {completedCount} von {memberQuests.length} erledigt
           </p>
         </div>
-        {quests.length > 0 ? <ProgressBar progress={questProgress} /> : null}
+        {memberQuests.length > 0 ? <ProgressBar progress={questProgress} /> : null}
 
         {questsLoading ? (
           <p className="text-sm text-slate-950 dark:text-slate-400">Quests werden geladen …</p>
@@ -423,115 +545,19 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
           <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
             {deleteError}
           </p>
-        ) : quests.length === 0 ? (
+        ) : memberQuests.length === 0 ? (
           <p className="text-sm text-slate-950 dark:text-slate-400">Keine Quests für heute zugewiesen.</p>
         ) : (
-          <ul className="space-y-2">
-            {quests.map((quest) => {
-              const status = fulfillmentForMemberOnQuest(quest, memberKind, memberId)
-              const done = status === 'done'
-              const awaiting = status === 'awaiting_creator'
-              const completion = completionForMember(quest, memberKind, memberId)
-              const canAdminRemove = canAdmin && completion && (done || awaiting)
-              const enrichment =
-                completion && completion.id !== 'local' ? completionEnrichment.get(completion.id) : undefined
-
-              const canFinalConfirm =
-                !isSelf &&
-                awaiting &&
-                completion &&
-                completion.id !== 'local' &&
-                session &&
-                canSessionConfirmQuestCompletion({
-                  quest,
-                  session,
-                  assigneeChildId: completion.childId,
-                  assigneeParentId: completion.parentId,
-                  canAdmin,
-                })
-
-              return (
-                <li
-                  key={quest.id}
-                  className={`rounded-xl border-2 px-3 py-2.5 ${
-                    done
-                      ? 'border-emerald-300/80 bg-emerald-50/80 dark:border-emerald-800 dark:bg-emerald-950/30'
-                      : awaiting
-                        ? 'border-sky-300/80 bg-sky-50/80 dark:border-sky-800 dark:bg-sky-950/30'
-                        : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900/80'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{quest.title}</p>
-                      {quest.description ? (
-                        <p className="mt-0.5 text-xs text-slate-950 dark:text-slate-400">{quest.description}</p>
-                      ) : null}
-                    </div>
-                    <span className="shrink-0 text-xs font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
-                      +{quest.xp_reward} XP
-                    </span>
-                  </div>
-                  <p
-                    className={`mt-1.5 text-xs font-bold uppercase tracking-wide ${
-                      done
-                        ? 'text-emerald-700 dark:text-emerald-300'
-                        : awaiting
-                          ? 'text-sky-700 dark:text-sky-300'
-                          : 'text-slate-950 dark:text-slate-400'
-                    }`}
-                  >
-                    {done ? 'Erledigt' : awaiting ? 'Wartet auf Bestätigung' : 'Offen'}
-                  </p>
-                  {(done || awaiting) && enrichment && enrichment.photos.length > 0 ? (
-                    <QuestCompletionAssigneePhotosDisplay
-                      photos={enrichment.photos}
-                      label={isSelf ? 'Deine Fotos' : 'Fotos'}
-                    />
-                  ) : null}
-                  {done && enrichment?.reaction ? (
-                    <QuestCompletionReactionDisplay reaction={enrichment.reaction} />
-                  ) : null}
-                  {isSelf && status === 'open' ? (
-                    <button
-                      type="button"
-                      disabled={busyQuestId === quest.id}
-                      onClick={() => void completeQuest(quest)}
-                      className={`${PRESSABLE_3D_CLASS} mt-2.5 w-full rounded-xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-3 py-2 text-sm font-bold text-white disabled:opacity-60`}
-                    >
-                      {busyQuestId === quest.id ? 'Speichern …' : 'Schritt 1: Als erledigt melden'}
-                    </button>
-                  ) : null}
-                  {canFinalConfirm && completion ? (
-                    <QuestFinalConfirmButton
-                      completionId={completion.id}
-                      xpReward={quest.xp_reward}
-                      assigneeName={displayName}
-                    />
-                  ) : null}
-                  {canAdminRemove && completion ? (
-                    <div className="mt-2.5">
-                      <DangerConfirmAction
-                        triggerLabel={done ? 'Abschluss löschen' : 'Meldung zurücknehmen'}
-                        confirmTitle={
-                          done
-                            ? `„${quest.title}" wirklich zurücksetzen?`
-                            : `Meldung zu „${quest.title}" zurücknehmen?`
-                        }
-                        confirmDescription={
-                          done
-                            ? `Die ${quest.xp_reward} XP werden von ${displayName} abgezogen. Die Quest ist danach wieder offen.`
-                            : 'Die Quest wartet noch auf Bestätigung — es wurden noch keine XP vergeben.'
-                        }
-                        onConfirm={() => removeCompletion(completion.id, quest.id)}
-                        busy={deleteBusyCompletionId === completion.id}
-                      />
-                    </div>
-                  ) : null}
-                </li>
-              )
-            })}
-          </ul>
+          <>
+            {quests.length > 0 ? renderQuestList(quests) : (
+              <p className="text-sm text-slate-950 dark:text-slate-400">Keine Quests für heute — unten offen von gestern.</p>
+            )}
+            {yesterdayOpenQuests.length > 0 ? (
+              <YesterdayOpenQuestsSection compact>
+                {renderQuestList(yesterdayOpenQuests)}
+              </YesterdayOpenQuestsSection>
+            ) : null}
+          </>
         )}
       </section>
 

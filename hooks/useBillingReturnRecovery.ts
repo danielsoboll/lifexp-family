@@ -8,9 +8,18 @@ import {
   notifyFamilySessionRestoredIfNeeded,
   recoverFamilySessionAfterBillingRedirect,
   recoverFamilySessionFromStripeCheckout,
+  type VerifiedCheckoutSession,
 } from '@/lib/family/billingReturn'
+import { isFamilyPlus } from '@/lib/family/familyPlus'
 import { verifyStripeCheckoutSession } from '@/lib/family/stripeBilling'
 import { hasFamilySession } from '@/lib/familySession'
+
+export type CheckoutVerificationStatus =
+  | 'pending'
+  | 'missing_session'
+  | 'unpaid'
+  | 'paid'
+  | 'error'
 
 type UseBillingReturnRecoveryOptions = {
   /** Nach gültiger Session automatisch weiterleiten (z. B. Admin-Einstellungen). */
@@ -18,18 +27,33 @@ type UseBillingReturnRecoveryOptions = {
   redirectTo?: string
   /** Stripe Checkout session_id aus der Success-URL. */
   stripeSessionId?: string | null
+  /** Success-URL: Zahlung bei Stripe prüfen, bevor Erfolg angezeigt wird. */
+  verifyCheckout?: boolean
 }
 
-/** Stripe-Rückkehr: Session aus Cookie/sessionStorage wiederherstellen. */
+function isPaidCheckoutSession(verified: VerifiedCheckoutSession): boolean {
+  return (
+    verified.status === 'complete' &&
+    (verified.payment_status === 'paid' || verified.payment_status === 'no_payment_required')
+  )
+}
+
+/** Stripe-Rückkehr: Session wiederherstellen; auf Success-URL Checkout verifizieren. */
 export function useBillingReturnRecovery(options: UseBillingReturnRecoveryOptions = {}) {
   const {
     redirectWhenReady = false,
     redirectTo = BILLING_RETURN_TARGET_PATH,
     stripeSessionId = null,
+    verifyCheckout = false,
   } = options
-  const { hasSession, loading, refresh } = useFamily()
+  const { family, hasSession, loading, refresh } = useFamily()
   const [bootstrapped, setBootstrapped] = useState(false)
   const [recovering, setRecovering] = useState(true)
+  const [checkoutVerification, setCheckoutVerification] = useState<CheckoutVerificationStatus>(
+    verifyCheckout ? 'pending' : 'pending',
+  )
+  const [plusSyncedFromStripe, setPlusSyncedFromStripe] = useState(false)
+  const [verificationError, setVerificationError] = useState<string | null>(null)
   const recoveryStartedRef = useRef(false)
 
   useEffect(() => {
@@ -39,21 +63,71 @@ export function useBillingReturnRecovery(options: UseBillingReturnRecoveryOption
     let cancelled = false
 
     async function runRecovery() {
-      let session = recoverFamilySessionAfterBillingRedirect()
+      try {
+        if (verifyCheckout) {
+          if (!stripeSessionId?.trim()) {
+            await recoverSessionFromBillingSnapshot()
+            if (!cancelled) {
+              setCheckoutVerification('missing_session')
+              setVerificationError('Keine Checkout-Sitzung in der URL.')
+            }
+            return
+          }
+
+          let verified: VerifiedCheckoutSession
+          try {
+            verified = await verifyStripeCheckoutSession(stripeSessionId.trim())
+          } catch (error) {
+            await recoverSessionFromBillingSnapshot()
+            const message = error instanceof Error ? error.message : 'Checkout konnte nicht geprüft werden.'
+            if (!cancelled) {
+              setCheckoutVerification(message.toLowerCase().includes('zahlung') ? 'unpaid' : 'error')
+              setVerificationError(message)
+            }
+            return
+          }
+
+          if (!isPaidCheckoutSession(verified)) {
+            await recoverSessionFromBillingSnapshot()
+            if (!cancelled) {
+              setCheckoutVerification('unpaid')
+              setVerificationError('Stripe meldet: Zahlung nicht abgeschlossen.')
+            }
+            return
+          }
+
+          if (!cancelled) {
+            setCheckoutVerification('paid')
+            setPlusSyncedFromStripe(verified.plus_synced === true)
+          }
+
+          const session = await recoverFamilySessionFromStripeCheckout(
+            stripeSessionId.trim(),
+            verifyStripeCheckoutSession,
+          )
+          if (session) {
+            notifyFamilySessionRestoredIfNeeded(session, hasSession)
+            await refresh()
+          } else {
+            await recoverSessionFromBillingSnapshot()
+          }
+          return
+        }
+
+        await recoverSessionFromBillingSnapshot()
+      } finally {
+        if (!cancelled) {
+          setBootstrapped(true)
+          setRecovering(false)
+        }
+      }
+    }
+
+    async function recoverSessionFromBillingSnapshot() {
+      const session = recoverFamilySessionAfterBillingRedirect()
       if (session) {
         notifyFamilySessionRestoredIfNeeded(session, hasSession)
         await refresh()
-      } else if (stripeSessionId) {
-        session = await recoverFamilySessionFromStripeCheckout(stripeSessionId, verifyStripeCheckoutSession)
-        if (session) {
-          notifyFamilySessionRestoredIfNeeded(session, hasSession)
-          await refresh()
-        }
-      }
-
-      if (!cancelled) {
-        setBootstrapped(true)
-        setRecovering(false)
       }
     }
 
@@ -62,9 +136,10 @@ export function useBillingReturnRecovery(options: UseBillingReturnRecoveryOption
     return () => {
       cancelled = true
     }
-  }, [hasSession, refresh, stripeSessionId])
+  }, [hasSession, refresh, stripeSessionId, verifyCheckout])
 
   const sessionActive = hasSession || hasFamilySession()
+  const plusActive = isFamilyPlus(family)
 
   useEffect(() => {
     if (!redirectWhenReady || !bootstrapped || recovering || loading || !sessionActive) return
@@ -77,5 +152,9 @@ export function useBillingReturnRecovery(options: UseBillingReturnRecoveryOption
     hasSession: sessionActive,
     loading: loading || recovering,
     refresh,
+    checkoutVerification: verifyCheckout ? checkoutVerification : null,
+    plusSyncedFromStripe,
+    verificationError,
+    plusActive,
   }
 }

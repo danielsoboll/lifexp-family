@@ -6,7 +6,6 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import JoinMemberPicker from './JoinMemberPicker'
 import OnboardingProfileFields from './OnboardingProfileFields'
 import OnboardingPwaStep from './OnboardingPwaStep'
-import OnboardingRecoveryStep from './OnboardingRecoveryStep'
 import OpenPwaHint from './OpenPwaHint'
 import { useFamilyOnboardingBridge } from '../hooks/useFamilyOnboardingBridge'
 import { claimFamilyMember, fetchClaimableMembers, joinFamilyWithInviteCode } from '../lib/family/families'
@@ -309,9 +308,16 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
     setPortraitId(coerceOnboardingPortrait(snapshot.gender, snapshot.portraitId))
   }
 
-  const finishOnboarding = () => {
+  const finishOnboarding = async (
+    prefs?: OnboardingDevicePrefs,
+    credentials?: { session: FamilySession; recoveryCode: string },
+  ) => {
     onboardingBusyRef.current = true
-    const resolved = resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
+    const resolved =
+      credentials ?? resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
+    if (resolved && prefs) {
+      await syncDevicePrefs(resolved.session, prefs)
+    }
     clearFamilyOnboardingDraft()
     deferFlushOnboardingBridge()
     router.replace('/')
@@ -320,26 +326,79 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
     }
   }
 
-  const goToRecoveryStep = (
-    session: FamilySession,
-    code: string,
-    prefs?: OnboardingDevicePrefs,
-  ) => {
-    onboardingBusyRef.current = true
+  const tryFinishOnboarding = async (prefs?: OnboardingDevicePrefs): Promise<boolean> => {
+    const resolved = resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
+    if (!resolved) return false
     setShowOpenPwaHint(false)
     setPwaInstallAcknowledged(true)
-    setPendingSession(session)
-    setRecoveryCode(code)
-    setStep('recovery')
-    saveDraftQuiet({
-      step: 'recovery',
-      pwaInstallAcknowledged: true,
-      pendingSession: session,
-      recoveryCode: code,
-    })
-    if (prefs) {
-      void syncDevicePrefs(session, prefs)
+    await finishOnboarding(prefs, resolved)
+    return true
+  }
+
+  const advanceToFinish = async (code: string, prefs?: OnboardingDevicePrefs) => {
+    if (await tryFinishOnboarding(prefs)) return
+
+    if (
+      stepRef.current === 'install' &&
+      !resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
+    ) {
+      setError(
+        'Dein Fortschritt ist unvollständig. Tippe oben auf „← Zurück“ und erneut auf „Weiter“, oder starte von vorn.',
+      )
+      return
     }
+
+    setRecoveryBusy(true)
+    try {
+      const joined = await ensureJoined(code)
+      if (!joined) return
+      setPendingSession(joined.session)
+      setRecoveryCode(joined.recoveryCode)
+      await finishOnboarding(prefs, joined)
+    } finally {
+      setRecoveryBusy(false)
+    }
+  }
+
+  useEffect(() => {
+    if (step !== 'recovery') return
+    void tryFinishOnboarding()
+  }, [step])
+
+  useEffect(() => {
+    if (standaloneInstallResumeRef.current) return
+    if (step !== 'install' || !inviteCode.trim()) return
+    if (!isStandaloneDisplayMode()) return
+    if (!pendingSession || !recoveryCode) return
+
+    standaloneInstallResumeRef.current = true
+    void tryFinishOnboarding({ appInstalled: true, appLater: false })
+  }, [step, inviteCode, pendingSession, recoveryCode])
+
+  const proceedToInstall = async (code: string, snapshot?: JoinFormSnapshot) => {
+    await ensureJoined(code, snapshot)
+  }
+
+  const handleInstallDone = () => {
+    const prefs = { appInstalled: isStandaloneDisplayMode(), appLater: false }
+    setPwaInstallAcknowledged(true)
+    saveDraftQuiet({ pwaInstallAcknowledged: true })
+
+    if (isStandaloneDisplayMode()) {
+      void advanceToFinish(inviteCode, prefs)
+      return
+    }
+
+    setShowOpenPwaHint(true)
+  }
+
+  const handleInstallLater = () => {
+    void advanceToFinish(inviteCode, { appInstalled: false, appLater: true })
+  }
+
+  const handleContinueInBrowserFromPwaHint = () => {
+    setShowOpenPwaHint(false)
+    void advanceToFinish(inviteCode, { appInstalled: true, appLater: false })
   }
 
   const handleBackToWelcome = () => {
@@ -439,90 +498,11 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
     await updateMemberAppLater(session.memberKind, session.memberId, prefs.appLater)
   }
 
-  const tryGoToRecovery = (prefs?: OnboardingDevicePrefs): boolean => {
-    const resolved = resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
-    if (!resolved) return false
-    goToRecoveryStep(resolved.session, resolved.recoveryCode, prefs)
-    return true
-  }
-
-  const advanceToRecovery = async (code: string, prefs?: OnboardingDevicePrefs) => {
-    if (tryGoToRecovery(prefs)) return
-
-    if (
-      stepRef.current === 'install' &&
-      !resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
-    ) {
-      setError(
-        'Dein Fortschritt ist unvollständig. Tippe oben auf „← Zurück“ und erneut auf „Weiter“, oder starte von vorn.',
-      )
-      return
-    }
-
-    setRecoveryBusy(true)
-    try {
-      const joined = await ensureJoined(code)
-      if (!joined) return
-      goToRecoveryStep(joined.session, joined.recoveryCode, prefs)
-    } finally {
-      setRecoveryBusy(false)
-    }
-  }
-
-  useEffect(() => {
-    if (standaloneInstallResumeRef.current) return
-    if (step !== 'install' || !inviteCode.trim()) return
-    if (!isStandaloneDisplayMode()) return
-    if (!pendingSession || !recoveryCode) return
-
-    standaloneInstallResumeRef.current = true
-    onboardingBusyRef.current = true
-    setShowOpenPwaHint(false)
-    setPwaInstallAcknowledged(true)
-    setPendingSession(pendingSession)
-    setRecoveryCode(recoveryCode)
-    setStep('recovery')
-    saveDraftQuiet({ step: 'recovery', pwaInstallAcknowledged: true })
-    void syncDevicePrefs(pendingSession, { appInstalled: true, appLater: false })
-  }, [step, inviteCode, pendingSession, recoveryCode, saveDraftQuiet])
-
-  const proceedToInstall = async (code: string, snapshot?: JoinFormSnapshot) => {
-    await ensureJoined(code, snapshot)
-  }
-
-  const handleInstallDone = () => {
-    const prefs = { appInstalled: isStandaloneDisplayMode(), appLater: false }
-    setPwaInstallAcknowledged(true)
-    saveDraftQuiet({ pwaInstallAcknowledged: true })
-
-    if (isStandaloneDisplayMode()) {
-      if (tryGoToRecovery(prefs)) return
-      void advanceToRecovery(inviteCode, prefs)
-      return
-    }
-
-    setShowOpenPwaHint(true)
-  }
-
-  const handleInstallLater = () => {
-    if (tryGoToRecovery({ appInstalled: false, appLater: true })) return
-    void advanceToRecovery(inviteCode, { appInstalled: false, appLater: true })
-  }
-
-  const handleContinueInBrowserFromPwaHint = () => {
-    setShowOpenPwaHint(false)
-    const prefs = { appInstalled: true, appLater: false }
-    if (tryGoToRecovery(prefs)) return
-    void advanceToRecovery(inviteCode, prefs)
-  }
-
   const handleCloseTabFromPwaHint = () => {
     saveDraftQuiet({ pwaInstallAcknowledged: true })
     deferFlushOnboardingBridge()
     window.close()
   }
-
-  const recoveryCredentials = resolveOnboardingPendingCredentials(pendingSession, recoveryCode)
 
   const handleCodeValidate = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -592,7 +572,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
     setJoinEntryPath('claim')
     setPendingSession(result.session)
     setRecoveryCode(result.recoveryCode)
-    goToRecoveryStep(result.session, result.recoveryCode, { appInstalled: true, appLater: false })
+    void finishOnboarding({ appInstalled: true, appLater: false }, result)
   }
 
   const codeBackStep = (): JoinOnboardingStep => {
@@ -661,33 +641,6 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
           />
         </div>
       </>
-    )
-  }
-
-  if (step === 'recovery' && recoveryCredentials) {
-    return (
-      <OnboardingRecoveryStep
-        recoveryCode={recoveryCredentials.recoveryCode}
-        session={recoveryCredentials.session}
-        onFinished={finishOnboarding}
-      />
-    )
-  }
-
-  if (step === 'recovery') {
-    return (
-      <div className="space-y-4">
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
-          Recovery-Daten fehlen. Bitte gehe zurück und starte den Schritt erneut.
-        </p>
-        <button
-          type="button"
-          onClick={() => navigateJoinStep('code')}
-          className="text-sm font-semibold text-emerald-700 underline dark:text-emerald-300"
-        >
-          ← Zurück
-        </button>
-      </div>
     )
   }
 
