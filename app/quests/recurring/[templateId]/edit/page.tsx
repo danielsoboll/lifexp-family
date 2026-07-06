@@ -28,7 +28,8 @@ export default function EditRecurringQuestPage() {
   const templateId = params.templateId
   const { family, parents, children, memberKind, parent, activeChild, loading: familyLoading, canAdmin } =
     useFamily()
-  const { plusActive, headerAction: plusHeaderAction, portals: plusPortals } = usePlusDiscoverHeader()
+  const { plusActive, headerAction: plusHeaderAction, portals: plusPortals, openPlusDiscover } =
+    usePlusDiscoverHeader()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [xpReward, setXpReward] = useState(3)
@@ -130,10 +131,13 @@ export default function EditRecurringQuestPage() {
       <PageHeaderBar
         backHref="/quests/recurring"
         backLabel="Wiederkehrend"
-        headerAction={plusActive ? plusHeaderAction : undefined}
+        headerAction={plusHeaderAction}
       />
 
-      <FamilyPlusPaywall featureTitle="Wiederkehrende Quests bearbeiten">
+      <FamilyPlusPaywall
+        featureTitle="Wiederkehrende Quests bearbeiten"
+        onDiscoverPlus={!canAdmin ? openPlusDiscover : undefined}
+      >
         <h1 className="mb-1 text-2xl font-bold text-slate-900 dark:text-slate-100">Vorlage bearbeiten</h1>
         <p className="mb-4 text-sm text-slate-950 dark:text-slate-400">
           Änderungen gelten für künftige Tage — offene Quests für heute/morgen werden mit angepasst.

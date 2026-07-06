@@ -9,7 +9,6 @@ import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 import {
   fetchMemberPersonalGoals,
   memberCanEditPersonalGoals,
-  memberHasLockedPersonalGoals,
   countPersonalGoalsAwaitingXp,
   type MemberPersonalGoal,
 } from '../lib/family/personalGoals'
@@ -23,6 +22,57 @@ type MemberPersonalGoalsPanelProps = {
   isSelf: boolean
   editorOpen?: boolean
   onEditorOpenChange?: (open: boolean) => void
+}
+
+function PersonalGoalListItem({
+  goal,
+  interactive,
+  onSelect,
+}: {
+  goal: MemberPersonalGoal
+  interactive: boolean
+  onSelect?: () => void
+}) {
+  const hasXp = goal.targetXp !== null && goal.targetXp > 0
+  const surfaceClass = hasXp
+    ? 'border-emerald-600 bg-gradient-to-b from-emerald-50 to-emerald-100 dark:border-emerald-700 dark:from-emerald-950/50 dark:to-emerald-900/40'
+    : 'border-orange-500 bg-gradient-to-b from-orange-50 to-orange-100 dark:border-orange-600 dark:from-orange-950/45 dark:to-orange-900/35'
+  const titleClass = hasXp ? 'text-emerald-950 dark:text-emerald-100' : 'text-orange-950 dark:text-orange-100'
+  const metaClass = hasXp ? 'text-emerald-800 dark:text-emerald-300' : 'text-orange-800 dark:text-orange-300'
+
+  const content = (
+    <>
+      <span className="text-xl leading-none" aria-hidden>
+        {personalGoalSymbolEmoji(goal.symbolId)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm font-bold ${titleClass}`}>
+          {goal.sortOrder}. {goal.title}
+        </p>
+        <p className={`text-xs ${metaClass}`}>
+          {hasXp ? `${goal.progressXp}/${goal.targetXp} XP` : 'Noch keine XP vergeben'}
+        </p>
+      </div>
+    </>
+  )
+
+  if (interactive && onSelect) {
+    return (
+      <button
+        type="button"
+        onClick={onSelect}
+        className={`flex w-full items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-left ${surfaceClass}`}
+      >
+        {content}
+      </button>
+    )
+  }
+
+  return (
+    <div className={`flex w-full items-center gap-3 rounded-xl border-2 px-3 py-2.5 ${surfaceClass}`}>
+      {content}
+    </div>
+  )
 }
 
 export default function MemberPersonalGoalsPanel({
@@ -65,15 +115,11 @@ export default function MemberPersonalGoalsPanel({
   if (!family) return null
 
   const hasGoals = goals.length > 0
-  const locked = memberHasLockedPersonalGoals(goals)
   const goalsAwaitingXp = countPersonalGoalsAwaitingXp(goals)
   const canEdit = memberCanEditPersonalGoals({ goals, isSelf, canAdmin })
-  const showButton = isSelf || canAdmin
-
-  if (!showButton && !hasGoals) return null
+  const allGoalsHaveXp = goals.every((goal) => goal.targetXp !== null && goal.targetXp > 0)
 
   const xpGoal = xpGoalId ? goals.find((goal) => goal.id === xpGoalId) : null
-  const allGoalsHaveXp = goals.every((goal) => goal.targetXp !== null && goal.targetXp > 0)
 
   const buttonLabel = hasGoals ? 'Eigene Ziele' : 'Eigene Ziele anlegen'
   const buttonClass = hasGoals
@@ -82,6 +128,12 @@ export default function MemberPersonalGoalsPanel({
 
   return (
     <section className="space-y-3">
+      <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Eigene Ziele</h2>
+
+      {loading ? (
+        <p className="text-sm text-slate-950 dark:text-slate-400">Ziele werden geladen …</p>
+      ) : null}
+
       {isSelf && goalsAwaitingXp > 0 ? (
         <div className="rounded-xl border-2 border-orange-400/80 bg-gradient-to-b from-orange-50 to-orange-100/80 px-3 py-2.5 dark:border-orange-700/70 dark:from-orange-950/40 dark:to-orange-900/25">
           <p className="text-sm font-bold text-orange-950 dark:text-orange-100">Dein Ziel wartet</p>
@@ -91,55 +143,36 @@ export default function MemberPersonalGoalsPanel({
         </div>
       ) : null}
 
-      {canAdmin && hasGoals ? (
+      {!loading && !isSelf && !hasGoals ? (
+        <p className="text-sm text-slate-950 dark:text-slate-400">Noch keine eigenen Ziele eingetragen.</p>
+      ) : null}
+
+      {!loading && !isSelf && hasGoals && !canAdmin ? (
+        <ul className="space-y-2">
+          {goals.map((goal) => (
+            <li key={goal.id}>
+              <PersonalGoalListItem goal={goal} interactive={false} />
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {!loading && !isSelf && hasGoals && canAdmin ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-slate-950 dark:text-slate-400">
             {allGoalsHaveXp ? 'Ziele' : 'Ziele — tippe, um XP zu vergeben (1–999)'}
           </p>
           <ul className="space-y-2">
-            {goals.map((goal) => {
-              const hasXp = goal.targetXp !== null && goal.targetXp > 0
-              return (
+            {goals.map((goal) => (
               <li key={goal.id}>
-                <button
-                  type="button"
-                  onClick={() => setXpGoalId(goal.id)}
-                  className={`flex w-full items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-left ${
-                    hasXp
-                      ? 'border-emerald-600 bg-gradient-to-b from-emerald-50 to-emerald-100 dark:border-emerald-700 dark:from-emerald-950/50 dark:to-emerald-900/40'
-                      : 'border-orange-500 bg-gradient-to-b from-orange-50 to-orange-100 dark:border-orange-600 dark:from-orange-950/45 dark:to-orange-900/35'
-                  }`}
-                >
-                  <span className="text-xl leading-none" aria-hidden>
-                    {personalGoalSymbolEmoji(goal.symbolId)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={`text-sm font-bold ${
-                        hasXp ? 'text-emerald-950 dark:text-emerald-100' : 'text-orange-950 dark:text-orange-100'
-                      }`}
-                    >
-                      {goal.sortOrder}. {goal.title}
-                    </p>
-                    <p
-                      className={`text-xs ${
-                        hasXp
-                          ? 'text-emerald-800 dark:text-emerald-300'
-                          : 'text-orange-800 dark:text-orange-300'
-                      }`}
-                    >
-                      {hasXp ? `${goal.progressXp}/${goal.targetXp} XP` : 'Noch keine XP vergeben'}
-                    </p>
-                  </div>
-                </button>
+                <PersonalGoalListItem goal={goal} interactive onSelect={() => setXpGoalId(goal.id)} />
               </li>
-              )
-            })}
+            ))}
           </ul>
         </div>
       ) : null}
 
-      {showButton ? (
+      {!loading && isSelf ? (
         <button
           type="button"
           disabled={loading}
@@ -150,7 +183,7 @@ export default function MemberPersonalGoalsPanel({
         </button>
       ) : null}
 
-      {editorOpen ? (
+      {editorOpen && isSelf ? (
         <MemberPersonalGoalsSheet
           familyId={family.id}
           member={member}
@@ -158,7 +191,7 @@ export default function MemberPersonalGoalsPanel({
           goals={goals}
           isSelf={isSelf}
           canAdmin={canAdmin}
-          readOnly={isSelf && locked && !canAdmin}
+          readOnly={!canEdit}
           onClose={() => setEditorOpen(false)}
           onSaved={() => {
             void load()
@@ -167,7 +200,7 @@ export default function MemberPersonalGoalsPanel({
         />
       ) : null}
 
-      {xpGoal && canAdmin ? (
+      {xpGoal && canAdmin && !isSelf ? (
         <AdminPersonalGoalXpSheet
           familyId={family.id}
           member={member}

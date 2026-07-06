@@ -18,6 +18,8 @@ type FamilyPlusPaywallProps = {
   /** z. B. „Foto-Bestätigung“ */
   featureTitle?: string
   featureDescription?: string
+  /** Nicht-Admins: PLUS-Button öffnet Hinweis-Sheet */
+  onDiscoverPlus?: () => void
   children: ReactNode
 }
 
@@ -25,6 +27,7 @@ export default function FamilyPlusPaywall({
   family: familyProp,
   featureTitle = 'Foto-Bestätigung',
   featureDescription,
+  onDiscoverPlus,
   children,
 }: FamilyPlusPaywallProps) {
   const { family: familyFromContext } = useFamily()
@@ -50,7 +53,7 @@ export default function FamilyPlusPaywall({
         <FamilyPlusPriceDisplay variant="hero" />
         <FamilyPlusAboCallout showPrice={false} />
         <FamilyPlusFeaturesList className="mt-0" />
-        <FamilyPlusBillingControls family={family} showPriceBadge={false} />
+        <FamilyPlusBillingControls family={family} showPriceBadge={false} onDiscoverPlus={onDiscoverPlus} />
       </div>
     </PlusCheckoutProvider>
   )

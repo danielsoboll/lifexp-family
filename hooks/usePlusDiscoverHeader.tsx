@@ -42,7 +42,7 @@ export function usePlusDiscoverHeader(options: UsePlusDiscoverHeaderOptions = {}
 
   const headerAction: ReactNode = showHeader ? (
     plusActive ? (
-      <PlusActiveHeaderButton onClick={openPlusDiscover} />
+      <PlusActiveHeaderButton />
     ) : (
       <PlusLockHeaderButton onClick={openPlusDiscover} />
     )

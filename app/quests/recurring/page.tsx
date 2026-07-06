@@ -151,7 +151,8 @@ function RecurringQuestTemplateCard({
 
 export default function RecurringQuestsPage() {
   const { family, parents, children, canAdmin } = useFamily()
-  const { plusActive, headerAction: plusHeaderAction, portals: plusPortals } = usePlusDiscoverHeader()
+  const { plusActive, headerAction: plusHeaderAction, portals: plusPortals, openPlusDiscover } =
+    usePlusDiscoverHeader()
   const [templates, setTemplates] = useState<RecurringQuestTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -213,10 +214,11 @@ export default function RecurringQuestsPage() {
       <PageHeaderBar
         backHref="/quests"
         backLabel="Family-Quests"
-        headerAction={plusActive ? plusHeaderAction : undefined}
+        headerAction={plusHeaderAction}
       />
 
       <FamilyPlusPaywall
+        onDiscoverPlus={!canAdmin ? openPlusDiscover : undefined}
         featureTitle="Wiederkehrende Quests"
         featureDescription="Automatisch jeden Tag, an Arbeitstagen, alle 2 Tage oder wöchentlich — PLUS trägt passende Quests ein, sobald jemand die App öffnet."
       >

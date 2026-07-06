@@ -218,9 +218,9 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
 
   useEffect(() => {
     if (searchParams.get('ziele') !== '1') return
-    if (!isSelf && !canAdmin) return
+    if (!isSelf) return
     setGoalsEditorOpen(true)
-  }, [searchParams, isSelf, canAdmin])
+  }, [searchParams, isSelf])
 
   const memberQuests = useMemo(
     () => [...quests, ...yesterdayOpenQuests],
@@ -448,41 +448,49 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
     return <p className="text-sm text-slate-950 dark:text-slate-400">Familienmitglied nicht gefunden.</p>
   }
 
-  const canOpenGoalsEditor = isSelf || canAdmin
+  const canOpenGoalsEditor = isSelf
   const hasActiveGoal = Boolean(goalBar?.showBar)
 
   const openGoalsEditor = () => {
-    if (!canOpenGoalsEditor) return
+    if (!isSelf) return
     setGoalsEditorOpen(true)
   }
 
   const goalBarBottomInset =
     memberKind === 'child' && child && formatChildAge(child.age) ? 'pb-[2.75rem]' : 'pb-[1.75rem]'
 
+  const goalBarControl = (
+    <XpGoalVerticalBar
+      detail
+      emptyState={!hasActiveGoal}
+      progress={hasActiveGoal ? goalBar!.progress : 0}
+      target={hasActiveGoal ? goalBar!.target : 100}
+      symbolEmoji={hasActiveGoal ? personalGoalSymbolEmoji(goalBar!.symbolId) : undefined}
+    />
+  )
+
   return (
     <div className="space-y-6">
       <div className="mx-auto flex w-full max-w-[18.5rem] items-stretch sm:max-w-[19.5rem]">
         <div className={`flex w-12 shrink-0 flex-col justify-end ${goalBarBottomInset}`}>
-          <button
-            type="button"
-            onClick={openGoalsEditor}
-            disabled={!canOpenGoalsEditor}
-            className={`-ml-3.5 flex w-full items-center justify-center rounded-xl px-0.5 py-0.5 ${
-              canOpenGoalsEditor
-                ? `${TILE_3D_CLASS} cursor-pointer`
-                : 'cursor-default'
-            }`}
-            aria-label={hasActiveGoal ? 'Ziel-Fortschritt anzeigen' : 'Eigene Ziele anlegen'}
-            title={canOpenGoalsEditor ? (hasActiveGoal ? 'Ziele verwalten' : 'Eigene Ziele anlegen') : undefined}
-          >
-            <XpGoalVerticalBar
-              detail
-              emptyState={!hasActiveGoal}
-              progress={hasActiveGoal ? goalBar!.progress : 0}
-              target={hasActiveGoal ? goalBar!.target : 100}
-              symbolEmoji={hasActiveGoal ? personalGoalSymbolEmoji(goalBar!.symbolId) : undefined}
-            />
-          </button>
+          {isSelf ? (
+            <button
+              type="button"
+              onClick={openGoalsEditor}
+              className={`-ml-3.5 flex w-full items-center justify-center rounded-xl px-0.5 py-0.5 ${TILE_3D_CLASS} cursor-pointer`}
+              aria-label={hasActiveGoal ? 'Ziel-Fortschritt anzeigen' : 'Eigene Ziele anlegen'}
+              title={hasActiveGoal ? 'Ziele verwalten' : 'Eigene Ziele anlegen'}
+            >
+              {goalBarControl}
+            </button>
+          ) : (
+            <div
+              className="-ml-3.5 flex w-full cursor-default items-center justify-center rounded-xl px-0.5 py-0.5"
+              aria-label={hasActiveGoal ? 'Ziel-Fortschritt' : 'Noch kein eigenes Ziel'}
+            >
+              {goalBarControl}
+            </div>
+          )}
         </div>
         <article
           className={`${CARD_SURFACE_CLASS} ml-0.5 flex w-full max-w-[15rem] shrink-0 flex-col items-center rounded-2xl p-3 text-center sm:max-w-[16rem]`}

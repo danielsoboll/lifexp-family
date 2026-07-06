@@ -11,8 +11,8 @@ import { usePlusDiscoverHeader } from '../../hooks/usePlusDiscoverHeader'
 import { MAIN_PAGE_INSET_CLASS, MAIN_SHELL_CLASS, HOME_BACK_LABEL, PRESSABLE_3D_CLASS } from '../../lib/appShell'
 
 export default function QuestsPage() {
-  const { family } = useFamily()
-  const { showHeader, plusActive, headerAction: plusHeaderAction, portals: plusPortals } =
+  const { family, canAdmin } = useFamily()
+  const { showHeader, plusActive, headerAction: plusHeaderAction, portals: plusPortals, openPlusDiscover } =
     usePlusDiscoverHeader()
 
   return (
@@ -40,7 +40,12 @@ export default function QuestsPage() {
           </Link>
         </div>
         {family ? <FamilyPersonalGoalsPanel compact /> : null}
-        <RecurringQuestsEntryAction show={showHeader} plusActive={plusActive} />
+        <RecurringQuestsEntryAction
+          show={showHeader}
+          plusActive={plusActive}
+          showEmbeddedPayTrigger={!plusActive && !canAdmin}
+          onDiscoverPlus={!canAdmin ? openPlusDiscover : undefined}
+        />
       </div>
       {family ? <QuestList /> : null}
       {plusPortals}

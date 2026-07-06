@@ -99,9 +99,9 @@ export function memberCanEditPersonalGoals(input: {
   isSelf: boolean
   canAdmin: boolean
 }): boolean {
-  if (input.canAdmin) return true
   if (!input.isSelf) return false
-  return !memberHasLockedPersonalGoals(input.goals)
+  if (memberHasLockedPersonalGoals(input.goals)) return input.canAdmin
+  return true
 }
 
 export function resolveActivePersonalGoalBar(goals: readonly MemberPersonalGoal[]): MemberPersonalGoalBarState | null {
@@ -240,8 +240,8 @@ export async function saveMemberPersonalGoals(
   const isSelf =
     session.memberKind === input.member.memberKind && session.memberId === input.member.memberId
 
-  if (!isSelf && !input.canAdmin) {
-    return { goals: [], error: new Error('Keine Berechtigung.') }
+  if (!isSelf) {
+    return { goals: [], error: new Error('Ziele können nur vom Mitglied selbst bearbeitet werden.') }
   }
 
   if (isSelf && !input.canAdmin && memberHasLockedPersonalGoals(existing)) {
@@ -434,10 +434,13 @@ export async function deleteMemberPersonalGoal(input: {
   if (!goal) return { error: new Error('Ziel nicht gefunden.') }
 
   const isSelf = session.memberKind === input.member.memberKind && session.memberId === input.member.memberId
+  if (!isSelf) {
+    return { error: new Error('Ziele können nur vom Mitglied selbst bearbeitet werden.') }
+  }
   if (goal.xpLockedAt && !input.canAdmin) {
     return { error: new Error('Gesperrte Ziele kann nur ein Admin löschen.') }
   }
-  if (!memberCanEditPersonalGoals({ goals, isSelf, canAdmin: input.canAdmin }) && !input.canAdmin) {
+  if (!memberCanEditPersonalGoals({ goals, isSelf, canAdmin: input.canAdmin })) {
     return { error: new Error('Keine Berechtigung.') }
   }
 

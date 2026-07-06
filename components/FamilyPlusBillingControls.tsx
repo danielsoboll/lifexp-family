@@ -7,7 +7,7 @@ import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
 import FamilyPlusActiveWelcome from './FamilyPlusActiveWelcome'
 import FamilyPlusPriceDisplay from './FamilyPlusPriceDisplay'
 import { familyPlusTarifLine, isFamilyPlus } from '../lib/family/familyPlus'
-import { FAMILY_PLUS_CTA_LABEL, FAMILY_PLUS_TAGLINE } from '../lib/family/familyPlusFeatures'
+import { FAMILY_PLUS_CTA_LABEL, FAMILY_PLUS_NON_ADMIN_HINT_FOOTER, FAMILY_PLUS_TAGLINE } from '../lib/family/familyPlusFeatures'
 import {
   createPlusCheckoutSession,
   createPlusPortalSession,
@@ -16,6 +16,7 @@ import {
 import { usePlusCheckout } from '../hooks/usePlusCheckout'
 import type { Family } from '../lib/family/types'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
+import PlusLockHeaderButton from './PlusLockHeaderButton'
 
 type FamilyPlusBillingControlsProps = {
   family?: Family | null
@@ -24,6 +25,8 @@ type FamilyPlusBillingControlsProps = {
   showPriceBadge?: boolean
   /** Willkommensblock — aus, wenn er schon darüber steht (z. B. PLUS-Sheet). */
   showActiveWelcome?: boolean
+  /** Nicht-Admins: goldenen PLUS-Button → Hinweis-Sheet („Frag Mama oder Papa“). */
+  onDiscoverPlus?: () => void
 }
 
 function useLocalPlusCheckout(family: Family | null | undefined, canAdmin: boolean) {
@@ -103,6 +106,7 @@ export default function FamilyPlusBillingControls({
   compact = false,
   showPriceBadge = true,
   showActiveWelcome = true,
+  onDiscoverPlus,
 }: FamilyPlusBillingControlsProps) {
   const { family: familyFromContext, canAdmin, refresh } = useFamily()
   const family = familyProp ?? familyFromContext
@@ -122,14 +126,25 @@ export default function FamilyPlusBillingControls({
     return (
       <div className="space-y-2">
         {!plusActive ? (
-          <p className="text-sm leading-relaxed text-slate-950 dark:text-slate-300">{FAMILY_PLUS_TAGLINE}</p>
+          <>
+            <p className="text-sm leading-relaxed text-slate-950 dark:text-slate-300">{FAMILY_PLUS_TAGLINE}</p>
+            {onDiscoverPlus ? (
+              <>
+                <PlusLockHeaderButton variant="cta" onClick={onDiscoverPlus}>
+                  {FAMILY_PLUS_CTA_LABEL}
+                </PlusLockHeaderButton>
+                <p className="text-center text-sm leading-relaxed text-slate-950 dark:text-slate-400">
+                  {FAMILY_PLUS_NON_ADMIN_HINT_FOOTER}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-slate-950 dark:text-slate-400">
+                PLUS ist noch nicht aktiv — ein Admin kann es in den Einstellungen aktivieren.
+              </p>
+            )}
+          </>
         ) : showActiveWelcome ? (
           <FamilyPlusActiveWelcome compact />
-        ) : null}
-        {!plusActive ? (
-          <p className="text-sm text-slate-950 dark:text-slate-400">
-            PLUS ist noch nicht aktiv — ein Admin kann es in den Einstellungen aktivieren.
-          </p>
         ) : null}
       </div>
     )

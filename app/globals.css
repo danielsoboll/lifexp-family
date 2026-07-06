@@ -521,6 +521,13 @@ html.lifexp-keyboard-open.dark body::before {
 }
 
 /* Denkblase — Positionierung in AvatarWasJetztTunThoughtBubble.tsx (Tailwind) */
+button.lifexp-thought-bubble {
+  margin: 0;
+  font: inherit;
+  line-height: inherit;
+  -webkit-tap-highlight-color: transparent;
+  appearance: none;
+}
 
 /* Komfortables Tippen auf Mobilgeräten */
 @media (pointer: coarse) {

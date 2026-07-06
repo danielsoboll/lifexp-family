@@ -22,8 +22,9 @@ import { multilineTextInputProps, oneLineTextInputProps } from '../../../../lib/
 
 export default function NewRecurringQuestPage() {
   const router = useRouter()
-  const { family, parents, children, memberKind, parent, activeChild } = useFamily()
-  const { plusActive, headerAction: plusHeaderAction, portals: plusPortals } = usePlusDiscoverHeader()
+  const { family, parents, children, memberKind, parent, activeChild, canAdmin } = useFamily()
+  const { plusActive, headerAction: plusHeaderAction, portals: plusPortals, openPlusDiscover } =
+    usePlusDiscoverHeader()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [xpReward, setXpReward] = useState(3)
@@ -91,10 +92,11 @@ export default function NewRecurringQuestPage() {
       <PageHeaderBar
         backHref="/quests/recurring"
         backLabel="Wiederkehrend"
-        headerAction={plusActive ? plusHeaderAction : undefined}
+        headerAction={plusHeaderAction}
       />
 
       <FamilyPlusPaywall
+        onDiscoverPlus={!canAdmin ? openPlusDiscover : undefined}
         featureTitle="Wiederkehrende Quests"
         featureDescription="Automatisch jeden Tag, an Arbeitstagen, alle 2 Tage oder wöchentlich — PLUS trägt passende Quests ein, sobald jemand die App öffnet."
       >
