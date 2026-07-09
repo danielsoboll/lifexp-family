@@ -1,13 +1,17 @@
 'use client'
 
-import Link from 'next/link'
 import { useState } from 'react'
 
+import FamilyPlusCheckoutLegalNote from './FamilyPlusCheckoutLegalNote'
 import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
 import FamilyPlusActiveWelcome from './FamilyPlusActiveWelcome'
 import FamilyPlusPriceDisplay from './FamilyPlusPriceDisplay'
 import { familyPlusTarifLine, isFamilyPlus } from '../lib/family/familyPlus'
-import { FAMILY_PLUS_CTA_LABEL, FAMILY_PLUS_NON_ADMIN_HINT_FOOTER, FAMILY_PLUS_TAGLINE } from '../lib/family/familyPlusFeatures'
+import {
+  FAMILY_PLUS_CTA_LABEL,
+  FAMILY_PLUS_NON_ADMIN_HINT_FOOTER,
+  FAMILY_PLUS_TAGLINE,
+} from '../lib/family/familyPlusFeatures'
 import {
   createPlusCheckoutSession,
   createPlusPortalSession,
@@ -27,6 +31,8 @@ type FamilyPlusBillingControlsProps = {
   showActiveWelcome?: boolean
   /** Nicht-Admins: goldenen PLUS-Button → Hinweis-Sheet („Frag Mama oder Papa“). */
   onDiscoverPlus?: () => void
+  /** Rechtshinweis unter dem Checkout-Button — aus, wenn er schon darüber steht. */
+  showLegalNote?: boolean
 }
 
 function useLocalPlusCheckout(family: Family | null | undefined, canAdmin: boolean) {
@@ -107,6 +113,7 @@ export default function FamilyPlusBillingControls({
   showPriceBadge = true,
   showActiveWelcome = true,
   onDiscoverPlus,
+  showLegalNote = true,
 }: FamilyPlusBillingControlsProps) {
   const { family: familyFromContext, canAdmin, refresh } = useFamily()
   const family = familyProp ?? familyFromContext
@@ -178,18 +185,7 @@ export default function FamilyPlusBillingControls({
           >
             {busy === 'checkout' ? 'Weiter zu Stripe …' : FAMILY_PLUS_CTA_LABEL}
           </button>
-          <p className="text-center text-[11px] leading-relaxed text-slate-800 dark:text-slate-400">
-            Mit Fortfahren zu Stripe schließen Sie ein monatliches PLUS-Abo ab (4,99 €/Monat, jederzeit kündbar). Es
-            gelten unsere{' '}
-            <Link href="/agb" className="font-medium underline underline-offset-2">
-              AGB
-            </Link>{' '}
-            und{' '}
-            <Link href="/datenschutz" className="font-medium underline underline-offset-2">
-              Datenschutzhinweise
-            </Link>
-            .
-          </p>
+          {showLegalNote ? <FamilyPlusCheckoutLegalNote /> : null}
           <button
             type="button"
             disabled={busy !== null}

@@ -26,7 +26,8 @@ import { cetToday, normalizeDateKey } from '../lib/cetDate'
 import { fetchMemberStreakClaimedToday } from '../lib/family/dailyStreak'
 import { persistMemberStreakIntroSeen } from '../lib/family/streakIntroHint'
 import { fetchFamilyQuestBoard, questAppliesToMember } from '../lib/family/quests'
-import { fulfillmentForMemberOnQuest, aggregateQuestFulfillmentStatus, canSessionConfirmQuestCompletion } from '../lib/family/questConfirmation'
+import { fulfillmentForMemberOnQuest, aggregateQuestFulfillmentStatus, questConfirmationPerspectiveForMemberOnQuest } from '../lib/family/questConfirmation'
+import { QUEST_CONFIRMATION_ORANGE_LABEL_CLASS, QUEST_CONFIRMATION_ORANGE_SURFACE_CLASS } from '../lib/family/questCardSurface'
 import { fetchMemberPersonalGoalBarState, type MemberPersonalGoalBarState } from '../lib/family/personalGoals'
 import { fetchQuestCompletionEnrichment, type QuestCompletionEnrichment } from '../lib/family/questCompletionPlus'
 import { personalGoalSymbolEmoji } from '../lib/family/personalGoalSymbols'
@@ -344,24 +345,27 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
         const status = fulfillmentForMemberOnQuest(quest, memberKind, memberId)
         const done = status === 'done'
         const awaiting = status === 'awaiting_creator'
+        const confirmationPerspective =
+          awaiting && session
+            ? questConfirmationPerspectiveForMemberOnQuest({
+                quest,
+                memberType: memberKind,
+                memberId,
+                session,
+                canAdmin,
+              })
+            : null
+        const showAwaitingUi = confirmationPerspective !== null
         const completion = completionForMember(quest, memberKind, memberId)
         const canAdminRemove = canAdmin && completion && (done || awaiting)
         const enrichment =
           completion && completion.id !== 'local' ? completionEnrichment.get(completion.id) : undefined
 
         const canFinalConfirm =
-          !isSelf &&
-          awaiting &&
+          confirmationPerspective === 'confirmer_action' &&
           completion &&
           completion.id !== 'local' &&
-          session &&
-          canSessionConfirmQuestCompletion({
-            quest,
-            session,
-            assigneeChildId: completion.childId,
-            assigneeParentId: completion.parentId,
-            canAdmin,
-          })
+          session
 
         return (
           <li
@@ -369,8 +373,8 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
             className={`rounded-xl border-2 px-3 py-2.5 ${
               done
                 ? 'border-emerald-300/80 bg-emerald-50/80 dark:border-emerald-800 dark:bg-emerald-950/30'
-                : awaiting
-                  ? 'border-sky-300/80 bg-sky-50/80 dark:border-sky-800 dark:bg-sky-950/30'
+                : showAwaitingUi
+                  ? QUEST_CONFIRMATION_ORANGE_SURFACE_CLASS
                   : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900/80'
             }`}
           >
@@ -391,12 +395,18 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
               className={`mt-1.5 text-xs font-bold uppercase tracking-wide ${
                 done
                   ? 'text-emerald-700 dark:text-emerald-300'
-                  : awaiting
-                    ? 'text-sky-700 dark:text-sky-300'
+                  : showAwaitingUi
+                    ? QUEST_CONFIRMATION_ORANGE_LABEL_CLASS
                     : 'text-slate-950 dark:text-slate-400'
               }`}
             >
-              {done ? 'Erledigt' : awaiting ? 'Wartet auf Bestätigung' : 'Offen'}
+              {done
+                ? 'Erledigt'
+                : confirmationPerspective === 'assignee_waiting'
+                  ? 'Bestätigung ausstehend'
+                  : confirmationPerspective === 'confirmer_action'
+                    ? 'Zu bestätigen'
+                    : 'Offen'}
             </p>
             {(done || awaiting) && enrichment && (enrichment.photos.length > 0 || enrichment.assigneeMessage) ? (
               <QuestCompletionAssigneePhotosDisplay

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 
 import MemberAvatarPicker from './MemberAvatarPicker'
+import ParentDisplayNameField from './ParentDisplayNameField'
 import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
 import { createChild } from '../lib/family/children'
 import {
@@ -202,55 +203,88 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
           hideLegend
         />
         <div className="min-w-0 flex-1 space-y-2">
-          <div>
-            <label htmlFor="member-name" className="mb-0.5 block text-xs font-semibold text-slate-950 dark:text-slate-200">
-              Name
-            </label>
-            <input
-              id="member-name"
-              required
-              maxLength={80}
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className={FORM_FIELD_INPUT_COMPACT_CLASS}
-              {...displayNameInputProps()}
-            />
-          </div>
-
-          <fieldset>
-            <legend className="mb-1 block text-xs font-semibold text-slate-950 dark:text-slate-200">
-              {memberKind === 'adult' ? 'Rolle' : 'Geschlecht'}
-            </legend>
-            <div className="grid grid-cols-2 gap-1.5">
-              {roleOptions.map((option) => {
-                const selected = selectedGender === option.value
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => handleRoleChange(option.value)}
-                    className={`${PRESSABLE_3D_CLASS} flex items-center justify-center rounded-lg border-2 px-2 py-1.5 text-xs font-semibold ${
-                      selected
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-100'
-                        : 'border-slate-300 text-slate-950 dark:border-slate-600 dark:text-slate-100'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                )
-              })}
-            </div>
-            {memberKind === 'adult' ? (
+          {memberKind === 'adult' ? (
+            <fieldset>
+              <legend className="mb-1 block text-xs font-semibold text-slate-950 dark:text-slate-200">Rolle</legend>
+              <div className="grid grid-cols-2 gap-1.5">
+                {roleOptions.map((option) => {
+                  const selected = selectedGender === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => handleRoleChange(option.value)}
+                      className={`${PRESSABLE_3D_CLASS} flex items-center justify-center rounded-lg border-2 px-2 py-1.5 text-xs font-semibold ${
+                        selected
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-100'
+                          : 'border-slate-300 text-slate-950 dark:border-slate-600 dark:text-slate-100'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  )
+                })}
+              </div>
               <p className="mt-1.5 text-[11px] text-slate-950 dark:text-slate-400">
                 Mehrere Papas oder Mamas sind möglich.
               </p>
-            ) : (
+            </fieldset>
+          ) : null}
+
+          {memberKind === 'adult' ? (
+            <ParentDisplayNameField
+              id="member-name"
+              gender={adultGender}
+              displayName={displayName}
+              onDisplayNameChange={setDisplayName}
+              compact
+            />
+          ) : (
+            <div>
+              <label htmlFor="member-name" className="mb-0.5 block text-xs font-semibold text-slate-950 dark:text-slate-200">
+                Name
+              </label>
+              <input
+                id="member-name"
+                required
+                maxLength={80}
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className={FORM_FIELD_INPUT_COMPACT_CLASS}
+                {...displayNameInputProps()}
+              />
+            </div>
+          )}
+
+          {memberKind === 'child' ? (
+            <fieldset>
+              <legend className="mb-1 block text-xs font-semibold text-slate-950 dark:text-slate-200">Geschlecht</legend>
+              <div className="grid grid-cols-2 gap-1.5">
+                {roleOptions.map((option) => {
+                  const selected = selectedGender === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => handleRoleChange(option.value)}
+                      className={`${PRESSABLE_3D_CLASS} flex items-center justify-center rounded-lg border-2 px-2 py-1.5 text-xs font-semibold ${
+                        selected
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-100'
+                          : 'border-slate-300 text-slate-950 dark:border-slate-600 dark:text-slate-100'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  )
+                })}
+              </div>
               <p className="mt-1.5 text-[11px] text-slate-950 dark:text-slate-400">
                 Kinder: {children.length}/{MAX_CHILDREN_PER_FAMILY}
               </p>
-            )}
-          </fieldset>
+            </fieldset>
+          ) : null}
 
           {memberKind === 'child' ? (
             <div>

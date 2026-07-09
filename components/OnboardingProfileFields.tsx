@@ -5,6 +5,7 @@ import { useMemo, useRef, type RefObject } from 'react'
 import AutofillSafeTextInput from './AutofillSafeTextInput'
 import IosContactAutofillDecoy from './IosContactAutofillDecoy'
 import MemberAvatarPicker from './MemberAvatarPicker'
+import ParentDisplayNameField from './ParentDisplayNameField'
 import {
   isParentOnboardingGender,
   ONBOARDING_MEMBER_OPTIONS,
@@ -85,25 +86,6 @@ export default function OnboardingProfileFields({
   return (
     <>
       <IosContactAutofillDecoy />
-      <div ref={nameSectionRef}>
-        <label htmlFor="lifexp-onboarding-who" className="mb-1 block text-sm font-semibold text-slate-950 dark:text-slate-200">
-          {nameLabel}
-        </label>
-        <AutofillSafeTextInput
-          id="lifexp-onboarding-who"
-          required
-          maxLength={80}
-          value={displayName}
-          onChange={(e) => onDisplayNameChange(e.target.value)}
-          scrollBlockRef={nameSectionRef}
-          scrollOnFocus="slow"
-          sheetScrollRef={sheetScrollRef}
-          hideAboveRef={hideAboveRef}
-          scrollTopInsetPx={8}
-          className={FORM_FIELD_INPUT_CLASS}
-          autofillProps={personLabelInputProps()}
-        />
-      </div>
 
       <fieldset>
         <legend className="mb-2 block text-sm font-semibold text-slate-950 dark:text-slate-200">Wer bist du?</legend>
@@ -128,6 +110,43 @@ export default function OnboardingProfileFields({
           })}
         </div>
       </fieldset>
+
+      <div ref={nameSectionRef}>
+        {!isChild ? (
+          <ParentDisplayNameField
+            id="lifexp-onboarding-who"
+            gender={gender}
+            displayName={displayName}
+            onDisplayNameChange={onDisplayNameChange}
+            label={nameLabel}
+            labelClassName="mb-1 block text-sm font-semibold text-slate-950 dark:text-slate-200"
+            autofillSafe
+            sheetScrollRef={sheetScrollRef}
+            hideAboveRef={hideAboveRef}
+            scrollBlockRef={nameSectionRef}
+          />
+        ) : (
+          <>
+            <label htmlFor="lifexp-onboarding-who" className="mb-1 block text-sm font-semibold text-slate-950 dark:text-slate-200">
+              {nameLabel}
+            </label>
+            <AutofillSafeTextInput
+              id="lifexp-onboarding-who"
+              required
+              maxLength={80}
+              value={displayName}
+              onChange={(e) => onDisplayNameChange(e.target.value)}
+              scrollBlockRef={nameSectionRef}
+              scrollOnFocus="slow"
+              sheetScrollRef={sheetScrollRef}
+              hideAboveRef={hideAboveRef}
+              scrollTopInsetPx={8}
+              className={FORM_FIELD_INPUT_CLASS}
+              autofillProps={personLabelInputProps()}
+            />
+          </>
+        )}
+      </div>
 
       {isChild ? (
         <div ref={ageSectionRef}>

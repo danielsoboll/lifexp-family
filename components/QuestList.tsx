@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 
+import FamilyPersonalGoalsReadySection from './FamilyPersonalGoalsReadySection'
 import FamilyQuestConferenceSection from './FamilyQuestConferenceSection'
 import FamilyGroupPortrait from './FamilyGroupPortrait'
 import QuestEditSheet from './QuestEditSheet'
@@ -24,6 +25,7 @@ function renderQuestCard(
     grouped?: boolean
     familyWide?: boolean
     familyAccentKey?: MemberAccentKey
+    groupAssignee?: QuestMemberGroup['assignee']
     onManage: (quest: QuestWithCompletion) => void
   },
 ) {
@@ -51,6 +53,7 @@ function renderQuestCard(
       onManage={manageable ? () => props.onManage(quest) : undefined}
       session={props.session}
       canAdmin={props.canAdmin}
+      groupAssignee={props.groupAssignee}
     />
   )
 }
@@ -63,6 +66,7 @@ function renderPartitionedQuests(
     session: ReturnType<typeof useFamily>['session']
     canAdmin: boolean
     onManage: (quest: QuestWithCompletion) => void
+    groupAssignee?: QuestMemberGroup['assignee']
   },
   options?: { grouped?: boolean; familyWide?: boolean; familyAccentKey?: MemberAccentKey },
 ) {
@@ -105,6 +109,7 @@ function renderMemberQuestSection(
     session: ReturnType<typeof useFamily>['session']
     canAdmin: boolean
     onManage: (quest: QuestWithCompletion) => void
+    groupAssignee?: QuestMemberGroup['assignee']
   },
 ) {
   const accent = memberAccentStyle(group.accentKey)
@@ -114,7 +119,7 @@ function renderMemberQuestSection(
       className="rounded-2xl border border-slate-200/90 bg-white/60 p-3.5 shadow-sm dark:border-slate-700/90 dark:bg-slate-900/35"
     >
       <h2 className={`text-lg font-bold tracking-tight ${accent.nameClass}`}>{group.label}</h2>
-      <div className="mt-3 space-y-2.5">{renderPartitionedQuests(group.quests, cardProps)}</div>
+      <div className="mt-3 space-y-2.5">{renderPartitionedQuests(group.quests, { ...cardProps, groupAssignee: group.assignee })}</div>
     </section>
   )
 }
@@ -127,6 +132,7 @@ function renderQuestGroups(
     session: ReturnType<typeof useFamily>['session']
     canAdmin: boolean
     onManage: (quest: QuestWithCompletion) => void
+    groupAssignee?: QuestMemberGroup['assignee']
   },
   familyAccentKey: MemberAccentKey,
 ) {
@@ -225,11 +231,6 @@ export default function QuestList() {
     [board.yesterdayOpen, parents, children, family?.name],
   )
 
-  const allQuests = useMemo(
-    () => [...board.todayAndTomorrow, ...board.yesterdayOpen],
-    [board.todayAndTomorrow, board.yesterdayOpen],
-  )
-
   const cardProps = useMemo(
     () => ({
       children,
@@ -261,7 +262,8 @@ export default function QuestList() {
 
   return (
     <>
-      <FamilyQuestConferenceSection quests={allQuests} placement="top" />
+      <FamilyPersonalGoalsReadySection />
+      <FamilyQuestConferenceSection placement="top" />
 
       {!hasToday && !hasYesterdayOpen ? (
         <p className="text-sm text-slate-950 dark:text-slate-400">

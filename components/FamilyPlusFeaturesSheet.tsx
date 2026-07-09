@@ -3,6 +3,7 @@
 import FamilyPlusActiveWelcome from './FamilyPlusActiveWelcome'
 import FamilyPlusBillingControls from './FamilyPlusBillingControls'
 import FamilyPlusAboCallout from './FamilyPlusAboCallout'
+import FamilyPlusCheckoutLegalNote from './FamilyPlusCheckoutLegalNote'
 import FamilyPlusFeaturesList from './FamilyPlusFeaturesList'
 import FamilyPlusPriceDisplay from './FamilyPlusPriceDisplay'
 import SheetPortal from './SheetPortal'
@@ -56,10 +57,11 @@ export default function FamilyPlusFeaturesSheet({ onClose }: FamilyPlusFeaturesS
                 <div className="mt-4 space-y-3">
                   <FamilyPlusPriceDisplay variant="hero" />
                   <FamilyPlusAboCallout showPrice={false} />
+                  <FamilyPlusCheckoutLegalNote />
                 </div>
                 <FamilyPlusFeaturesList />
                 <div className="mt-5">
-                  <FamilyPlusBillingControls compact showPriceBadge={false} showActiveWelcome={false} />
+                  <FamilyPlusBillingControls compact showPriceBadge={false} showActiveWelcome={false} showLegalNote={false} />
                 </div>
               </PlusCheckoutProvider>
             ) : (

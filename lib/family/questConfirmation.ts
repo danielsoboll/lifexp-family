@@ -165,6 +165,65 @@ export function pendingConfirmableCompletions(
   )
 }
 
+export type QuestConfirmationPerspective = 'assignee_waiting' | 'confirmer_action'
+
+/** Nur für Beteiligte: Wartender oder Bestätiger — sonst null. */
+export function questConfirmationPerspectiveForSessionOnQuest(
+  quest: QuestWithCompletion,
+  session: FamilySession | null,
+  canAdmin: boolean,
+): QuestConfirmationPerspective | null {
+  if (!session) return null
+
+  const selfStatus = fulfillmentForMemberOnQuest(quest, session.memberKind, session.memberId)
+  if (selfStatus === 'awaiting_creator') return 'assignee_waiting'
+
+  if (pendingConfirmableCompletions(quest, session, canAdmin).length > 0) {
+    return 'confirmer_action'
+  }
+
+  return null
+}
+
+/** Perspektive für Quest in einer Mitglieder-Gruppe (Assignee der Gruppe). */
+export function questConfirmationPerspectiveForMemberOnQuest(input: {
+  quest: QuestWithCompletion
+  memberType: 'parent' | 'child'
+  memberId: string
+  session: FamilySession | null
+  canAdmin: boolean
+}): QuestConfirmationPerspective | null {
+  const memberStatus = fulfillmentForMemberOnQuest(input.quest, input.memberType, input.memberId)
+  if (memberStatus !== 'awaiting_creator') return null
+
+  if (
+    input.session &&
+    input.session.memberKind === input.memberType &&
+    input.session.memberId === input.memberId
+  ) {
+    return 'assignee_waiting'
+  }
+
+  const completion = input.quest.completionsOnDate.find((row) =>
+    input.memberType === 'child' ? row.childId === input.memberId : row.parentId === input.memberId,
+  )
+  if (
+    completion &&
+    input.session &&
+    canSessionConfirmQuestCompletion({
+      quest: input.quest,
+      session: input.session,
+      assigneeChildId: completion.childId,
+      assigneeParentId: completion.parentId,
+      canAdmin: input.canAdmin,
+    })
+  ) {
+    return 'confirmer_action'
+  }
+
+  return null
+}
+
 export function canSessionConfirmAsCreator(quest: Quest, canAdmin = false): boolean {
   const session = readFamilySession()
   if (!session) return false

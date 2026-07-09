@@ -82,6 +82,12 @@ export function personalGoalAwaitingXp(goal: MemberPersonalGoal): boolean {
   return goal.xpLockedAt === null && (goal.targetXp === null || goal.targetXp <= 0)
 }
 
+export function personalGoalReadyToRedeem(goal: MemberPersonalGoal): boolean {
+  if (goal.targetXp === null || goal.targetXp <= 0) return false
+  if (goal.completedAt === null) return false
+  return goal.progressXp >= goal.targetXp
+}
+
 export function countPersonalGoalsAwaitingXp(goals: readonly MemberPersonalGoal[]): number {
   return goals.filter(personalGoalAwaitingXp).length
 }
@@ -93,6 +99,8 @@ export type PersonalGoalAwaitingXpItem = {
   memberLabel: string
   memberHref: string
 }
+
+export type PersonalGoalReadyToRedeemItem = PersonalGoalAwaitingXpItem
 
 export function memberCanEditPersonalGoals(input: {
   goals: readonly MemberPersonalGoal[]
@@ -111,8 +119,21 @@ export function resolveActivePersonalGoalBar(goals: readonly MemberPersonalGoal[
 
   if (withTarget.length === 0) return null
 
+  const awaitingRedeem = withTarget.find((goal) => personalGoalReadyToRedeem(goal))
+  if (awaitingRedeem?.targetXp) {
+    return {
+      showBar: true,
+      progress: awaitingRedeem.targetXp,
+      target: awaitingRedeem.targetXp,
+      symbolId: awaitingRedeem.symbolId,
+      title: awaitingRedeem.title,
+      goalId: awaitingRedeem.id,
+    }
+  }
+
   const active =
-    withTarget.find((goal) => !goal.completedAt && (goal.progressXp < (goal.targetXp ?? 0))) ?? withTarget[withTarget.length - 1]
+    withTarget.find((goal) => !goal.completedAt && goal.progressXp < (goal.targetXp ?? 0)) ??
+    withTarget[withTarget.length - 1]
 
   if (!active?.targetXp) return null
 
@@ -183,21 +204,49 @@ export async function fetchMemberPersonalGoalBarState(
   return { bar: resolveActivePersonalGoalBar(goals), goals, error: null }
 }
 
+async function sumMemberTotalDailyXp(familyId: string, member: MemberXpHistoryKey): Promise<number> {
+  const { data, error } = await supabase
+    .from('member_daily_xp_history')
+    .select('daily_xp')
+    .eq('family_id', familyId)
+    .eq('member_kind', member.memberKind)
+    .eq('member_id', member.memberId)
+
+  if (error) return 0
+  return (data ?? []).reduce((sum, row) => sum + Math.max(0, Number(row.daily_xp) || 0), 0)
+}
+
 async function ensureTrackingStarted(
   familyId: string,
   member: MemberXpHistoryKey,
 ): Promise<Error | null> {
+  const { data: existing, error: fetchError } = await supabase
+    .from('member_personal_goal_tracking')
+    .select('family_id')
+    .eq('family_id', familyId)
+    .eq('member_kind', member.memberKind)
+    .eq('member_id', member.memberId)
+    .maybeSingle()
+
+  if (fetchError) {
+    if (isPersonalGoalsTableMissingError(fetchError)) return null
+    return new Error(fetchError.message)
+  }
+
+  if (existing) return null
+
+  const baselineTotal = await sumMemberTotalDailyXp(familyId, member)
   const today = cetToday()
-  const { error } = await supabase.from('member_personal_goal_tracking').upsert(
-    {
-      family_id: familyId,
-      member_kind: member.memberKind,
-      member_id: member.memberId,
-      tracking_started_at: today,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'family_id,member_kind,member_id' },
-  )
+  const { error } = await supabase.from('member_personal_goal_tracking').insert({
+    family_id: familyId,
+    member_kind: member.memberKind,
+    member_id: member.memberId,
+    tracking_started_at: today,
+    xp_baseline_total: baselineTotal,
+    xp_consumed_total: 0,
+    updated_at: new Date().toISOString(),
+  })
+
   if (error) {
     if (isPersonalGoalsTableMissingError(error)) return null
     return new Error(error.message)
@@ -444,6 +493,14 @@ export async function deleteMemberPersonalGoal(input: {
     return { error: new Error('Keine Berechtigung.') }
   }
 
+  if (personalGoalReadyToRedeem(goal)) {
+    const { error: redeemError } = await supabase.rpc('redeem_member_personal_goal', {
+      p_goal_id: input.goalId,
+    })
+    if (redeemError) return { error: new Error(redeemError.message) }
+    return { error: null }
+  }
+
   const { error } = await supabase
     .from('member_personal_goals')
     .delete()
@@ -543,4 +600,105 @@ export async function fetchFamilyPersonalGoalsAwaitingXp(
   )
 
   return { items, error: null }
+}
+
+function memberLabelForPersonalGoal(
+  memberKind: 'parent' | 'child',
+  memberId: string,
+  parents: ParentMember[],
+  children: ChildProfile[],
+): string {
+  if (memberKind === 'child') {
+    return children.find((c) => c.id === memberId)?.display_name?.trim() || 'Kind'
+  }
+  const parent = parents.find((p) => p.id === memberId)
+  return parent ? formatParentDisplayName(parent.display_name, parent.gender) : 'Erwachsene'
+}
+
+export async function fetchFamilyPersonalGoalsReadyToRedeem(
+  familyId: string,
+  parents: ParentMember[],
+  children: ChildProfile[],
+): Promise<{ items: PersonalGoalReadyToRedeemItem[]; error: Error | null }> {
+  await syncAllPersonalGoalsForFamily(familyId)
+
+  const { data, error } = await supabase
+    .from('member_personal_goals')
+    .select('*')
+    .eq('family_id', familyId)
+    .not('completed_at', 'is', null)
+    .not('target_xp', 'is', null)
+    .order('sort_order', { ascending: true })
+
+  if (error) {
+    if (isPersonalGoalsTableMissingError(error)) return { items: [], error: null }
+    return { items: [], error: new Error(error.message) }
+  }
+
+  const items: PersonalGoalReadyToRedeemItem[] = []
+  for (const row of (data ?? []) as GoalRow[]) {
+    const goal = mapGoal(row)
+    if (!personalGoalReadyToRedeem(goal)) continue
+
+    const memberKind = row.member_kind
+    const memberId = row.member_id as string
+    items.push({
+      goal,
+      memberKind,
+      memberId,
+      memberLabel: memberLabelForPersonalGoal(memberKind, memberId, parents, children),
+      memberHref: memberHref(memberKind, memberId),
+    })
+  }
+
+  items.sort(
+    (a, b) =>
+      a.memberLabel.localeCompare(b.memberLabel, 'de') ||
+      a.goal.sortOrder - b.goal.sortOrder ||
+      a.goal.title.localeCompare(b.goal.title, 'de'),
+  )
+
+  return { items, error: null }
+}
+
+export async function redeemMemberPersonalGoal(input: {
+  familyId: string
+  member: MemberXpHistoryKey
+  goalId: string
+}): Promise<{ error: Error | null }> {
+  const session = readFamilySession()
+  if (!session) return { error: new Error('Bitte zuerst anmelden.') }
+
+  const isSelf = session.memberKind === input.member.memberKind && session.memberId === input.member.memberId
+  if (!isSelf) {
+    return { error: new Error('Nur das Mitglied selbst kann die Belohnung als erledigt markieren.') }
+  }
+
+  await syncMemberPersonalGoalsProgress(input.familyId, input.member)
+
+  const { goals, error: fetchError } = await fetchMemberPersonalGoals(input.familyId, input.member)
+  if (fetchError) return { error: fetchError }
+
+  const goal = goals.find((row) => row.id === input.goalId)
+  if (!goal) return { error: new Error('Belohnung nicht gefunden.') }
+  if (!personalGoalReadyToRedeem(goal)) {
+    return { error: new Error('Belohnung ist noch nicht erreicht.') }
+  }
+
+  const { error } = await supabase.rpc('redeem_member_personal_goal', {
+    p_goal_id: input.goalId,
+  })
+
+  if (error) {
+    if (error.message?.includes('redeem_member_personal_goal')) {
+      return {
+        error: new Error(
+          'Belohnung einlösen benötigt die SQL-Migration — supabase/personal_goal_xp_baseline_redeem.sql ausführen.',
+        ),
+      }
+    }
+    return { error: new Error(error.message) }
+  }
+
+  return { error: null }
 }

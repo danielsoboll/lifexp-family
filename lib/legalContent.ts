@@ -4,6 +4,15 @@ export type LegalSection = {
   listItems?: string[]
 }
 
+/** Kurzhinweis vor Stripe-Checkout — digitaler Dienst, Widerruf erlischt mit Bereitstellung. */
+export const LEGAL_PLUS_CHECKOUT_NOTICE =
+  'PLUS ist ein digitaler Dienst und wird nach Zahlung sofort freigeschaltet. Mit Abschluss des Checkouts stimmen Sie zu, dass wir vor Ablauf der 14-tägigen Widerrufsfrist beginnen; Ihr Widerrufsrecht erlischt mit Bereitstellung (AGB § 7 und 8).'
+
+export const LEGAL_PLUS_CHECKOUT_PREFIX =
+  'Mit Fortfahren zu Stripe schließen Sie ein monatliches PLUS-Abo ab (4,99 €/Monat, jederzeit kündbar). ' +
+  LEGAL_PLUS_CHECKOUT_NOTICE +
+  ' Es gelten unsere'
+
 export const IMPRESSUM_SECTIONS: LegalSection[] = [
   {
     title: 'Angaben gemäß § 5 DDG',
@@ -45,7 +54,7 @@ export const IMPRESSUM_SECTIONS: LegalSection[] = [
     title: 'Angebot',
     paragraphs: [
       'LifeXP Family ist eine webbasierte Familien-App (Progressive Web App) zum gemeinsamen Planen und Abhaken von Quests, Sammeln von XP, Belohnungen und optionalen Zusatzfunktionen im kostenpflichtigen Tarif „LifeXP Family PLUS“.',
-      'Vertragsbedingungen für die Nutzung und das PLUS-Abo finden Sie in unseren AGB. Hinweise zur Datenverarbeitung und zur Haftung sind unter Datenschutz bzw. Haftung abrufbar.',
+      'Vertragsbedingungen für die Nutzung und das PLUS-Abo finden Sie in unseren AGB — einschließlich Hinweisen zum Widerrufsrecht bei digitalen Diensten. Datenschutz und Haftung sind unter den jeweiligen Seiten abrufbar.',
     ],
   },
   {
@@ -318,6 +327,7 @@ export const AGB_SECTIONS: LegalSection[] = [
     paragraphs: [
       'Die Darstellung von PLUS in der App stellt kein bindendes Angebot dar, sondern eine Einladung zur Abgabe einer Bestellung.',
       'Mit Klick auf den Checkout-Button und Abschluss des Zahlungsvorgangs bei Stripe geben Sie als Familien-Admin ein verbindliches Angebot zum Abschluss eines monatlichen PLUS-Abonnements ab. Der Vertrag kommt zustande, wenn wir die Bestellung annehmen — in der Regel durch Freischaltung von PLUS nach erfolgreicher Zahlung.',
+      'PLUS ist ein digitaler Dienst ohne körperlichen Datenträger, der unmittelbar nach Vertragsschluss bereitgestellt wird. Mit Abschluss des Checkouts willigen Sie ausdrücklich ein, dass wir vor Ablauf der 14-tägigen Widerrufsfrist mit der Leistung beginnen, und bestätigen, dass Sie Ihr Widerrufsrecht mit Beginn der Bereitstellung verlieren (§ 356 Abs. 5 BGB; nähere Ausführungen in § 7 und 8).',
       'Vertragssprache ist Deutsch. Der Vertragstext (AGB, Bestellübersicht) kann in der App abgespeichert bzw. ausgedruckt werden.',
     ],
   },
@@ -341,19 +351,24 @@ export const AGB_SECTIONS: LegalSection[] = [
   {
     title: '7. Widerrufsrecht für Verbraucher',
     paragraphs: [
-      'Sofern Sie Verbraucher sind, steht Ihnen ein Widerrufsrecht zu.',
+      'Sofern Sie Verbraucher sind, steht Ihnen grundsätzlich ein Widerrufsrecht zu.',
+      'Widerrufsbelehrung',
+      'Sie haben das Recht, binnen vierzehn Tagen ohne Angabe von Gründen diesen Vertrag zu widerrufen.',
+      'Die Widerrufsfrist beträgt vierzehn Tage ab dem Tag des Vertragsschlusses.',
+      'Um Ihr Widerrufsrecht auszuüben, müssen Sie uns (SLC IT-Consulting GmbH, Wenkenstr. 67, 32105 Bad Salzuflen, E-Mail: d.soboll@slc-it.de) mittels einer eindeutigen Erklärung (z. B. per E-Mail) über Ihren Entschluss, diesen Vertrag zu widerrufen, informieren. Zur Wahrung der Widerrufsfrist reicht es aus, dass Sie die Mitteilung über die Ausübung des Widerrufsrechts vor Ablauf der Widerrufsfrist absenden.',
+      'Folgen des Widerrufs: Wenn Sie diesen Vertrag widerrufen, haben wir Ihnen alle Zahlungen, die wir von Ihnen erhalten haben, unverzüglich und spätestens binnen vierzehn Tagen ab dem Tag zurückzuzahlen, an dem die Mitteilung über Ihren Widerruf bei uns eingegangen ist. Für diese Rückzahlung verwenden wir dasselbe Zahlungsmittel, das Sie bei der ursprünglichen Transaktion eingesetzt haben, es sei denn, mit Ihnen wurde ausdrücklich etwas anderes vereinbart.',
     ],
     listItems: [
-      'Widerrufsfrist: 14 Tage ab Vertragsschluss.',
-      'Um Ihr Widerrufsrecht auszuüben, teilen Sie uns (SLC IT-Consulting GmbH, Wenkenstr. 67, 32105 Bad Salzuflen, E-Mail: d.soboll@slc-it.de) mittels einer eindeutigen Erklärung (z. B. E-Mail) mit, dass Sie den Vertrag widerrufen möchten.',
-      'Zur Wahrung der Frist reicht die rechtzeitige Absendung der Erklärung.',
+      'Muster-Widerrufsformular (freiwillige Nutzung): An SLC IT-Consulting GmbH, Wenkenstr. 67, 32105 Bad Salzuflen, E-Mail: d.soboll@slc-it.de — Hiermit widerrufe(n) ich/wir (*) den von mir/uns (*) abgeschlossenen Vertrag über die Erbringung der folgenden Dienstleistung: LifeXP Family PLUS — Bestellt am (*)/erhalten am (*) — Name des/der Verbraucher(s) — Anschrift des/der Verbraucher(s) — Unterschrift des/der Verbraucher(s) (nur bei Mitteilung auf Papier) — Datum — (*) Unzutreffendes streichen.',
     ],
   },
   {
-    title: '8. Vorzeitige Leistungserbringung und Erlöschen des Widerrufsrechts',
+    title: '8. Digitale Leistung — Erlöschen des Widerrufsrechts',
     paragraphs: [
-      'PLUS ist ein digitaler Dienst, der nach Vertragsschluss sofort bereitgestellt wird. Wenn Sie als Verbraucher ausdrücklich verlangen, dass wir vor Ablauf der Widerrufsfrist mit der Leistung beginnen, und Sie Ihre Kenntnis davon bestätigen, dass Sie Ihr Widerrufsrecht bei vollständiger Vertragserfüllung verlieren, erlischt das Widerrufsrecht gemäß § 356 Abs. 5 BGB, sobald wir die Leistung vollständig erbracht haben.',
-      'Haben Sie verlangt, dass die Leistung vor Ablauf der Widerrufsfrist beginnt, und widerrufen Sie dennoch, schulden Sie uns eine angemessene Vergütung für die bis zum Widerruf erbrachte Leistung.',
+      'LifeXP Family PLUS ist ein digitaler Dienst im Sinne des § 327 BGB, der nicht auf einem körperlichen Datenträger geliefert wird. Nach erfolgreicher Zahlung wird PLUS unverzüglich in der App freigeschaltet.',
+      'Wenn Sie als Verbraucher den Checkout abschließen, verlangen Sie ausdrücklich, dass wir mit der Bereitstellung von PLUS vor Ablauf der 14-tägigen Widerrufsfrist beginnen. Sie bestätigen zugleich Ihre Kenntnis davon, dass Sie Ihr Widerrufsrecht mit Beginn der Vertragserfüllung — spätestens mit Freischaltung von PLUS — verlieren (§ 356 Abs. 5 BGB).',
+      'Ein Widerruf nach Freischaltung von PLUS ist damit ausgeschlossen. Stattdessen können Sie das Abo jederzeit zum Ende des laufenden Abrechnungszeitraums kündigen (§ 6).',
+      'Haben Sie — entgegen der obigen Regelung — wirksam widerrufen, bevor PLUS freigeschaltet wurde, erstatten wir bereits gezahlte Beträge. Wurde PLUS bereits bereitgestellt, erlischt das Widerrufsrecht; es bleibt nur die ordentliche Kündigung des Abonnements.',
     ],
   },
   {

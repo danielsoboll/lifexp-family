@@ -7,14 +7,22 @@ import type { ChildWithTodayXp, QuestWithCompletion } from '../lib/family/types'
 import { questPrimaryAssignee } from '../lib/family/quests'
 import {
   assigneeDisplayNameFromCompletion,
+  fulfillmentForMemberOnQuest,
   isFamilyWideQuest,
   pendingConfirmableCompletions,
+  questConfirmationPerspectiveForMemberOnQuest,
+  questConfirmationPerspectiveForSessionOnQuest,
 } from '../lib/family/questConfirmation'
 import { formatQuestDayLabel } from '../lib/family/questRules'
 import { accentKeyForAssignee, memberAccentStyle, type MemberAccentKey } from '../lib/family/memberAccentColor'
-import { QUEST_STATUS_BADGE_CLASS, questStatusSurfaceClass } from '../lib/family/questCardSurface'
+import {
+  QUEST_CONFIRMATION_PERSPECTIVE_BADGE,
+  QUEST_STATUS_BADGE_CLASS,
+  questStatusSurfaceClass,
+} from '../lib/family/questCardSurface'
 import { formatParentDisplayName } from '../lib/family/familyDisplayName'
 import type { FamilySession } from '../lib/familySession'
+import type { QuestAssignee, QuestFulfillmentStatus } from '../lib/family/types'
 
 type QuestCardProps = {
   quest: QuestWithCompletion
@@ -31,20 +39,72 @@ type QuestCardProps = {
   onManage?: () => void
   session?: FamilySession | null
   canAdmin?: boolean
+  /** Mitglied der Gruppe — für perspektivabhängige Bestätigungs-Anzeige. */
+  groupAssignee?: QuestAssignee
 }
-
-const STATUS_LABEL = QUEST_STATUS_BADGE_CLASS
 
 function cardShellClass(
   quest: QuestWithCompletion,
   grouped: boolean,
   familyWide: boolean,
   accent: ReturnType<typeof memberAccentStyle>,
+  displayStatus: QuestFulfillmentStatus,
 ): string {
   if (grouped || familyWide) {
-    return questStatusSurfaceClass(quest.fulfillmentStatus)
+    return questStatusSurfaceClass(displayStatus)
   }
   return accent.cardClass
+}
+
+function resolveQuestCardDisplay(input: {
+  quest: QuestWithCompletion
+  session: FamilySession | null
+  canAdmin: boolean
+  groupAssignee?: QuestAssignee
+}): { status: QuestFulfillmentStatus; badge: { text: string; className: string }; showConfirmAction: boolean } {
+  const perspective = input.groupAssignee
+    ? questConfirmationPerspectiveForMemberOnQuest({
+        quest: input.quest,
+        memberType: input.groupAssignee.type,
+        memberId: input.groupAssignee.id,
+        session: input.session,
+        canAdmin: input.canAdmin,
+      })
+    : questConfirmationPerspectiveForSessionOnQuest(input.quest, input.session, input.canAdmin)
+
+  if (perspective) {
+    return {
+      status: 'awaiting_creator',
+      badge: QUEST_CONFIRMATION_PERSPECTIVE_BADGE[perspective],
+      showConfirmAction: perspective === 'confirmer_action',
+    }
+  }
+
+  if (input.groupAssignee) {
+    const memberStatus = fulfillmentForMemberOnQuest(
+      input.quest,
+      input.groupAssignee.type,
+      input.groupAssignee.id,
+    )
+    if (memberStatus === 'awaiting_creator') {
+      return { status: 'open', badge: QUEST_STATUS_BADGE_CLASS.open, showConfirmAction: false }
+    }
+    return {
+      status: memberStatus,
+      badge: QUEST_STATUS_BADGE_CLASS[memberStatus],
+      showConfirmAction: false,
+    }
+  }
+
+  if (input.quest.fulfillmentStatus === 'awaiting_creator') {
+    return { status: 'open', badge: QUEST_STATUS_BADGE_CLASS.open, showConfirmAction: false }
+  }
+
+  return {
+    status: input.quest.fulfillmentStatus,
+    badge: QUEST_STATUS_BADGE_CLASS[input.quest.fulfillmentStatus],
+    showConfirmAction: false,
+  }
 }
 
 function creatorLabel(
@@ -75,18 +135,19 @@ export default function QuestCard({
   onManage,
   session = null,
   canAdmin = false,
+  groupAssignee,
 }: QuestCardProps) {
   const assignee = questPrimaryAssignee(quest)
   const assigneeName = assignee ? memberLabelForAssignee(assignee, parents, children) : '—'
   const dayLabel = formatQuestDayLabel(quest.task_date)
-  const status = STATUS_LABEL[quest.fulfillmentStatus]
+  const cardDisplay = resolveQuestCardDisplay({ quest, session, canAdmin, groupAssignee })
   const pendingConfirmations = pendingConfirmableCompletions(quest, session, canAdmin)
   const accent =
     familyWide || isFamilyWideQuest(quest)
       ? memberAccentStyle(familyAccentKey ?? 'lavender')
       : memberAccentStyle(accentKeyForAssignee(assignee, parents, children))
 
-  const surfaceClass = cardShellClass(quest, grouped, familyWide, accent)
+  const surfaceClass = cardShellClass(quest, grouped, familyWide, accent, cardDisplay.status)
 
   const content = (
     <>
@@ -96,9 +157,9 @@ export default function QuestCard({
             {dayLabel}
           </span>
           <span
-            className={`rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${status.className}`}
+            className={`rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${cardDisplay.badge.className}`}
           >
-            {status.text}
+            {cardDisplay.badge.text}
           </span>
         </div>
         <span className="shrink-0 rounded-full bg-white/80 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:bg-slate-900/60 dark:text-emerald-300">
@@ -134,7 +195,8 @@ export default function QuestCard({
           {manageMode === 'delete' ? 'Tippen zum Entfernen' : 'Tippen zum Bearbeiten'}
         </p>
       ) : null}
-      {pendingConfirmations.map((row) => (
+      {cardDisplay.showConfirmAction
+        ? pendingConfirmations.map((row) => (
         <QuestFinalConfirmButton
           key={row.id}
           completionId={row.id}
@@ -148,7 +210,8 @@ export default function QuestCard({
           )}
           compact
         />
-      ))}
+      ))
+        : null}
     </>
   )
 

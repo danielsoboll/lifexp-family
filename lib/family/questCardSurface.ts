@@ -19,7 +19,7 @@ export const QUEST_STATUS_BADGE_CLASS: Record<QuestFulfillmentStatus, { text: st
       'bg-amber-200/95 text-amber-950 dark:bg-amber-900/60 dark:text-amber-100',
   },
   awaiting_creator: {
-    text: 'Wartet auf OK',
+    text: 'Bestätigung ausstehend',
     className:
       'bg-yellow-200/95 text-amber-950 dark:bg-amber-900/55 dark:text-yellow-100',
   },
@@ -29,3 +29,25 @@ export const QUEST_STATUS_BADGE_CLASS: Record<QuestFulfillmentStatus, { text: st
       'bg-emerald-200/95 text-emerald-950 dark:bg-emerald-900/55 dark:text-emerald-100',
   },
 }
+
+/** Orange Badges — nur für Wartenden bzw. Bestätiger sichtbar. */
+export const QUEST_CONFIRMATION_PERSPECTIVE_BADGE: Record<
+  'assignee_waiting' | 'confirmer_action',
+  { text: string; className: string }
+> = {
+  assignee_waiting: {
+    text: 'Bestätigung ausstehend',
+    className:
+      'bg-yellow-200/95 text-amber-950 dark:bg-amber-900/55 dark:text-yellow-100',
+  },
+  confirmer_action: {
+    text: 'Zu bestätigen',
+    className:
+      'bg-orange-200/95 text-orange-950 dark:bg-orange-900/55 dark:text-orange-100',
+  },
+}
+
+export const QUEST_CONFIRMATION_ORANGE_SURFACE_CLASS =
+  'border-amber-500/90 bg-gradient-to-br from-yellow-100/90 via-amber-50/80 to-white shadow-sm ring-1 ring-amber-400/50 dark:border-amber-500/75 dark:from-yellow-950/45 dark:via-amber-950/35 dark:to-slate-900/95 dark:ring-amber-700/45'
+
+export const QUEST_CONFIRMATION_ORANGE_LABEL_CLASS = 'text-amber-800 dark:text-amber-300'

@@ -9,6 +9,7 @@ import OrangeConfirmAction from '../../../components/OrangeConfirmAction'
 import FamilyQuestAccentEditor from '../../../components/FamilyQuestAccentEditor'
 import FamilyPlusAboCallout from '../../../components/FamilyPlusAboCallout'
 import FamilyPlusBillingControls from '../../../components/FamilyPlusBillingControls'
+import FamilyPlusCheckoutLegalNote from '../../../components/FamilyPlusCheckoutLegalNote'
 import FamilyPlusPriceDisplay from '../../../components/FamilyPlusPriceDisplay'
 import MemberRecoveryAdminSection from '../../../components/MemberRecoveryAdminSection'
 import PageHeaderBar from '../../../components/PageHeaderBar'
@@ -114,7 +115,8 @@ export default function AdminSettingsPage() {
                     <div className="mt-3 space-y-3">
                       <FamilyPlusPriceDisplay variant="hero" />
                       <FamilyPlusAboCallout showPrice={false} />
-                      <FamilyPlusBillingControls family={family} compact showPriceBadge={false} showActiveWelcome={false} />
+                      <FamilyPlusCheckoutLegalNote />
+                      <FamilyPlusBillingControls family={family} compact showPriceBadge={false} showActiveWelcome={false} showLegalNote={false} />
                     </div>
                   </PlusCheckoutProvider>
                 ) : null}

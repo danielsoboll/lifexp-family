@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 
 import GenderChoice from './GenderChoice'
+import ParentDisplayNameField from './ParentDisplayNameField'
 import AdminAccessToggle from './AdminAccessToggle'
 import MemberAccentField from './MemberAccentField'
 import MemberAvatarPicker from './MemberAvatarPicker'
@@ -20,8 +21,7 @@ import {
 import { parentRoleLabel, type ParentGender } from '../lib/family/memberGender'
 import { normalizeMemberAccentKey, type MemberAccentKey } from '../lib/family/memberAccentColor'
 import type { ParentMember } from '../lib/family/members'
-import { CARD_SURFACE_CLASS, FORM_FIELD_INPUT_COMPACT_CLASS } from '../lib/appShell'
-import { displayNameInputProps } from '../lib/formInputAutofill'
+import { CARD_SURFACE_CLASS } from '../lib/appShell'
 
 type ParentMemberEditorProps = {
   member: ParentMember
@@ -107,21 +107,14 @@ export default function ParentMemberEditor({ member }: ParentMemberEditorProps) 
           hideLegend
         />
         <div className="min-w-0 flex-1 space-y-2">
-          <div>
-            <label htmlFor={`parent-name-${member.id}`} className="mb-0.5 block text-xs font-semibold">
-              Name
-            </label>
-            <input
-              id={`parent-name-${member.id}`}
-              required
-              maxLength={80}
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className={FORM_FIELD_INPUT_COMPACT_CLASS}
-              {...displayNameInputProps()}
-            />
-          </div>
           <GenderChoice kind="parent" compact value={gender} onChange={handleGenderChange} />
+          <ParentDisplayNameField
+            id={`parent-name-${member.id}`}
+            gender={gender}
+            displayName={displayName}
+            onDisplayNameChange={setDisplayName}
+            compact
+          />
         </div>
       </div>
       {isDirty ? <MemberEditorSaveBar loading={loading} /> : null}
