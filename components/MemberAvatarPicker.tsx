@@ -75,6 +75,9 @@ export default function MemberAvatarPicker({
         ) : (
           <MemberPortraitThumb src={selected ? portraitSrc(selected) : null} />
         )}
+        <p className="mt-1.5 max-w-[5.5rem] text-[10px] leading-snug text-slate-950/90 dark:text-slate-400">
+          Dein Avatar wird im Laufe des Tages glücklicher.
+        </p>
       </div>
 
       <MemberAvatarSelectScreen

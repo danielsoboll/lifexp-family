@@ -218,14 +218,18 @@ export default function MemberPersonalGoalsSheet({
 
           <div className="shrink-0">
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-              {readOnly ? 'Eigene Ziele' : goals.length > 0 ? 'Eigene Ziele' : 'Eigene Ziele anlegen'}
+              {readOnly
+                ? 'Eigene Belohnungen'
+                : goals.length > 0
+                  ? 'Eigene Belohnungen'
+                  : 'Eigene Belohnung anlegen'}
             </h2>
             <p className="mt-1 text-sm text-slate-950 dark:text-slate-300">
               {readOnly
-                ? `${memberLabel} — Ziele sind gesperrt, weil ein Admin XP vergeben hat.`
+                ? `${memberLabel} — Belohnungen sind gesperrt, weil ein Admin XP vergeben hat.`
                 : canAdmin && !isSelf
-                  ? `Ziele für ${memberLabel} — Priorität von oben nach unten (1 = wichtigstes Ziel).`
-                  : 'Was möchtest du dir als Nächstes wünschen? Wähle Text und Symbol — XP legt ein Admin fest.'}
+                  ? `Belohnungen für ${memberLabel} — Priorität von oben nach unten (1 = wichtigste Belohnung).`
+                  : 'Was möchtest du dir als Nächstes wünschen? Wähle Text und Symbol — XP legt die Familie fest.'}
             </p>
           </div>
 
@@ -335,7 +339,8 @@ export default function MemberPersonalGoalsSheet({
                 onClick={addAnotherGoal}
                 className={`${PRESSABLE_3D_CLASS} mt-4 w-full rounded-xl border-2 border-dashed border-amber-500 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100`}
               >
-                + Weiteres Ziel
+                <span className="text-xs font-semibold normal-case">+ weiteres </span>
+                Weitere Belohnung
               </button>
             ) : null}
 

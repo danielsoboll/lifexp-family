@@ -48,6 +48,8 @@ type FamilyContextValue = {
   error: string | null
   session: FamilySession | null
   refresh: () => Promise<void>
+  refreshXpTotals: () => Promise<void>
+  applyTodayXpDelta: (memberKind: FamilySessionMemberKind, memberId: string, delta: number) => void
   setSession: (session: FamilySession) => void
 }
 
@@ -65,6 +67,37 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [session, setSessionState] = useState<FamilySession | null>(null)
   const loadedOnceRef = useRef(false)
+
+  const refreshXpTotals = useCallback(async () => {
+    const stored = readFamilySession()
+    if (!stored?.familyId) return
+
+    const { childTotals, parentTotals, error: xpError } = await fetchTodayXpTotalsForFamily(stored.familyId)
+    if (xpError) return
+
+    setParents((prev) => prev.map((p) => ({ ...p, todayXp: parentTotals[p.id] ?? 0 })))
+    setChildrenWithXp((prev) => prev.map((c) => ({ ...c, todayXp: childTotals[c.id] ?? 0 })))
+  }, [])
+
+  const applyTodayXpDelta = useCallback(
+    (kind: FamilySessionMemberKind, memberId: string, delta: number) => {
+      if (delta <= 0) return
+      if (kind === 'child') {
+        setChildrenWithXp((prev) =>
+          prev.map((child) =>
+            child.id === memberId ? { ...child, todayXp: child.todayXp + delta } : child,
+          ),
+        )
+      } else {
+        setParents((prev) =>
+          prev.map((parent) =>
+            parent.id === memberId ? { ...parent, todayXp: parent.todayXp + delta } : parent,
+          ),
+        )
+      }
+    },
+    [],
+  )
 
   const refresh = useCallback(async () => {
     bootstrapPwaClientStorage()
@@ -248,14 +281,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   }, [refresh])
 
   useEffect(() => {
-    const onChange = () => void refresh()
+    const onChange = () => {
+      void refreshXpTotals()
+      void refresh()
+    }
     window.addEventListener(FAMILY_DATA_CHANGED_EVENT, onChange)
     window.addEventListener(FAMILY_SESSION_CHANGED_EVENT, onChange)
     return () => {
       window.removeEventListener(FAMILY_DATA_CHANGED_EVENT, onChange)
       window.removeEventListener(FAMILY_SESSION_CHANGED_EVENT, onChange)
     }
-  }, [refresh])
+  }, [refresh, refreshXpTotals])
 
   useEffect(() => {
     if (loading || !family?.id || !isFamilyPlus(family)) return
@@ -287,9 +323,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       error,
       session,
       refresh,
+      refreshXpTotals,
+      applyTodayXpDelta,
       setSession,
     }),
-    [family, parent, activeChild, memberKind, parents, childrenWithXp, loading, canAdmin, error, session, refresh, setSession],
+    [family, parent, activeChild, memberKind, parents, childrenWithXp, loading, canAdmin, error, session, refresh, refreshXpTotals, applyTodayXpDelta, setSession],
   )
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>

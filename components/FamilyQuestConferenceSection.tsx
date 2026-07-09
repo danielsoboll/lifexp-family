@@ -16,14 +16,22 @@ import {
   type PersonalGoalAwaitingXpItem,
 } from '../lib/family/personalGoals'
 import { personalGoalSymbolEmoji } from '../lib/family/personalGoalSymbols'
+import { QUEST_STATUS_BADGE_CLASS } from '../lib/family/questCardSurface'
 import type { QuestWithCompletion } from '../lib/family/types'
 import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 type FamilyQuestConferenceSectionProps = {
   quests: QuestWithCompletion[]
+  placement?: 'top' | 'bottom'
 }
 
-export default function FamilyQuestConferenceSection({ quests }: FamilyQuestConferenceSectionProps) {
+const AWAITING_CONFIRM_SURFACE_CLASS =
+  'rounded-xl border-2 border-amber-500/90 bg-gradient-to-b from-yellow-100/90 via-amber-50/80 to-white px-3 py-2.5 dark:border-amber-500/75 dark:from-yellow-950/45 dark:via-amber-950/35 dark:to-slate-900/95'
+
+export default function FamilyQuestConferenceSection({
+  quests,
+  placement = 'bottom',
+}: FamilyQuestConferenceSectionProps) {
   const { family, parents, children, session, canAdmin } = useFamily()
   const [goalsAwaitingXp, setGoalsAwaitingXp] = useState<PersonalGoalAwaitingXpItem[]>([])
   const [familyGoalsAwaitingXp, setFamilyGoalsAwaitingXp] = useState<FamilyPersonalGoal[]>([])
@@ -73,13 +81,16 @@ export default function FamilyQuestConferenceSection({ quests }: FamilyQuestConf
   if (!family || loadingGoals) return null
   if (!hasGoals && !hasConfirmations) return null
 
+  const sectionShellClass =
+    placement === 'top'
+      ? 'mb-6 scroll-mt-4 space-y-4'
+      : 'mt-8 scroll-mt-4 space-y-4 border-t border-slate-200 pt-6 dark:border-slate-700'
+
+  const awaitingBadge = QUEST_STATUS_BADGE_CLASS.awaiting_creator
+
   return (
     <>
-      <section
-        id="familien-sitzung"
-        aria-label="Familien-Sitzung"
-        className="mt-8 scroll-mt-4 space-y-4 border-t border-slate-200 pt-6 dark:border-slate-700"
-      >
+      <section id="familien-sitzung" aria-label="Familien-Sitzung" className={sectionShellClass}>
         <div>
           <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">Familien-Sitzung</h2>
           <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">Offene Entscheidungen.</p>
@@ -164,20 +175,19 @@ export default function FamilyQuestConferenceSection({ quests }: FamilyQuestConf
             </div>
             <ul className="space-y-2.5">
               {awaitingConfirmations.map(({ quest, completion, assigneeName, dayLabel, canConfirm }) => (
-                <li
-                  key={completion.id}
-                  className="rounded-xl border-2 border-sky-300/90 bg-gradient-to-b from-sky-50 to-sky-100/70 px-3 py-2.5 dark:border-sky-800 dark:from-sky-950/35 dark:to-sky-900/25"
-                >
+                <li key={completion.id} className={AWAITING_CONFIRM_SURFACE_CLASS}>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-950 dark:bg-slate-900/55 dark:text-slate-200">
                       {dayLabel}
                     </span>
-                    <span className="rounded-full bg-white/75 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-sky-900 dark:bg-sky-950/50 dark:text-sky-100">
-                      Wartet auf OK
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${awaitingBadge.className}`}
+                    >
+                      {awaitingBadge.text}
                     </span>
                   </div>
                   <p className="mt-2 text-sm font-bold text-slate-900 dark:text-slate-100">
-                    <span className="text-sky-800 dark:text-sky-200">{assigneeName}</span>
+                    <span className="text-amber-900 dark:text-amber-200">{assigneeName}</span>
                     <span className="font-normal text-slate-950 dark:text-slate-400"> · </span>
                     {quest.title}
                   </p>
@@ -192,6 +202,8 @@ export default function FamilyQuestConferenceSection({ quests }: FamilyQuestConf
                       completionId={completion.id}
                       xpReward={quest.xp_reward}
                       assigneeName={assigneeName}
+                      assigneeChildId={completion.childId}
+                      assigneeParentId={completion.parentId}
                       compact
                     />
                   ) : null}

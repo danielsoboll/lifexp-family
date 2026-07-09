@@ -1,3 +1,5 @@
+import { scopedLocalGet, scopedLocalRemove, scopedLocalSet } from './scopedClientStorage'
+
 export type HomeScreenIconPreference = 'yes' | 'no'
 
 export type PwaInstallResult =
@@ -25,28 +27,28 @@ let listenerAttached = false
 
 export function loadHomeScreenIconPreference(): HomeScreenIconPreference | null {
   if (typeof window === 'undefined') return null
-  const raw = localStorage.getItem(PREFERENCE_KEY)?.trim().toLowerCase()
+  const raw = scopedLocalGet(PREFERENCE_KEY)?.trim().toLowerCase()
   return raw === 'yes' || raw === 'no' ? raw : null
 }
 
 export function saveHomeScreenIconPreference(value: HomeScreenIconPreference): void {
   if (typeof window === 'undefined') return
-  localStorage.setItem(PREFERENCE_KEY, value)
+  scopedLocalSet(PREFERENCE_KEY, value)
 }
 
 export function savePwaInstallLater(): void {
   if (typeof window === 'undefined') return
-  localStorage.setItem(PWA_INSTALL_LATER_KEY, '1')
+  scopedLocalSet(PWA_INSTALL_LATER_KEY, '1')
 }
 
 export function hasPwaInstallLater(): boolean {
   if (typeof window === 'undefined') return false
-  return localStorage.getItem(PWA_INSTALL_LATER_KEY) === '1'
+  return scopedLocalGet(PWA_INSTALL_LATER_KEY) === '1'
 }
 
 export function clearPwaInstallLater(): void {
   if (typeof window === 'undefined') return
-  localStorage.removeItem(PWA_INSTALL_LATER_KEY)
+  scopedLocalRemove(PWA_INSTALL_LATER_KEY)
 }
 
 export function isStandaloneDisplayMode(): boolean {

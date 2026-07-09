@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import MemberAccentPicker from './MemberAccentPicker'
+import MemberAccentField from './MemberAccentField'
 import MemberEditorSaveBar from './MemberEditorSaveBar'
 import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
 import { updateFamilyAccentKey } from '../lib/family/families'
@@ -51,14 +51,14 @@ export default function FamilyQuestAccentEditor({ family }: FamilyQuestAccentEdi
           Farbe für {formatFamilyHeading(family.name)} — wenn eine Quest für „Alle“ eingetragen wird.
         </p>
       </div>
-      <MemberAccentPicker value={accentKey} onChange={setAccentKey} legend="Familien-Farbe" />
+      <MemberAccentField value={accentKey} onChange={setAccentKey} legend="Familien-Farbe" />
+      {isDirty ? <MemberEditorSaveBar loading={loading} label="Farbe speichern" /> : null}
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
           {error}
         </p>
       ) : null}
       {success ? <p className="text-xs text-emerald-700 dark:text-emerald-300">Gespeichert.</p> : null}
-      {isDirty ? <MemberEditorSaveBar loading={loading} /> : null}
     </form>
   )
 }

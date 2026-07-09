@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 
 import GenderChoice from './GenderChoice'
 import AdminAccessToggle from './AdminAccessToggle'
-import MemberAccentPicker from './MemberAccentPicker'
+import MemberAccentField from './MemberAccentField'
 import MemberAvatarPicker from './MemberAvatarPicker'
 import MemberEditorSaveBar from './MemberEditorSaveBar'
 import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
@@ -124,15 +124,15 @@ export default function ParentMemberEditor({ member }: ParentMemberEditorProps) 
           <GenderChoice kind="parent" compact value={gender} onChange={handleGenderChange} />
         </div>
       </div>
+      {isDirty ? <MemberEditorSaveBar loading={loading} /> : null}
       <AdminAccessToggle checked={canAdmin} onChange={setCanAdmin} />
-      <MemberAccentPicker value={accentKey} onChange={setAccentKey} />
+      <MemberAccentField value={accentKey} onChange={setAccentKey} />
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
           {error}
         </p>
       ) : null}
       {success ? <p className="text-xs text-emerald-700 dark:text-emerald-300">Gespeichert.</p> : null}
-      {isDirty ? <MemberEditorSaveBar loading={loading} /> : null}
     </form>
   )
 }

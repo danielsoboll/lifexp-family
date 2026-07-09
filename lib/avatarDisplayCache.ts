@@ -5,6 +5,7 @@ import {
   clearAvatarAssetPreloadCache,
 } from './avatarAsset'
 import { normalizeAvatarGender, type AvatarGender } from './avatarLibrary'
+import { scopedLocalGet, scopedLocalRemove, scopedLocalSet } from './scopedClientStorage'
 
 export { AVATAR_ASSET_VERSION } from './avatarAsset'
 
@@ -40,7 +41,7 @@ export function avatarSrcMatchesGender(src: string, avatarGender: AvatarGender):
 export function loadAvatarDisplayCache(): AvatarDisplayCache | null {
   if (typeof window === 'undefined') return null
   try {
-    const raw = localStorage.getItem(CACHE_KEY)
+    const raw = scopedLocalGet(CACHE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as {
       src?: unknown
@@ -99,7 +100,7 @@ export function saveAvatarDisplayCache(entry: AvatarDisplayCache): void {
   if (!isAvatarSrc(entry.src)) return
   const src = normalizeAvatarSrc(entry.src)
   if (!avatarSrcMatchesGender(src, entry.avatarGender)) return
-  localStorage.setItem(
+  scopedLocalSet(
     CACHE_KEY,
     JSON.stringify({
       src,
@@ -120,7 +121,7 @@ export function loadCachedAvatarGender(): AvatarGender {
 
 export function clearAvatarDisplayCache(): void {
   if (typeof window === 'undefined') return
-  localStorage.removeItem(CACHE_KEY)
+  scopedLocalRemove(CACHE_KEY)
   clearAvatarAssetPreloadCache()
 }
 

@@ -4,7 +4,36 @@ import { isFamilyWideQuest } from './questConfirmation'
 import { normalizeMemberAccentKey, type MemberAccentKey } from './memberAccentColor'
 import type { ParentMember } from './members'
 import { compareQuestsForOverview, questPrimaryAssignee } from './quests'
-import type { ChildWithTodayXp, QuestAssignee, QuestWithCompletion } from './types'
+import type { ChildWithTodayXp, QuestAssignee, QuestFulfillmentStatus, QuestWithCompletion } from './types'
+
+function questStatusSortOrder(status: QuestFulfillmentStatus): number {
+  if (status === 'open') return 0
+  if (status === 'awaiting_creator') return 1
+  return 2
+}
+
+/** Offen → wartet auf OK → erledigt; innerhalb gleicher Stufe nach Datum/Titel. */
+export function sortQuestsForDisplayGroup(quests: QuestWithCompletion[]): QuestWithCompletion[] {
+  return [...quests].sort((a, b) => {
+    const statusCmp = questStatusSortOrder(a.fulfillmentStatus) - questStatusSortOrder(b.fulfillmentStatus)
+    if (statusCmp !== 0) return statusCmp
+    return compareQuestsForOverview(a, b)
+  })
+}
+
+export function partitionQuestsByDone(quests: QuestWithCompletion[]): {
+  active: QuestWithCompletion[]
+  done: QuestWithCompletion[]
+} {
+  const sorted = sortQuestsForDisplayGroup(quests)
+  const active: QuestWithCompletion[] = []
+  const done: QuestWithCompletion[] = []
+  for (const quest of sorted) {
+    if (quest.fulfillmentStatus === 'done') done.push(quest)
+    else active.push(quest)
+  }
+  return { active, done }
+}
 
 const PARENT_GENDER_ORDER: Record<ParentGender, number> = {
   male: 0,
@@ -82,7 +111,7 @@ export function groupQuestsForDisplay(
     groups.push({
       kind: 'family',
       label: formatFamilyHeading(familyName),
-      quests: familyQuests.slice().sort(compareQuestsForOverview),
+      quests: sortQuestsForDisplayGroup(familyQuests),
     })
   }
 
@@ -95,7 +124,7 @@ export function groupQuestsForDisplay(
       assignee: { type: 'parent', id: parent.id },
       label: formatParentDisplayName(parent.display_name, parent.gender),
       accentKey: normalizeMemberAccentKey(parent.accent_key),
-      quests: memberQuests.slice().sort(compareQuestsForOverview),
+      quests: sortQuestsForDisplayGroup(memberQuests),
     })
   }
 
@@ -108,7 +137,7 @@ export function groupQuestsForDisplay(
       assignee: { type: 'child', id: child.id },
       label: child.display_name.trim() || 'Kind',
       accentKey: normalizeMemberAccentKey(child.accent_key),
-      quests: memberQuests.slice().sort(compareQuestsForOverview),
+      quests: sortQuestsForDisplayGroup(memberQuests),
     })
   }
 

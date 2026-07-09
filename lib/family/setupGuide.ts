@@ -1,4 +1,5 @@
-import { isMemberJoinReadySeen, markMemberJoinReadySeen } from './memberJoinGuide'
+import { scopedLocalGet, scopedLocalSet } from '../scopedClientStorage'
+import { isMemberJoinReadySeen } from './memberJoinGuide'
 import type { Family } from './types'
 import {
   familyHasAnyGuideProgress,
@@ -42,7 +43,7 @@ type LegacySetupGuideState = SetupGuideState & {
 function readLegacyAll(): Record<string, LegacySetupGuideState> {
   if (typeof window === 'undefined') return {}
   try {
-    const raw = localStorage.getItem(LEGACY_STORAGE_KEY)
+    const raw = scopedLocalGet(LEGACY_STORAGE_KEY)
     if (!raw) return {}
     const parsed = JSON.parse(raw) as Record<string, LegacySetupGuideState>
     return parsed && typeof parsed === 'object' ? parsed : {}
@@ -57,7 +58,7 @@ function clearLegacyForFamily(familyId: string): void {
     const map = readLegacyAll()
     if (!map[familyId]) return
     delete map[familyId]
-    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(map))
+    scopedLocalSet(LEGACY_STORAGE_KEY, JSON.stringify(map))
   } catch {
     /* ignore */
   }

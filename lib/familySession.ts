@@ -1,5 +1,15 @@
 import { clearAvatarDisplayCache } from './avatarDisplayCache'
 import {
+  matchesScopedClientStorageKey,
+} from './clientStorageScope'
+import {
+  collectScopedLifeexpLocalKeys,
+  collectScopedLifeexpSessionKeys,
+  scopedLocalGet,
+  scopedLocalRemove,
+  scopedLocalSet,
+} from './scopedClientStorage'
+import {
   FAMILY_ONBOARDING_DRAFT_COOKIE_KEY,
   clearFamilyOnboardingDraft,
 } from './family/onboardingDraft'
@@ -46,15 +56,15 @@ function parseSessionCookie(raw: string): FamilySession | null {
 }
 
 function writeSessionToLocalStorage(session: FamilySession): void {
-  localStorage.setItem(FAMILY_ID_KEY, session.familyId)
-  localStorage.setItem(MEMBER_KIND_KEY, session.memberKind)
-  localStorage.setItem(MEMBER_ID_KEY, session.memberId)
+  scopedLocalSet(FAMILY_ID_KEY, session.familyId)
+  scopedLocalSet(MEMBER_KIND_KEY, session.memberKind)
+  scopedLocalSet(MEMBER_ID_KEY, session.memberId)
   if (session.memberKind === 'parent') {
-    localStorage.setItem(PARENT_ID_KEY, session.memberId)
+    scopedLocalSet(PARENT_ID_KEY, session.memberId)
   } else {
-    localStorage.removeItem(PARENT_ID_KEY)
+    scopedLocalRemove(PARENT_ID_KEY)
   }
-  localStorage.removeItem(LEGACY_ACTIVE_FAMILY_KEY)
+  scopedLocalRemove(LEGACY_ACTIVE_FAMILY_KEY)
 }
 
 function writeSessionCookie(session: FamilySession): void {
@@ -69,9 +79,9 @@ function clearSessionCookie(): void {
 export function bootstrapFamilySessionFromCookie(): FamilySession | null {
   if (typeof window === 'undefined') return null
 
-  let familyId = localStorage.getItem(FAMILY_ID_KEY)
-  let memberKind = normalizeMemberKind(localStorage.getItem(MEMBER_KIND_KEY))
-  let memberId = localStorage.getItem(MEMBER_ID_KEY)
+  let familyId = scopedLocalGet(FAMILY_ID_KEY)
+  let memberKind = normalizeMemberKind(scopedLocalGet(MEMBER_KIND_KEY))
+  let memberId = scopedLocalGet(MEMBER_ID_KEY)
   if (familyId && memberId && memberKind) {
     return { familyId, memberId, memberKind }
   }
@@ -94,9 +104,9 @@ export function mirrorFamilySessionToCookie(): void {
   let memberKind: string | null = null
   let memberId: string | null = null
   try {
-    familyId = localStorage.getItem(FAMILY_ID_KEY)
-    memberKind = localStorage.getItem(MEMBER_KIND_KEY)
-    memberId = localStorage.getItem(MEMBER_ID_KEY)
+    familyId = scopedLocalGet(FAMILY_ID_KEY)
+    memberKind = scopedLocalGet(MEMBER_KIND_KEY)
+    memberId = scopedLocalGet(MEMBER_ID_KEY)
   } catch {
     /* ignore */
   }
@@ -116,21 +126,21 @@ export function mirrorFamilySessionToCookie(): void {
 export function readFamilySession(): FamilySession | null {
   if (typeof window === 'undefined') return null
 
-  let familyId = localStorage.getItem(FAMILY_ID_KEY)
-  let memberKind = normalizeMemberKind(localStorage.getItem(MEMBER_KIND_KEY))
-  let memberId = localStorage.getItem(MEMBER_ID_KEY)
+  let familyId = scopedLocalGet(FAMILY_ID_KEY)
+  let memberKind = normalizeMemberKind(scopedLocalGet(MEMBER_KIND_KEY))
+  let memberId = scopedLocalGet(MEMBER_ID_KEY)
 
   if (!familyId) {
-    const legacy = localStorage.getItem(LEGACY_ACTIVE_FAMILY_KEY)
+    const legacy = scopedLocalGet(LEGACY_ACTIVE_FAMILY_KEY)
     if (legacy) {
       familyId = legacy
-      localStorage.setItem(FAMILY_ID_KEY, legacy)
-      localStorage.removeItem(LEGACY_ACTIVE_FAMILY_KEY)
+      scopedLocalSet(FAMILY_ID_KEY, legacy)
+      scopedLocalRemove(LEGACY_ACTIVE_FAMILY_KEY)
     }
   }
 
   if (!memberId) {
-    const legacyParentId = localStorage.getItem(PARENT_ID_KEY)
+    const legacyParentId = scopedLocalGet(PARENT_ID_KEY)
     if (legacyParentId) {
       memberId = legacyParentId
       memberKind = 'parent'
@@ -160,11 +170,11 @@ export function storeFamilySession(session: FamilySession): void {
 
 export function clearFamilySession(): void {
   if (typeof window === 'undefined') return
-  localStorage.removeItem(FAMILY_ID_KEY)
-  localStorage.removeItem(MEMBER_KIND_KEY)
-  localStorage.removeItem(MEMBER_ID_KEY)
-  localStorage.removeItem(PARENT_ID_KEY)
-  localStorage.removeItem(LEGACY_ACTIVE_FAMILY_KEY)
+  scopedLocalRemove(FAMILY_ID_KEY)
+  scopedLocalRemove(MEMBER_KIND_KEY)
+  scopedLocalRemove(MEMBER_ID_KEY)
+  scopedLocalRemove(PARENT_ID_KEY)
+  scopedLocalRemove(LEGACY_ACTIVE_FAMILY_KEY)
   clearSessionCookie()
   window.dispatchEvent(new Event(FAMILY_SESSION_CHANGED_EVENT))
 }
@@ -176,6 +186,13 @@ const PRESERVED_ON_RESET_LOCAL_KEYS = new Set([
 
 const PRESERVED_ON_RESET_COOKIE_KEYS = new Set(['lifexp_t', 'lifexp_fxd'])
 
+function isPreservedResetCookieName(name: string): boolean {
+  for (const base of PRESERVED_ON_RESET_COOKIE_KEYS) {
+    if (matchesScopedClientStorageKey(name, base)) return true
+  }
+  return false
+}
+
 function clearLifeXpCookiesExceptPreserved(): void {
   if (typeof document === 'undefined') return
   for (const part of document.cookie.split(';')) {
@@ -184,8 +201,9 @@ function clearLifeXpCookiesExceptPreserved(): void {
     if (eq <= 0) continue
     const name = trimmed.slice(0, eq)
     if (!name.startsWith('lifexp_')) continue
-    if (PRESERVED_ON_RESET_COOKIE_KEYS.has(name)) continue
-    clearBridgedCookie(name)
+    if (isPreservedResetCookieName(name)) continue
+    const baseName = name.endsWith('_dev') ? name.slice(0, -4) : name
+    clearBridgedCookie(baseName)
   }
 }
 
@@ -200,24 +218,14 @@ export function resetLifeXpFamilyClientState(): void {
   clearFamilyOnboardingDraft()
   clearAvatarDisplayCache()
 
-  const localKeys: string[] = []
-  for (let i = 0; i < localStorage.length; i += 1) {
-    const key = localStorage.key(i)
-    if (!key || PRESERVED_ON_RESET_LOCAL_KEYS.has(key)) continue
-    if (key.startsWith('lifexp') || key.startsWith('lifexp-') || key.startsWith('lifexp_')) {
-      localKeys.push(key)
-    }
-  }
+  const localKeys = collectScopedLifeexpLocalKeys().filter(
+    (key) => ![...PRESERVED_ON_RESET_LOCAL_KEYS].some((base) => matchesScopedClientStorageKey(key, base)),
+  )
   for (const key of localKeys) {
     localStorage.removeItem(key)
   }
 
-  const sessionKeys: string[] = []
-  for (let i = 0; i < sessionStorage.length; i += 1) {
-    const key = sessionStorage.key(i)
-    if (key?.startsWith('lifexp')) sessionKeys.push(key)
-  }
-  for (const key of sessionKeys) {
+  for (const key of collectScopedLifeexpSessionKeys()) {
     sessionStorage.removeItem(key)
   }
 

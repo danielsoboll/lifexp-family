@@ -16,7 +16,7 @@ import {
   type AvatarPortraitId,
 } from '../lib/family/memberAvatar'
 import { confirmQuestByCreator, fetchPendingCreatorConfirmations } from '../lib/family/questCompletions'
-import { fetchAssigneePhotosForCompletion } from '../lib/family/questCompletionPlus'
+import { fetchQuestCompletionEnrichment } from '../lib/family/questCompletionPlus'
 import type { QuestCompletionPhoto } from '../lib/family/questCompletionPlus'
 import { markPlusDiscoverUnlocked } from '../lib/family/plusDiscoverUnlock'
 import type { PendingCreatorConfirmation } from '../lib/family/types'
@@ -28,12 +28,14 @@ type ReactionDraft = {
 }
 
 export default function QuestCreatorConfirmSheet() {
-  const { family, parents, children, loading, hasSession, parent, activeChild, memberKind, canAdmin } = useFamily()
+  const { family, parents, children, loading, hasSession, parent, activeChild, memberKind, canAdmin, applyTodayXpDelta } =
+    useFamily()
   const [items, setItems] = useState<PendingCreatorConfirmation[]>([])
   const [visible, setVisible] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [photosByCompletion, setPhotosByCompletion] = useState<Map<string, QuestCompletionPhoto[]>>(new Map())
+  const [messagesByCompletion, setMessagesByCompletion] = useState<Map<string, string>>(new Map())
   const [reactionsByCompletion, setReactionsByCompletion] = useState<Map<string, ReactionDraft>>(new Map())
 
   const plusActive = isFamilyPlus(family)
@@ -68,16 +70,20 @@ export default function QuestCreatorConfirmSheet() {
     setItems(rows)
 
     if (plusActive && rows.length > 0) {
+      const { byCompletionId } = await fetchQuestCompletionEnrichment(rows.map((row) => row.completionId))
       const photoMap = new Map<string, QuestCompletionPhoto[]>()
-      await Promise.all(
-        rows.map(async (row) => {
-          const { photos } = await fetchAssigneePhotosForCompletion(row.completionId)
-          if (photos.length > 0) photoMap.set(row.completionId, photos)
-        }),
-      )
+      const messageMap = new Map<string, string>()
+      for (const row of rows) {
+        const enrichment = byCompletionId.get(row.completionId)
+        if (!enrichment) continue
+        if (enrichment.photos.length > 0) photoMap.set(row.completionId, enrichment.photos)
+        if (enrichment.assigneeMessage) messageMap.set(row.completionId, enrichment.assigneeMessage)
+      }
       setPhotosByCompletion(photoMap)
+      setMessagesByCompletion(messageMap)
     } else {
       setPhotosByCompletion(new Map())
+      setMessagesByCompletion(new Map())
     }
   }, [family, parents, children, plusActive, canAdmin])
 
@@ -141,11 +147,18 @@ export default function QuestCreatorConfirmSheet() {
         ? { message: reactionDraft.message.trim(), portraitId: reactionDraft.portraitId }
         : null
 
-    const { error: confirmError } = await confirmQuestByCreator(item.completionId, { reaction })
+    const { error: confirmError, xpAwarded, assigneeChildId, assigneeParentId } = await confirmQuestByCreator(
+      item.completionId,
+      { reaction },
+    )
     setBusyId(null)
     if (confirmError) {
       setError(confirmError.message)
       return
+    }
+    if (xpAwarded && xpAwarded > 0) {
+      if (assigneeChildId) applyTodayXpDelta('child', assigneeChildId, xpAwarded)
+      else if (assigneeParentId) applyTodayXpDelta('parent', assigneeParentId, xpAwarded)
     }
     if (family?.id) markPlusDiscoverUnlocked(family.id)
     notifyFamilyDataChanged()
@@ -183,6 +196,7 @@ export default function QuestCreatorConfirmSheet() {
             {items.map((item) => {
               const timeLabel = cetFormatTimeFromIso(item.assigneeConfirmedAt)
               const photos = photosByCompletion.get(item.completionId) ?? []
+              const assigneeMessage = messagesByCompletion.get(item.completionId)
               const reactionDraft = reactionsByCompletion.get(item.completionId)
 
               return (
@@ -196,6 +210,12 @@ export default function QuestCreatorConfirmSheet() {
                     {timeLabel ? `, ${timeLabel} Uhr` : null}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">+{item.xpReward} XP</p>
+
+                  {assigneeMessage ? (
+                    <p className="mt-2 rounded-lg bg-white/70 px-2.5 py-2 text-xs leading-relaxed text-slate-950 dark:bg-slate-900/50 dark:text-slate-200">
+                      {assigneeMessage}
+                    </p>
+                  ) : null}
 
                   {plusActive && photos.length > 0 ? (
                     <div className="mt-3">

@@ -23,7 +23,6 @@ import {
   questXpNeedsHighConfirm,
   type QuestDayChoice,
 } from '../../../lib/family/questRules'
-import { buildAllFamilyAssignees } from '../../../lib/family/questMemberGroups'
 import { assigneesForFamilyQuestXpBudget, budgetAssigneesCacheKey, fetchMemberXpBudget } from '../../../lib/family/questXpBudget'
 import { questAssignmentsTableReady } from '../../../lib/family/questAssignments'
 import {
@@ -71,12 +70,9 @@ export default function NewQuestPage() {
   const taskDate = questDayChoiceToDateKey(dayChoice)
 
   const budgetAssignees = useMemo(() => {
-    if (!assigneeChoice) return []
-    if (assigneeChoice.mode === 'one') {
-      return assigneesForFamilyQuestXpBudget([assigneeChoice.assignee], false, excludeMember)
-    }
-    return assigneesForFamilyQuestXpBudget(buildAllFamilyAssignees(parents, children), true, excludeMember)
-  }, [assigneeChoice, excludeMember, parents, children])
+    if (!assigneeChoice || selectedAssignees.length === 0) return []
+    return assigneesForFamilyQuestXpBudget(selectedAssignees, familyWide, excludeMember)
+  }, [assigneeChoice, selectedAssignees, familyWide, excludeMember])
 
   const budgetCheckKey = useMemo(() => {
     if (!family?.id || budgetAssignees.length === 0) return ''
@@ -120,17 +116,14 @@ export default function NewQuestPage() {
   }, [])
 
   useEffect(() => {
-    if (!family?.id || !budgetCheckKey || !assigneeChoice) {
+    if (!family?.id || !budgetCheckKey || selectedAssignees.length === 0) {
       setRemainingXp(null)
       setBudgetError(null)
       setBudgetLoading(false)
       return
     }
 
-    const assignees =
-      assigneeChoice.mode === 'one'
-        ? assigneesForFamilyQuestXpBudget([assigneeChoice.assignee], false, excludeMember)
-        : assigneesForFamilyQuestXpBudget(buildAllFamilyAssignees(parents, children), true, excludeMember)
+    const assignees = assigneesForFamilyQuestXpBudget(selectedAssignees, familyWide, excludeMember)
 
     if (assignees.length === 0) {
       setRemainingXp(null)
@@ -172,7 +165,7 @@ export default function NewQuestPage() {
         }
       }
     })()
-  }, [budgetCheckKey, family?.id])
+  }, [budgetCheckKey, family?.id, selectedAssignees, familyWide, excludeMember, taskDate])
 
   if (!family) return null
 
@@ -185,8 +178,8 @@ export default function NewQuestPage() {
       return
     }
 
-    if (!assigneeChoice) {
-      setError('Bitte wähle aus, für wen die Quest ist — eine Person oder „Alle“.')
+    if (selectedAssignees.length === 0) {
+      setError('Bitte mindestens ein Familienmitglied auswählen.')
       return
     }
 
@@ -194,11 +187,6 @@ export default function NewQuestPage() {
       setError(
         'Familien-Quests („Alle“) sind in der Datenbank noch nicht eingerichtet. Bitte Abschnitt 4 in supabase/pending_migrations.sql im Supabase SQL Editor ausführen.',
       )
-      return
-    }
-
-    if (selectedAssignees.length === 0) {
-      setError('Bitte ein Familienmitglied auswählen.')
       return
     }
 
@@ -254,10 +242,15 @@ export default function NewQuestPage() {
     }
   }
 
-  const submitLabel = assigneeChoice?.mode === 'all' ? 'Quest für alle eintragen' : 'Quest eintragen'
+  const submitLabel =
+    assigneeChoice?.mode === 'all'
+      ? 'Quest für alle eintragen'
+      : selectedAssignees.length > 1
+        ? `Quest für ${selectedAssignees.length} eintragen`
+        : 'Quest eintragen'
   const submitBlockedByXp = budgetAssignees.length > 0 && !budgetLoading && remainingXp !== null && remainingXp < xpReward
   const canSubmit =
-    Boolean(assigneeChoice) &&
+    selectedAssignees.length > 0 &&
     !loading &&
     !budgetLoading &&
     !budgetError &&
@@ -295,7 +288,7 @@ export default function NewQuestPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="z. B. Zimmer aufräumen"
-            className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 dark:border-slate-600 dark:bg-slate-900"
+            className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2.5 text-lg font-bold leading-snug text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
             {...oneLineTextInputProps('lifexp-quest-title')}
           />
         </div>
@@ -342,10 +335,10 @@ export default function NewQuestPage() {
         ) : null}
         {budgetAssignees.length > 0 && remainingXp !== null ? (
           <LifeXpNotice tone="info">
-            {familyWide ? (
+            {familyWide || selectedAssignees.length > 1 ? (
               <>
-                Für die anderen Familienmitglieder sind an dem Tag noch mindestens <strong>{remainingXp} XP</strong>{' '}
-                frei (max. 30 pro Person).
+                Für die ausgewählten Familienmitglieder sind an dem Tag noch mindestens{' '}
+                <strong>{remainingXp} XP</strong> frei (max. 30 pro Person).
               </>
             ) : (
               <>

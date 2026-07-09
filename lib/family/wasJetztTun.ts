@@ -6,6 +6,7 @@ import { fetchMemberStreakClaimedToday } from './dailyStreak'
 import { fetchParentById } from './families'
 import { formatParentDisplayName } from './familyDisplayName'
 import {
+  collectActionableQuestConfirmations,
   countAllQuestsAwaitingFamilyConfirmation,
   countQuestsAwaitingConfirmation,
 } from './familyQuestConference'
@@ -52,11 +53,12 @@ type FamilyWasJetztTunPoolItem = FamilyWasJetztTunStep & { sortOrder: number }
 /** Niedrigere Zahl = höhere Priorität (LifeXP-Logik, deterministisch). */
 const SORT = {
   SELF_STREAK: 10,
-  PERSONAL_GOAL: 20,
-  OPEN_QUEST: 30,
+  CREATOR_AWAITING_CONFIRM: 16,
+  OPEN_QUEST: 20,
+  AWAITING: 24,
+  PERSONAL_GOAL: 28,
   REMIND_STREAK: 40,
   NO_QUESTS: 50,
-  AWAITING: 60,
   FILLER: 200,
   ADMIN_GOAL_XP: 228,
   ADMIN_FAMILY_GOAL_XP: 225,
@@ -82,32 +84,33 @@ function memberHref(memberKind: 'parent' | 'child', memberId: string): string {
   return memberSelfHref(memberKind, memberId)
 }
 
-function personalGoalCopy(memberKind: 'parent' | 'child'): { title: string; subtitle: string } {
+function personalRewardCopy(memberKind: 'parent' | 'child'): { title: string; subtitle: string } {
   if (memberKind === 'child') {
     return {
-      title: 'Eigenes Ziel eingeben',
+      title: 'Persönliche Belohnung anlegen',
       subtitle:
-        'Frag deine Eltern oder Geschwister, für welche Aufgabe sie dir XP geben würden.',
+        'Leg dir eine persönliche Belohnung an und frag deine Eltern oder Geschwister, wie viele XP du dafür sammeln musst.',
     }
   }
   return {
-    title: 'Eigenes Ziel eingeben',
-    subtitle: 'Frag deinen Partner oder die Kinder, für welche Aufgabe sie dir XP geben würden.',
+    title: 'Persönliche Belohnung anlegen',
+    subtitle:
+      'Leg dir eine persönliche Belohnung an und frag deine Familie, wie viele XP du dafür sammeln musst.',
   }
 }
 
-function noQuestsCopy(memberKind: 'parent' | 'child'): { title: string; subtitle: string } {
+function askForQuestsCopy(memberKind: 'parent' | 'child'): { title: string; subtitle: string } {
   if (memberKind === 'child') {
     return {
       title: 'Aufgaben anfragen',
       subtitle:
-        'Du hast noch keine Aufgaben für heute — frage deine Eltern oder Geschwister, dass sie dir Aufgaben einstellen.',
+        'Du hast noch keine Aufgaben für heute — frag deine Eltern oder Geschwister, welche Aufgaben sie dir geben wollen, damit du XP sammelst.',
     }
   }
   return {
     title: 'Aufgaben anfragen',
     subtitle:
-      'Du hast noch keine Aufgaben für heute — frage deine Familie, dir Aufgaben einzustellen.',
+      'Du hast noch keine Aufgaben für heute — frag deine Familienmitglieder, welche Aufgaben sie dir geben wollen, damit du XP sammelst.',
   }
 }
 
@@ -227,6 +230,7 @@ function buildFamilyWasJetztTunPool(input: {
   familyPersonalGoalsAwaiting: FamilyPersonalGoal[]
   familyAwaitingConfirmations: number
   familyAwaitingConfirmationsActionable: number
+  actionableConfirmations: Array<{ completionId: string; questTitle: string; assigneeName: string; xpReward: number }>
   recoveryCodePending: boolean
   remindStreakMember: UnclaimedStreakMember | null
 }): FamilyWasJetztTunPoolItem[] {
@@ -259,19 +263,19 @@ function buildFamilyWasJetztTunPool(input: {
       id: 'personal-goals-awaiting-xp',
       href: `${input.memberHref}?ziele=1`,
       emoji: '⭐',
-      title: 'Dein Ziel wartet',
-      subtitle: 'Die für dein Ziel nötigen XP müssen von der Familie entschieden werden.',
+      title: 'Deine Belohnung wartet',
+      subtitle: 'Frag deine Familie, wie viele XP du für deine Belohnung sammeln musst.',
       priority: 1,
-      sortOrder: SORT.PERSONAL_GOAL + 5,
+      sortOrder: SORT.PERSONAL_GOAL + 2,
     })
   } else if (input.personalGoalCount === 0) {
-    const goalCopy = personalGoalCopy(input.memberKind)
+    const rewardCopy = personalRewardCopy(input.memberKind)
     pool.push({
       id: 'personal-goals',
       href: `${input.memberHref}?ziele=1`,
       emoji: '⭐',
-      title: goalCopy.title,
-      subtitle: goalCopy.subtitle,
+      title: rewardCopy.title,
+      subtitle: rewardCopy.subtitle,
       priority: 1,
       sortOrder: SORT.PERSONAL_GOAL,
     })
@@ -293,6 +297,19 @@ function buildFamilyWasJetztTunPool(input: {
     })
   }
 
+  for (const item of input.actionableConfirmations) {
+    pool.push({
+      id: `confirm-quest-${item.completionId}`,
+      href: '/quests#familien-sitzung',
+      emoji: '✅',
+      title: `„${item.questTitle}" bestätigen`,
+      subtitle: `${item.assigneeName} hat erledigt gemeldet — Schritt 2`,
+      xpHint: `+${item.xpReward} XP`,
+      priority: 1,
+      sortOrder: SORT.CREATOR_AWAITING_CONFIRM,
+    })
+  }
+
   if (input.remindStreakMember) {
     const { memberKind, memberId, displayName, gender } = input.remindStreakMember
     pool.push({
@@ -306,13 +323,13 @@ function buildFamilyWasJetztTunPool(input: {
   }
 
   if (input.questsAssignedToday === 0) {
-    const noQuestCopy = noQuestsCopy(input.memberKind)
+    const questCopy = askForQuestsCopy(input.memberKind)
     pool.push({
       id: 'ask-for-quests',
       href: '/',
       emoji: '💬',
-      title: noQuestCopy.title,
-      subtitle: noQuestCopy.subtitle,
+      title: questCopy.title,
+      subtitle: questCopy.subtitle,
       priority: 1,
       sortOrder: SORT.NO_QUESTS,
     })
@@ -323,11 +340,11 @@ function buildFamilyWasJetztTunPool(input: {
       id: 'awaiting-quests',
       href: `${input.memberHref}#quests-heute`,
       emoji: '⏳',
-      title: 'Auf Bestätigung warten',
+      title: 'Auf finale Bestätigung warten',
       subtitle:
         input.awaitingQuests === 1
-          ? 'Eine Aufgabe wartet auf OK von der Familie'
-          : `${input.awaitingQuests} Aufgaben warten auf OK von der Familie`,
+          ? 'Eine Aufgabe ist erledigt gemeldet — die Familie muss sie noch final bestätigen'
+          : `${input.awaitingQuests} Aufgaben sind erledigt gemeldet — die Familie muss sie noch final bestätigen`,
       sortOrder: SORT.AWAITING,
     })
   }
@@ -369,26 +386,13 @@ function buildFamilyWasJetztTunPool(input: {
         href: '/quests#familien-sitzung',
         emoji: '⭐',
         title: `XP für ${item.memberLabel}`,
-        subtitle: `Ziel „${item.goal.title}" — XP von der Familie festlegen`,
+        subtitle: `Belohnung „${item.goal.title}" — XP von der Familie festlegen`,
         priority: 1,
         sortOrder: SORT.ADMIN_GOAL_XP,
       })
     }
 
-    if (input.familyAwaitingConfirmationsActionable > 0) {
-      pool.push({
-        id: 'admin-awaiting-confirmations',
-        href: '/quests#familien-sitzung',
-        emoji: '✅',
-        title: 'Quests bestätigen',
-        subtitle:
-          input.familyAwaitingConfirmationsActionable === 1
-            ? `${input.familyAwaitingConfirmationsActionable} Meldung wartet auf dein OK`
-            : `${input.familyAwaitingConfirmationsActionable} Meldungen warten auf dein OK`,
-        priority: 1,
-        sortOrder: SORT.ADMIN_AWAITING_CONFIRM,
-      })
-    } else if (input.familyAwaitingConfirmations > 0) {
+    if (input.familyAwaitingConfirmations > 0 && input.familyAwaitingConfirmationsActionable === 0) {
       pool.push({
         id: 'family-awaiting-confirmations',
         href: '/quests#familien-sitzung',
@@ -396,8 +400,8 @@ function buildFamilyWasJetztTunPool(input: {
         title: 'Familien-Sitzung',
         subtitle:
           input.familyAwaitingConfirmations === 1
-            ? 'Eine Quest wartet auf OK von der Familie'
-            : `${input.familyAwaitingConfirmations} Quests warten auf OK von der Familie`,
+            ? 'Eine Aufgabe wartet auf die finale Bestätigung der Familie'
+            : `${input.familyAwaitingConfirmations} Aufgaben warten auf die finale Bestätigung der Familie`,
         sortOrder: SORT.ADMIN_AWAITING_CONFIRM,
       })
     }
@@ -539,6 +543,14 @@ export async function fetchFamilyWasJetztTunState(): Promise<FamilyWasJetztTunSt
     Boolean(deviceSettings.recCode) &&
     shouldNudgeRecoveryCode(memberId, todayKey)
 
+  const actionableConfirmationItems = collectActionableQuestConfirmations({
+    quests: allFamilyQuests,
+    session: sessionForConfirm,
+    canAdmin,
+    parents,
+    children,
+  })
+
   const pool = buildFamilyWasJetztTunPool({
     memberKind,
     memberHref,
@@ -558,6 +570,12 @@ export async function fetchFamilyWasJetztTunState(): Promise<FamilyWasJetztTunSt
       sessionForConfirm,
       canAdmin,
     ),
+    actionableConfirmations: actionableConfirmationItems.map((item) => ({
+      completionId: item.completion.id,
+      questTitle: item.quest.title,
+      assigneeName: item.assigneeName,
+      xpReward: item.quest.xp_reward,
+    })),
     recoveryCodePending,
     remindStreakMember,
   })

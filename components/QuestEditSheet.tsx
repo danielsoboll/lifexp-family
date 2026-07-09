@@ -72,7 +72,7 @@ export default function QuestEditSheet({ quest, open, onClose }: QuestEditSheetP
     setDescription(quest.description ?? '')
     setXpReward(quest.xp_reward)
     setDayChoice(taskDateToQuestDayChoice(quest.task_date))
-    setAssigneeChoice(questAssigneeChoiceFromQuest(quest))
+    setAssigneeChoice(questAssigneeChoiceFromQuest(quest, { parents, children }))
     setError(null)
     setDeleteError(null)
   }, [quest, open])

@@ -2,13 +2,30 @@ import type { ParentGender } from './memberGender'
 import type { FamilySession } from '../familySession'
 import { readFamilySession } from '../familySession'
 import type { ParentMember } from './members'
-import type { ChildWithTodayXp, Quest, QuestAssignee, QuestFulfillmentStatus, QuestWithCompletion, PendingCreatorConfirmation, QuestCompletionOnDate } from './types'
+import type {
+  ChildWithTodayXp,
+  Quest,
+  QuestAssignee,
+  QuestFulfillmentStatus,
+  QuestWithCompletion,
+  PendingCreatorConfirmation,
+  QuestCompletionOnDate,
+  RecurringQuestTemplate,
+} from './types'
 
 export function sessionIsQuestCreator(quest: Quest, session: FamilySession): boolean {
   if (session.memberKind === 'parent') {
     return quest.created_by === session.memberId
   }
   return quest.created_by_child_id === session.memberId
+}
+
+export function sessionIsRecurringTemplateCreator(
+  template: Pick<RecurringQuestTemplate, 'created_by' | 'created_by_child_id'>,
+  session: FamilySession,
+): boolean {
+  if (session.memberKind === 'parent') return template.created_by === session.memberId
+  return template.created_by_child_id === session.memberId
 }
 
 export function fulfillmentStatusFromRow(row: {
@@ -159,7 +176,7 @@ export function assigneeDisplayNameFromCompletion(
   childId: string | null,
   parentId: string | null,
   parents: ReadonlyArray<ParentMember>,
-  children: ReadonlyArray<ChildWithTodayXp>,
+  children: ReadonlyArray<Pick<ChildWithTodayXp, 'id' | 'display_name'>>,
   formatParent: (name: string, gender: ParentGender) => string,
 ): string {
   if (childId) {

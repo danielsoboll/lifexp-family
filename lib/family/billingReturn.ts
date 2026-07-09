@@ -1,8 +1,9 @@
+import { scopedSessionGet, scopedSessionRemove, scopedSessionSet } from '../scopedClientStorage'
+import { getBridgedCookie, setBridgedCookie, clearBridgedCookie } from '../bridgedStorage'
 import {
   bootstrapClientStorageFromCookies,
   mirrorBridgedStorageToCookies,
 } from '../clientStorageBootstrap'
-import { getBridgedCookie, setBridgedCookie, clearBridgedCookie } from '../bridgedStorage'
 import { clearFamilyOnboardingDraft } from './onboardingDraft'
 import {
   FAMILY_SESSION_CHANGED_EVENT,
@@ -49,7 +50,7 @@ function readBillingReturnSnapshot(): BillingReturnSnapshot | null {
   if (typeof window === 'undefined') return null
 
   try {
-    const fromSession = sessionStorage.getItem(BILLING_RETURN_SESSION_KEY)
+    const fromSession = scopedSessionGet(BILLING_RETURN_SESSION_KEY)
     if (fromSession) {
       const parsed = parseBillingReturnSnapshot(fromSession)
       if (parsed) return parsed
@@ -69,7 +70,7 @@ function readBillingReturnSnapshot(): BillingReturnSnapshot | null {
 export function clearBillingReturnSnapshots(): void {
   if (typeof window === 'undefined') return
   try {
-    sessionStorage.removeItem(BILLING_RETURN_SESSION_KEY)
+  scopedSessionRemove(BILLING_RETURN_SESSION_KEY)
   } catch {
     /* ignore */
   }
@@ -89,7 +90,7 @@ export function prepareBillingExternalRedirect(): void {
   const encoded = JSON.stringify(snapshot)
 
   try {
-    sessionStorage.setItem(BILLING_RETURN_SESSION_KEY, encoded)
+  scopedSessionSet(BILLING_RETURN_SESSION_KEY, encoded)
   } catch {
     /* ignore */
   }

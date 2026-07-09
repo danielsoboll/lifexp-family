@@ -130,10 +130,13 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
       notifyFamilyDataChanged()
       await refresh()
       setSuccess(`${parent.display_name} wurde angelegt.`)
-      setDisplayName('')
-      setAdultGender('male')
-      setPortraitId(null)
-      await onCreated?.(parent.display_name)
+      if (onCreated) {
+        await onCreated(parent.display_name)
+      } else {
+        setDisplayName('')
+        setAdultGender('male')
+        setPortraitId(null)
+      }
       return
     }
 
@@ -174,11 +177,14 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
     notifyFamilyDataChanged()
     await refresh()
     setSuccess(`${child.display_name} wurde angelegt.`)
-    setDisplayName('')
-    setAgeInput('')
-    setChildGender('boy')
-    setPortraitId(null)
-    await onCreated?.(child.display_name)
+    if (onCreated) {
+      await onCreated(child.display_name)
+    } else {
+      setDisplayName('')
+      setAgeInput('')
+      setChildGender('boy')
+      setPortraitId(null)
+    }
   }
 
   const canSubmit =

@@ -2,6 +2,8 @@
 
 type AvatarWasJetztTunThoughtBubbleProps = {
   onActivate: () => void
+  /** Immer im DOM halten — nur Sichtbarkeit toggeln (verhindert Zoom/Layout-Sprung). */
+  visible: boolean
 }
 
 const PUFF_CLASS =
@@ -17,11 +19,15 @@ const BUBBLE_CLASS =
  */
 export default function AvatarWasJetztTunThoughtBubble({
   onActivate,
+  visible,
 }: AvatarWasJetztTunThoughtBubbleProps) {
   return (
     <div
-      className="pointer-events-none absolute inset-0 z-[110] overflow-visible"
+      className={`pointer-events-none absolute inset-0 z-[110] overflow-visible ${
+        visible ? '' : 'invisible opacity-0'
+      }`}
       data-testid="wjt-thought-bubble"
+      aria-hidden={!visible}
     >
       <span
         aria-hidden
@@ -37,9 +43,13 @@ export default function AvatarWasJetztTunThoughtBubble({
       />
       <button
         type="button"
-        className={`lifexp-thought-bubble pointer-events-auto cursor-pointer outline-none ${BUBBLE_CLASS}`}
+        tabIndex={visible ? 0 : -1}
+        className={`lifexp-thought-bubble outline-none ${BUBBLE_CLASS} ${
+          visible ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'
+        }`}
         aria-label="Was jetzt tun? (klicken) — Empfehlungen anzeigen"
-        onClick={onActivate}
+        aria-hidden={!visible}
+        onClick={visible ? onActivate : undefined}
       >
         <span className="text-center text-[0.8125rem] font-extrabold leading-snug text-slate-900 min-[390px]:text-sm">
           Was jetzt tun?

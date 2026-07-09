@@ -1,9 +1,10 @@
 import { cetToday, normalizeDateKey } from '../cetDate'
-import { getStoredParentId, readFamilySession } from '../familySession'
+import { getStoredParentId, readFamilySession, type FamilySession } from '../familySession'
 import { supabase } from '../supabase'
 import { assertFamilyAdminSession, resyncFamilyXpHistoryForDate } from './admin'
 import { fetchQuestAssignmentsForQuests, questAppliesToAssignee } from './questAssignments'
 import { sessionIsQuestCreator, assigneeDisplayNameFromCompletion, isCompletionForSessionMember, canSessionConfirmQuestCompletion } from './questConfirmation'
+import { enrichQuestCreatorFromRecurringTemplate } from './recurringQuests'
 import { formatParentDisplayName } from './familyDisplayName'
 import { fetchMemberXpBudget } from './questXpBudget'
 import { clampQuestXp, isQuestExpired } from './questRules'
@@ -221,20 +222,31 @@ export const completeQuestForChild = confirmQuestByAssigneeChild
 /** @deprecated Alias */
 export const completeQuestForParent = confirmQuestByAssigneeParent
 
+async function resolveSessionIsQuestCreator(quest: Quest, session: FamilySession): Promise<boolean> {
+  if (sessionIsQuestCreator(quest, session)) return true
+  const enriched = await enrichQuestCreatorFromRecurringTemplate(quest)
+  return sessionIsQuestCreator(enriched, session)
+}
+
 export async function confirmQuestByCreator(
   completionId: string,
   options: {
     allowSelfAssignee?: boolean
     reaction?: { message: string; portraitId: string } | null
   } = {},
-): Promise<{ error: Error | null }> {
+): Promise<{
+  error: Error | null
+  xpAwarded?: number
+  assigneeChildId?: string | null
+  assigneeParentId?: string | null
+}> {
   const session = readFamilySession()
   if (!session) return { error: new Error('Bitte zuerst anmelden.') }
 
   const { data: row, error: fetchError } = await supabase
     .from('quest_completions')
     .select(
-      'id, quest_id, child_id, parent_id, family_id, completed_on, assignee_confirmed_at, creator_confirmed_at, quests(id, title, xp_reward, task_date, created_by, created_by_child_id, family_id)',
+      'id, quest_id, child_id, parent_id, family_id, completed_on, assignee_confirmed_at, creator_confirmed_at, quests(id, title, xp_reward, task_date, created_by, created_by_child_id, family_id, recurring_template_id)',
     )
     .eq('id', completionId)
     .maybeSingle()
@@ -264,7 +276,7 @@ export async function confirmQuestByCreator(
     return { error: new Error('Eigene Erledigung bestätigst du nicht selbst — nur andere Familienmitglieder.') }
   }
 
-  const isCreator = sessionIsQuestCreator(quest, session)
+  const isCreator = await resolveSessionIsQuestCreator(quest, session)
   if (!isCreator) {
     const adminError = await assertFamilyAdminSession(familyId)
     if (adminError.error) {
@@ -330,10 +342,10 @@ export async function confirmQuestByCreator(
       creatorParentId: session.memberKind === 'parent' ? session.memberId : null,
       creatorChildId: session.memberKind === 'child' ? session.memberId : null,
     })
-    if (reactionError.error) return reactionError
+    if (reactionError.error) return { error: reactionError.error }
   }
 
-  return { error: null }
+  return { error: null, xpAwarded, assigneeChildId: childId, assigneeParentId: parentId }
 }
 
 export async function fetchPendingCreatorConfirmations(
@@ -348,7 +360,7 @@ export async function fetchPendingCreatorConfirmations(
   const { data, error } = await supabase
     .from('quest_completions')
     .select(
-      'id, assignee_confirmed_at, child_id, parent_id, completed_on, quests(id, title, xp_reward, task_date, created_by, created_by_child_id, family_id)',
+      'id, assignee_confirmed_at, child_id, parent_id, completed_on, quests(id, title, xp_reward, task_date, created_by, created_by_child_id, family_id, recurring_template_id)',
     )
     .eq('family_id', familyId)
     .not('assignee_confirmed_at', 'is', null)
@@ -360,8 +372,9 @@ export async function fetchPendingCreatorConfirmations(
   const items: PendingCreatorConfirmation[] = []
   for (const row of data ?? []) {
     const questRaw = row.quests as Quest | Quest[] | null
-    const quest = Array.isArray(questRaw) ? questRaw[0] ?? null : questRaw
+    let quest = Array.isArray(questRaw) ? questRaw[0] ?? null : questRaw
     if (!quest) continue
+    quest = await enrichQuestCreatorFromRecurringTemplate(quest)
     const assigneeConfirmedAt = row.assignee_confirmed_at as string
     if (!assigneeConfirmedAt) continue
 

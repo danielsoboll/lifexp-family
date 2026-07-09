@@ -8,6 +8,7 @@ import { formatQuestDayLabel } from './questRules'
 import { formatParentDisplayName } from './familyDisplayName'
 import type { ParentMember } from './members'
 import type { ChildWithTodayXp, QuestCompletionOnDate, QuestWithCompletion } from './types'
+import type { ChildProfile } from './types'
 
 export type QuestAwaitingConfirmationItem = {
   quest: QuestWithCompletion
@@ -22,7 +23,7 @@ export function collectQuestsAwaitingConfirmation(input: {
   session: FamilySession | null
   canAdmin: boolean
   parents: ParentMember[]
-  children: ChildWithTodayXp[]
+  children: ReadonlyArray<ChildProfile | ChildWithTodayXp>
 }): QuestAwaitingConfirmationItem[] {
   const items: QuestAwaitingConfirmationItem[] = []
 
@@ -53,6 +54,16 @@ export function collectQuestsAwaitingConfirmation(input: {
   }
 
   return items
+}
+
+export function collectActionableQuestConfirmations(input: {
+  quests: QuestWithCompletion[]
+  session: FamilySession | null
+  canAdmin: boolean
+  parents: ParentMember[]
+  children: ReadonlyArray<ChildProfile | ChildWithTodayXp>
+}): QuestAwaitingConfirmationItem[] {
+  return collectQuestsAwaitingConfirmation(input).filter((item) => item.canConfirm)
 }
 
 export function countQuestsAwaitingConfirmation(

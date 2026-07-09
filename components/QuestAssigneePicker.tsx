@@ -29,6 +29,7 @@ function AssigneeSelectedBadge() {
 
 export type QuestAssigneeChoice =
   | { mode: 'one'; assignee: QuestAssignee }
+  | { mode: 'many'; assignees: QuestAssignee[] }
   | { mode: 'all' }
 
 type QuestAssigneePickerProps = {
@@ -55,7 +56,37 @@ function avatarForOption(
 }
 
 function isSelected(value: QuestAssigneeChoice | null, option: QuestAssignee): boolean {
+  if (value?.mode === 'all') return true
+  if (value?.mode === 'many') {
+    return value.assignees.some((row) => row.type === option.type && row.id === option.id)
+  }
   return value?.mode === 'one' && value.assignee.type === option.type && value.assignee.id === option.id
+}
+
+function toggleAllOption(value: QuestAssigneeChoice | null): QuestAssigneeChoice | null {
+  if (value?.mode === 'all') return null
+  return { mode: 'all' }
+}
+
+function toggleAssignee(
+  value: QuestAssigneeChoice | null,
+  assignee: QuestAssignee,
+  allOptionAssignees: QuestAssignee[],
+): QuestAssigneeChoice {
+  if (value?.mode === 'all') {
+    const next = allOptionAssignees.filter((row) => row.type !== assignee.type || row.id !== assignee.id)
+    return { mode: 'many', assignees: next }
+  }
+
+  const current =
+    value?.mode === 'many' ? value.assignees : value?.mode === 'one' ? [value.assignee] : []
+
+  const exists = current.some((row) => row.type === assignee.type && row.id === assignee.id)
+  const next = exists
+    ? current.filter((row) => row.type !== assignee.type || row.id !== assignee.id)
+    : [...current, assignee]
+
+  return { mode: 'many', assignees: next }
 }
 
 export default function QuestAssigneePicker({
@@ -77,6 +108,11 @@ export default function QuestAssigneePicker({
 
   const showAllOption = allMembersCount >= 2
 
+  const allOptionAssignees = useMemo(
+    () => options.map((option) => ({ type: option.type, id: option.id }) as QuestAssignee),
+    [options],
+  )
+
   return (
     <div>
       <label className="mb-1.5 block text-sm font-semibold">Für wen?</label>
@@ -95,7 +131,7 @@ export default function QuestAssigneePicker({
                 key={`${option.type}:${option.id}`}
                 type="button"
                 aria-pressed={selected}
-                onClick={() => onChange({ mode: 'one', assignee })}
+                onClick={() => onChange(toggleAssignee(value, assignee, allOptionAssignees))}
                 className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-sm transition-[border-color,background-color,box-shadow,color] ${
                   selected ? ASSIGNEE_SELECTED_CLASS : ASSIGNEE_UNSELECTED_CLASS
                 }`}
@@ -120,7 +156,7 @@ export default function QuestAssigneePicker({
           <button
             type="button"
             aria-pressed={value?.mode === 'all'}
-            onClick={() => onChange({ mode: 'all' })}
+            onClick={() => onChange(toggleAllOption(value))}
             className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition-[border-color,background-color,box-shadow,color] ${
               value?.mode === 'all' ? ASSIGNEE_SELECTED_CLASS : ASSIGNEE_UNSELECTED_CLASS
             }`}
@@ -156,24 +192,38 @@ export function assigneesFromChoice(
 ): QuestAssignee[] {
   if (!choice) return []
   if (choice.mode === 'one') return [choice.assignee]
+  if (choice.mode === 'many') return choice.assignees
   return buildAllFamilyAssignees(parents, children)
 }
 
-export function questAssigneeChoiceFromQuest(quest: {
-  assignees: QuestAssignee[]
-  child_id?: string | null
-}): QuestAssigneeChoice | null {
-  return questAssigneeChoiceFromAssignees(
+export function questAssigneeChoiceFromQuest(
+  quest: {
+    assignees: QuestAssignee[]
+    child_id?: string | null
+  },
+  context?: { parents: ParentMember[]; children: ChildWithTodayXp[] },
+): QuestAssigneeChoice | null {
+  const assignees =
     quest.assignees.length > 0
       ? quest.assignees
       : quest.child_id
-        ? [{ type: 'child', id: quest.child_id }]
-        : [],
-  )
+        ? [{ type: 'child' as const, id: quest.child_id }]
+        : []
+
+  if (context && assignees.length > 0) {
+    const allFamily = buildAllFamilyAssignees(context.parents, context.children)
+    const isEveryone =
+      assignees.length === allFamily.length &&
+      assignees.every((row) =>
+        allFamily.some((member) => member.type === row.type && member.id === row.id),
+      )
+    if (isEveryone) return { mode: 'all' }
+  }
+
+  return questAssigneeChoiceFromAssignees(assignees)
 }
 
 export function questAssigneeChoiceFromAssignees(assignees: QuestAssignee[]): QuestAssigneeChoice | null {
-  if (assignees.length > 1) return { mode: 'all' }
-  if (assignees.length === 1) return { mode: 'one', assignee: assignees[0]! }
-  return null
+  if (assignees.length === 0) return null
+  return { mode: 'many', assignees }
 }

@@ -5,15 +5,16 @@ import { useEffect, useState } from 'react'
 
 import AdminScrollPage from '../../../components/AdminScrollPage'
 import DangerConfirmAction from '../../../components/DangerConfirmAction'
+import OrangeConfirmAction from '../../../components/OrangeConfirmAction'
 import FamilyQuestAccentEditor from '../../../components/FamilyQuestAccentEditor'
 import FamilyPlusAboCallout from '../../../components/FamilyPlusAboCallout'
 import FamilyPlusBillingControls from '../../../components/FamilyPlusBillingControls'
 import FamilyPlusPriceDisplay from '../../../components/FamilyPlusPriceDisplay'
 import MemberRecoveryAdminSection from '../../../components/MemberRecoveryAdminSection'
 import PageHeaderBar from '../../../components/PageHeaderBar'
-import { useFamily } from '../../../components/FamilyProvider'
+import { useFamily, notifyFamilyDataChanged } from '../../../components/FamilyProvider'
 import { PlusCheckoutProvider } from '../../../hooks/usePlusCheckout'
-import { deleteFamilyById } from '../../../lib/family/admin'
+import { deleteFamilyById, resetFamilyProgressById } from '../../../lib/family/admin'
 import { isFamilyPlus } from '../../../lib/family/familyPlus'
 import { FAMILY_PLUS_TAGLINE } from '../../../lib/family/familyPlusFeatures'
 import { markSetupGuideAdminVisited } from '../../../lib/family/setupGuide'
@@ -23,9 +24,11 @@ import { CARD_SURFACE_CLASS, MUTED_BODY_TEXT_CLASS } from '../../../lib/appShell
 
 export default function AdminSettingsPage() {
   const router = useRouter()
-  const { family, parent, activeChild, parents, children, loading, error, canAdmin } = useFamily()
+  const { family, parent, activeChild, parents, children, loading, error, canAdmin, refresh } = useFamily()
   const [deleteFamilyError, setDeleteFamilyError] = useState<string | null>(null)
   const [deleteFamilyBusy, setDeleteFamilyBusy] = useState(false)
+  const [resetFamilyError, setResetFamilyError] = useState<string | null>(null)
+  const [resetFamilyBusy, setResetFamilyBusy] = useState(false)
   const { headerAction: plusHeaderAction, portals: plusPortals } = usePlusDiscoverHeader({
     gateHeader: false,
   })
@@ -46,6 +49,21 @@ export default function AdminSettingsPage() {
   }
 
   const plusActive = isFamilyPlus(family)
+
+  const handleResetFamily = async (): Promise<boolean> => {
+    if (!family) return false
+    setResetFamilyBusy(true)
+    setResetFamilyError(null)
+    const { error: resetError } = await resetFamilyProgressById(family.id)
+    setResetFamilyBusy(false)
+    if (resetError) {
+      setResetFamilyError(resetError.message)
+      return false
+    }
+    notifyFamilyDataChanged()
+    await refresh()
+    return true
+  }
 
   const handleDeleteFamily = async (): Promise<boolean> => {
     if (!family) return false
@@ -131,7 +149,15 @@ export default function AdminSettingsPage() {
             />
           ) : null}
 
-          <section aria-label="Gefährliche Aktionen" className="pb-[max(2rem,env(safe-area-inset-bottom))] pt-2">
+          <section aria-label="Gefährliche Aktionen" className="space-y-3 pb-[max(2rem,env(safe-area-inset-bottom))] pt-2">
+            <OrangeConfirmAction
+              triggerLabel="Familie zurücksetzen"
+              confirmTitle="Alle XP und Historie für die bestehende Familie von 0 anfangen?"
+              confirmDescription="Quest-Abschlüsse, Tages-XP, Verlauf, Belohnungs-Fortschritt und Zielstände dieser Familie werden gelöscht. Familie, Mitglieder und eingetragene Quests bleiben erhalten."
+              onConfirm={handleResetFamily}
+              busy={resetFamilyBusy}
+              error={resetFamilyError}
+            />
             <DangerConfirmAction
               triggerLabel="Familie löschen"
               confirmTitle="Familie unwiderrichlich löschen?"

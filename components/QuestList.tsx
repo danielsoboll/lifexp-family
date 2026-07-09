@@ -10,7 +10,7 @@ import { useFamily, FAMILY_DATA_CHANGED_EVENT } from './FamilyProvider'
 import { fetchFamilyQuestBoard, type FamilyQuestBoard } from '../lib/family/quests'
 import { canSessionModifyQuest, canSessionDeleteQuest, questIsOpenForEditing } from '../lib/family/questConfirmation'
 import type { QuestWithCompletion } from '../lib/family/types'
-import { groupQuestsForDisplay, type QuestDisplayGroup } from '../lib/family/questMemberGroups'
+import { groupQuestsForDisplay, partitionQuestsByDone, type QuestDisplayGroup, type QuestMemberGroup } from '../lib/family/questMemberGroups'
 import { memberAccentStyle, normalizeMemberAccentKey, type MemberAccentKey } from '../lib/family/memberAccentColor'
 import QuestCard from './QuestCard'
 
@@ -55,6 +55,70 @@ function renderQuestCard(
   )
 }
 
+function renderPartitionedQuests(
+  quests: QuestWithCompletion[],
+  cardProps: {
+    children: ReturnType<typeof useFamily>['children']
+    parents: ReturnType<typeof useFamily>['parents']
+    session: ReturnType<typeof useFamily>['session']
+    canAdmin: boolean
+    onManage: (quest: QuestWithCompletion) => void
+  },
+  options?: { grouped?: boolean; familyWide?: boolean; familyAccentKey?: MemberAccentKey },
+) {
+  const { active, done } = partitionQuestsByDone(quests)
+
+  return (
+    <>
+      {active.map((quest) =>
+        renderQuestCard(quest, {
+          ...cardProps,
+          grouped: options?.grouped ?? true,
+          familyWide: options?.familyWide,
+          familyAccentKey: options?.familyAccentKey,
+        }),
+      )}
+      {done.length > 0 ? (
+        <div className="space-y-2 border-t border-emerald-300/70 pt-3 dark:border-emerald-800/55">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
+            Erledigt
+          </p>
+          {done.map((quest) =>
+            renderQuestCard(quest, {
+              ...cardProps,
+              grouped: options?.grouped ?? true,
+              familyWide: options?.familyWide,
+              familyAccentKey: options?.familyAccentKey,
+            }),
+          )}
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+function renderMemberQuestSection(
+  group: QuestMemberGroup,
+  cardProps: {
+    children: ReturnType<typeof useFamily>['children']
+    parents: ReturnType<typeof useFamily>['parents']
+    session: ReturnType<typeof useFamily>['session']
+    canAdmin: boolean
+    onManage: (quest: QuestWithCompletion) => void
+  },
+) {
+  const accent = memberAccentStyle(group.accentKey)
+  return (
+    <section
+      key={`${group.assignee.type}:${group.assignee.id}`}
+      className="rounded-2xl border border-slate-200/90 bg-white/60 p-3.5 shadow-sm dark:border-slate-700/90 dark:bg-slate-900/35"
+    >
+      <h2 className={`text-lg font-bold tracking-tight ${accent.nameClass}`}>{group.label}</h2>
+      <div className="mt-3 space-y-2.5">{renderPartitionedQuests(group.quests, cardProps)}</div>
+    </section>
+  )
+}
+
 function renderQuestGroups(
   groups: QuestDisplayGroup[],
   cardProps: {
@@ -66,39 +130,55 @@ function renderQuestGroups(
   },
   familyAccentKey: MemberAccentKey,
 ) {
-  return groups.map((group) => {
-    if (group.kind === 'family') {
-      const accent = memberAccentStyle(familyAccentKey)
-      return (
-        <section key="family">
+  const familyGroup = groups.find((group): group is Extract<QuestDisplayGroup, { kind: 'family' }> => group.kind === 'family')
+  const parentGroups = groups.filter(
+    (group): group is QuestMemberGroup => group.kind === 'member' && group.assignee.type === 'parent',
+  )
+  const childGroups = groups.filter(
+    (group): group is QuestMemberGroup => group.kind === 'member' && group.assignee.type === 'child',
+  )
+
+  return (
+    <div className="space-y-6">
+      {familyGroup ? (
+        <section className="rounded-2xl border border-slate-200/90 bg-white/60 p-3.5 shadow-sm dark:border-slate-700/90 dark:bg-slate-900/35">
           <div className="flex items-center gap-3">
             <FamilyGroupPortrait className="w-16 shrink-0" />
-            <h2 className={`text-lg font-bold tracking-tight ${accent.nameClass}`}>{group.label}</h2>
+            <h2 className={`text-lg font-bold tracking-tight ${memberAccentStyle(familyAccentKey).nameClass}`}>
+              {familyGroup.label}
+            </h2>
           </div>
-          <div className="mt-2 space-y-2.5">
-            {group.quests.map((quest) =>
-              renderQuestCard(quest, {
-                ...cardProps,
-                grouped: true,
-                familyWide: true,
-                familyAccentKey,
-              }),
-            )}
+          <div className="mt-3 space-y-2.5">
+            {renderPartitionedQuests(familyGroup.quests, cardProps, {
+              grouped: true,
+              familyWide: true,
+              familyAccentKey,
+            })}
           </div>
         </section>
-      )
-    }
+      ) : null}
 
-    const accent = memberAccentStyle(group.accentKey)
-    return (
-      <section key={`${group.assignee.type}:${group.assignee.id}`}>
-        <h2 className={`text-lg font-bold tracking-tight ${accent.nameClass}`}>{group.label}</h2>
-        <div className="mt-2 space-y-2.5">
-          {group.quests.map((quest) => renderQuestCard(quest, { ...cardProps, grouped: true }))}
+      {parentGroups.length > 0 ? (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+              Admin-Aufgaben
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-950 dark:text-slate-400">Aufgaben der Erwachsenen.</p>
+          </div>
+          <div className="space-y-4">
+            {parentGroups.map((group) => renderMemberQuestSection(group, cardProps))}
+          </div>
         </div>
-      </section>
-    )
-  })
+      ) : null}
+
+      {childGroups.length > 0 ? (
+        <div className="space-y-4">
+          {childGroups.map((group) => renderMemberQuestSection(group, cardProps))}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 export default function QuestList() {
@@ -181,6 +261,8 @@ export default function QuestList() {
 
   return (
     <>
+      <FamilyQuestConferenceSection quests={allQuests} placement="top" />
+
       {!hasToday && !hasYesterdayOpen ? (
         <p className="text-sm text-slate-950 dark:text-slate-400">
           Noch keine Quests für heute oder morgen.
@@ -195,13 +277,11 @@ export default function QuestList() {
           {renderQuestGroups(groups, cardProps, familyAccentKey)}
           {hasYesterdayOpen ? (
             <YesterdayOpenQuestsSection>
-              <div className="space-y-5">{renderQuestGroups(yesterdayGroups, cardProps, familyAccentKey)}</div>
+              <div className="space-y-6">{renderQuestGroups(yesterdayGroups, cardProps, familyAccentKey)}</div>
             </YesterdayOpenQuestsSection>
           ) : null}
         </div>
       )}
-
-      <FamilyQuestConferenceSection quests={allQuests} />
 
       <QuestEditSheet quest={editQuest} open={editQuest !== null} onClose={() => setEditQuest(null)} />
     </>

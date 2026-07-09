@@ -1,8 +1,13 @@
-import { FAMILY_SESSION_COOKIE_KEY } from './familySession'
+import {
+  isScopedLifeexpClientKey,
+  matchesScopedClientStorageKey,
+} from './clientStorageScope'
+import { scopedLocalGet, scopedLocalSet, collectScopedLifeexpLocalKeys } from './scopedClientStorage'
 import {
   FAMILY_ONBOARDING_DRAFT_COOKIE_KEY,
   FAMILY_ONBOARDING_DRAFT_LOCAL_KEY,
 } from './family/onboardingDraft'
+import { FAMILY_SESSION_COOKIE_KEY } from './familySession'
 import { THEME_STORAGE_KEY } from './theme'
 
 /** Erster Besuch auf der Family-Produktions-Domain abgeschlossen. */
@@ -55,7 +60,7 @@ function clearLifeexpCookie(name: string): void {
 function hasProductionFreshStartMarker(): boolean {
   if (typeof window === 'undefined') return false
   try {
-    if (localStorage.getItem(LIFEXP_FAMILY_DOMAIN_INITIALIZED_KEY) === '1') return true
+    if (scopedLocalGet(LIFEXP_FAMILY_DOMAIN_INITIALIZED_KEY) === '1') return true
   } catch {
     /* ignore */
   }
@@ -65,7 +70,7 @@ function hasProductionFreshStartMarker(): boolean {
 function markProductionFreshStartComplete(): void {
   if (typeof window === 'undefined') return
   try {
-    localStorage.setItem(LIFEXP_FAMILY_DOMAIN_INITIALIZED_KEY, '1')
+    scopedLocalSet(LIFEXP_FAMILY_DOMAIN_INITIALIZED_KEY, '1')
   } catch {
     /* ignore */
   }
@@ -90,15 +95,9 @@ function clearLifeexpCookiesExceptPreserved(): void {
 export function clearLegacyLifeXpClientStorage(): void {
   if (typeof window === 'undefined') return
 
-  const localKeys: string[] = []
-  for (let i = 0; i < localStorage.length; i += 1) {
-    const key = localStorage.key(i)
-    if (!key) continue
-    if (PRESERVED_LOCAL_STORAGE_KEYS.has(key)) continue
-    if (key.startsWith('lifexp') || key === 'points') {
-      localKeys.push(key)
-    }
-  }
+  const localKeys = collectScopedLifeexpLocalKeys().filter(
+    (key) => ![...PRESERVED_LOCAL_STORAGE_KEYS].some((base) => matchesScopedClientStorageKey(key, base)),
+  )
   for (const key of localKeys) {
     localStorage.removeItem(key)
   }
@@ -106,7 +105,7 @@ export function clearLegacyLifeXpClientStorage(): void {
   const sessionKeys: string[] = []
   for (let i = 0; i < sessionStorage.length; i += 1) {
     const key = sessionStorage.key(i)
-    if (key?.startsWith('lifexp')) sessionKeys.push(key)
+    if (key?.startsWith('lifexp') && isScopedLifeexpClientKey(key)) sessionKeys.push(key)
   }
   for (const key of sessionKeys) {
     sessionStorage.removeItem(key)

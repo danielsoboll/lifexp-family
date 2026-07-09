@@ -1,5 +1,7 @@
 import type { SetupGuideDbPatch } from './setupGuideFamily'
 
+import { scopedLocalGet, scopedLocalSet } from '../scopedClientStorage'
+
 export const GUIDE_LOCAL_CACHE_KEY = 'lifexp_family_guide_cache_v1'
 
 type GuideLocalCache = SetupGuideDbPatch
@@ -7,7 +9,7 @@ type GuideLocalCache = SetupGuideDbPatch
 function readAll(): Record<string, GuideLocalCache> {
   if (typeof window === 'undefined') return {}
   try {
-    const raw = localStorage.getItem(GUIDE_LOCAL_CACHE_KEY)
+    const raw = scopedLocalGet(GUIDE_LOCAL_CACHE_KEY)
     if (!raw) return {}
     const parsed = JSON.parse(raw) as Record<string, GuideLocalCache>
     return parsed && typeof parsed === 'object' ? parsed : {}
@@ -19,7 +21,7 @@ function readAll(): Record<string, GuideLocalCache> {
 function writeAll(map: Record<string, GuideLocalCache>): void {
   if (typeof window === 'undefined') return
   try {
-    localStorage.setItem(GUIDE_LOCAL_CACHE_KEY, JSON.stringify(map))
+    scopedLocalSet(GUIDE_LOCAL_CACHE_KEY, JSON.stringify(map))
   } catch {
     /* ignore */
   }

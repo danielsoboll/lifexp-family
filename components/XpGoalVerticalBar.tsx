@@ -13,6 +13,8 @@ type XpGoalVerticalBarProps = {
   symbolEmoji?: string
   /** Noch kein aktives Ziel — Platzhalter ohne Symbol */
   emptyState?: boolean
+  /** Persönliche Belohnung statt „Ziel“ über dem Balken */
+  rewardLabel?: boolean
   className?: string
 }
 
@@ -37,8 +39,10 @@ export default function XpGoalVerticalBar({
   detail = false,
   symbolEmoji,
   emptyState = false,
+  rewardLabel = false,
   className = '',
 }: XpGoalVerticalBarProps) {
+  const topLabel = rewardLabel ? 'Belohnung' : 'Ziel'
   const safeTarget = Math.max(1, target)
   const clampedProgress = Math.min(Math.max(0, Math.floor(progress)), safeTarget)
   const fillPercent = (clampedProgress / safeTarget) * 100
@@ -58,9 +62,7 @@ export default function XpGoalVerticalBar({
   const circleSize = detail ? 'h-2.5 w-2.5' : compact ? 'h-1.5 w-1.5' : 'h-2 w-2'
   const symbolClass = detail ? 'mb-1 text-xl leading-none' : 'mb-0.5 text-sm leading-none'
   const emptyHintClass = detail
-    ? emptyState
-      ? 'mb-1.5 w-full px-0.5 text-center text-[9px] font-bold leading-[1.2] dark:text-amber-300'
-      : 'mb-1.5 w-full px-0.5 text-center text-[9px] font-bold leading-[1.2] text-amber-700 dark:text-amber-300'
+    ? 'mb-1.5 mx-auto max-w-[3.25rem] text-center text-[10px] font-bold leading-[1.2] text-amber-700 dark:text-amber-300'
     : 'mb-1 max-w-[3.25rem] text-center text-[8px] font-semibold leading-tight text-amber-700 dark:text-amber-300'
   const fractionTextClass = detail
     ? 'font-bold tabular-nums leading-none text-slate-950 dark:text-slate-100'
@@ -72,7 +74,7 @@ export default function XpGoalVerticalBar({
     'border-emerald-600 bg-white dark:border-emerald-400 dark:bg-slate-100'
 
   return (
-    <div className={`flex w-full flex-col items-center ${className}`.trim()}>
+    <div className={`flex w-full flex-col items-center overflow-visible ${className}`.trim()}>
       {totalXp !== undefined && !compact ? (
         <div className="mb-3 w-full text-center">
           <p className={HISTORY_TOTAL_XP_LABEL_CLASS}>Gesamt XP</p>
@@ -87,25 +89,37 @@ export default function XpGoalVerticalBar({
         aria-valuemax={safeTarget}
         aria-label={
           emptyState
-            ? 'Noch kein Ziel — 0 von 100 XP'
+            ? rewardLabel
+              ? 'Belohnung noch nicht eingetragen — 0 von 100 XP'
+              : 'Noch kein Ziel — 0 von 100 XP'
             : `${clampedProgress} von ${safeTarget} XP zum Ziel`
         }
       >
         <div className="flex w-full flex-col items-center">
           {emptyState ? (
             <span className={`lifexp-no-goal-hint ${emptyHintClass}`}>
-              noch
-              <br />
-              kein
-              <br />
-              Ziel
+              {rewardLabel ? (
+                <>
+                  noch nicht
+                  <br />
+                  eingetragen:
+                </>
+              ) : (
+                <>
+                  noch
+                  <br />
+                  kein
+                  <br />
+                  Ziel
+                </>
+              )}
             </span>
           ) : symbolEmoji ? (
             <span className={symbolClass} aria-hidden>
               {symbolEmoji}
             </span>
           ) : null}
-          <span className={`${zielMarginClass} ${zielLabelClass}`}>Ziel</span>
+          <span className={`${zielMarginClass} ${zielLabelClass}`}>{topLabel}</span>
           <div className={`relative ${barWidth} ${barHeight} shrink-0`}>
             <div className={`absolute inset-0 overflow-hidden rounded-full ${barTrackClass}`}>
               {clampedProgress > 0 ? (

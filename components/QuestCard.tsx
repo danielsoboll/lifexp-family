@@ -12,6 +12,7 @@ import {
 } from '../lib/family/questConfirmation'
 import { formatQuestDayLabel } from '../lib/family/questRules'
 import { accentKeyForAssignee, memberAccentStyle, type MemberAccentKey } from '../lib/family/memberAccentColor'
+import { QUEST_STATUS_BADGE_CLASS, questStatusSurfaceClass } from '../lib/family/questCardSurface'
 import { formatParentDisplayName } from '../lib/family/familyDisplayName'
 import type { FamilySession } from '../lib/familySession'
 
@@ -32,17 +33,19 @@ type QuestCardProps = {
   canAdmin?: boolean
 }
 
-const STATUS_LABEL = {
-  open: { text: 'Offen', className: 'bg-white/70 text-slate-950 dark:bg-slate-800/70 dark:text-slate-200' },
-  awaiting_creator: {
-    text: 'Wartet auf Bestätigung',
-    className: 'bg-white/75 text-sky-900 dark:bg-sky-950/50 dark:text-sky-100',
-  },
-  done: {
-    text: 'Erledigt',
-    className: 'bg-white/75 text-emerald-900 dark:bg-emerald-950/45 dark:text-emerald-100',
-  },
-} as const
+const STATUS_LABEL = QUEST_STATUS_BADGE_CLASS
+
+function cardShellClass(
+  quest: QuestWithCompletion,
+  grouped: boolean,
+  familyWide: boolean,
+  accent: ReturnType<typeof memberAccentStyle>,
+): string {
+  if (grouped || familyWide) {
+    return questStatusSurfaceClass(quest.fulfillmentStatus)
+  }
+  return accent.cardClass
+}
 
 function creatorLabel(
   quest: QuestWithCompletion,
@@ -83,6 +86,8 @@ export default function QuestCard({
       ? memberAccentStyle(familyAccentKey ?? 'lavender')
       : memberAccentStyle(accentKeyForAssignee(assignee, parents, children))
 
+  const surfaceClass = cardShellClass(quest, grouped, familyWide, accent)
+
   const content = (
     <>
       <div className="flex items-center justify-between gap-2">
@@ -102,19 +107,23 @@ export default function QuestCard({
       </div>
 
       {grouped ? (
-        <h3 className="mt-2 text-base font-bold leading-snug text-slate-900 dark:text-slate-100">{quest.title}</h3>
+        <h3 className="mt-2 text-lg font-bold leading-snug text-slate-900 dark:text-slate-100">{quest.title}</h3>
       ) : (
         <div className="mt-2 flex min-w-0 items-baseline gap-1.5">
           <p className={`shrink-0 text-sm font-bold leading-snug ${accent.nameClass}`}>{assigneeName}</p>
           <span className="text-slate-950 dark:text-slate-500" aria-hidden>
             ·
           </span>
-          <h3 className="min-w-0 truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{quest.title}</h3>
+          <h3 className="min-w-0 truncate text-base font-bold leading-snug text-slate-900 dark:text-slate-100">
+            {quest.title}
+          </h3>
         </div>
       )}
 
       {quest.description ? (
-        <p className="mt-1 line-clamp-2 text-sm text-slate-950/95 dark:text-slate-300/90">{quest.description}</p>
+        <p className="mt-1.5 line-clamp-3 text-base font-bold leading-snug text-slate-950 dark:text-slate-200">
+          {quest.description}
+        </p>
       ) : null}
 
       <p className="mt-1.5 text-[11px] text-slate-950/95 dark:text-slate-400/90">
@@ -148,7 +157,7 @@ export default function QuestCard({
       <button
         type="button"
         onClick={onManage}
-        className={`w-full rounded-xl border-2 p-3 text-left shadow-sm ring-1 transition-[transform,box-shadow,filter] duration-200 hover:brightness-[1.02] active:scale-[0.988] ${accent.cardClass}`}
+        className={`w-full rounded-xl border-2 p-3 text-left transition-[transform,box-shadow,filter] duration-200 hover:brightness-[1.02] active:scale-[0.988] ${surfaceClass}`}
       >
         {content}
       </button>
@@ -156,7 +165,7 @@ export default function QuestCard({
   }
 
   return (
-    <article className={`rounded-xl border-2 p-3 shadow-sm ring-1 ${accent.cardClass}`}>
+    <article className={`rounded-xl border-2 p-3 ${surfaceClass}`}>
       {content}
       {manageable && onManage ? (
         <button

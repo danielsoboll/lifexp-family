@@ -17,10 +17,16 @@ const TEASER_ACTIVE_CLASS = `${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 b
 type AdminFamilyInviteSectionProps = {
   inviteCode: string
   familyName?: string | null
+  /** Orange Teaser — erst wenn mindestens ein weiteres Familienmitglied angelegt ist. */
+  showTeaser?: boolean
 }
 
 /** Teaser + Einladung — Klick hellt den Teaser auf und goldet die Aktions-Buttons. Kein persistierter Status. */
-export default function AdminFamilyInviteSection({ inviteCode, familyName }: AdminFamilyInviteSectionProps) {
+export default function AdminFamilyInviteSection({
+  inviteCode,
+  familyName,
+  showTeaser = false,
+}: AdminFamilyInviteSectionProps) {
   const [inviteFlowActive, setInviteFlowActive] = useState(false)
   const [teaserBusy, setTeaserBusy] = useState(false)
   const activatePromiseRef = useRef<Promise<void> | null>(null)
@@ -58,35 +64,38 @@ export default function AdminFamilyInviteSection({ inviteCode, familyName }: Adm
 
   return (
     <>
-      <button
-        type="button"
-        onClick={handleTeaserClick}
-        className={`pt-1 ${inviteFlowActive || teaserBusy ? TEASER_ACTIVE_CLASS : TEASER_IDLE_CLASS}`}
-        aria-pressed={inviteFlowActive}
-        aria-busy={teaserBusy}
-        aria-label={`${TEASER_LINE_1}. ${teaserSubline}`}
-      >
-        <p
-          className={`text-balance text-[15px] font-black leading-tight tracking-tight sm:text-base ${
-            inviteFlowActive || teaserBusy ? 'text-amber-950 dark:text-yellow-50' : 'text-white'
-          }`}
+      {showTeaser ? (
+        <button
+          type="button"
+          onClick={handleTeaserClick}
+          className={`pt-1 ${inviteFlowActive || teaserBusy ? TEASER_ACTIVE_CLASS : TEASER_IDLE_CLASS}`}
+          aria-pressed={inviteFlowActive}
+          aria-busy={teaserBusy}
+          aria-label={`${TEASER_LINE_1}. ${teaserSubline}`}
         >
-          {TEASER_LINE_1}
-        </p>
-        <p
-          className={`mt-0.5 text-balance text-sm font-bold leading-snug ${
-            inviteFlowActive || teaserBusy ? 'text-amber-900/90 dark:text-yellow-100/90' : 'text-amber-50/95'
-          }`}
-        >
-          {teaserSubline}
-        </p>
-      </button>
+          <p
+            className={`text-balance text-[15px] font-black leading-tight tracking-tight sm:text-base ${
+              inviteFlowActive || teaserBusy ? 'text-amber-950 dark:text-yellow-50' : 'text-white'
+            }`}
+          >
+            {TEASER_LINE_1}
+          </p>
+          <p
+            className={`mt-0.5 text-balance text-sm font-bold leading-snug ${
+              inviteFlowActive || teaserBusy ? 'text-amber-900/90 dark:text-yellow-100/90' : 'text-amber-50/95'
+            }`}
+          >
+            {teaserSubline}
+          </p>
+        </button>
+      ) : null}
 
       <FamilyInviteSharePanel
         inviteCode={inviteCode}
         familyName={familyName}
-        actionsHighlighted={inviteFlowActive || teaserBusy}
-        ensureFlowReady={ensureInviteFlowReady}
+        actionsHighlighted={showTeaser && (inviteFlowActive || teaserBusy)}
+        ensureFlowReady={showTeaser ? ensureInviteFlowReady : undefined}
+        compactTop={!showTeaser}
       />
     </>
   )

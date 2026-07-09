@@ -20,6 +20,8 @@ type FamilyInviteSharePanelProps = {
   actionsHighlighted?: boolean
   /** Teaser-Flow zuerst aktivieren (zeigt „Warte kurz …“). */
   ensureFlowReady?: () => Promise<void>
+  /** Ohne orangenen Teaser oben — weniger Abstand/Trennlinie. */
+  compactTop?: boolean
 }
 
 const ACTION_BUTTON_CLASS = `${PRESSABLE_3D_CLASS} rounded-xl border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200/90 px-3 py-2 text-sm font-bold text-slate-950 transition-[border-color,background,color,box-shadow] duration-300 dark:border-slate-600 dark:from-slate-800 dark:to-slate-950 dark:text-slate-100`
@@ -34,6 +36,7 @@ export default function FamilyInviteSharePanel({
   familyName,
   actionsHighlighted = false,
   ensureFlowReady,
+  compactTop = false,
 }: FamilyInviteSharePanelProps) {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [showCopiedLink, setShowCopiedLink] = useState(false)
@@ -137,7 +140,9 @@ export default function FamilyInviteSharePanel({
 
   return (
     <div
-      className={`space-y-3 border-t pt-2 transition-[border-color] duration-300 ${
+      className={`space-y-3 transition-[border-color] duration-300 ${
+        compactTop ? 'pt-0' : 'border-t pt-2'
+      } ${
         actionsHighlighted ? 'border-amber-400/60 dark:border-amber-600/50' : 'border-slate-300/70 dark:border-slate-600/70'
       }`}
     >

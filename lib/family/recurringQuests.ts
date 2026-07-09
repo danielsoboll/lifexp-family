@@ -6,8 +6,11 @@ import { isFamilyPlus } from './familyPlus'
 import { fetchFamilyById } from './families'
 import { replaceQuestAssignments } from './questAssignments'
 import { clampQuestXp } from './questRules'
+import { sessionIsRecurringTemplateCreator } from './questConfirmation'
 import { recurringScheduleMatchesDate } from './recurringQuestSchedule'
-import type { QuestAssignee, RecurringQuestTemplate } from './types'
+import type { Quest, QuestAssignee, RecurringQuestTemplate } from './types'
+
+export { sessionIsRecurringTemplateCreator }
 
 type TemplateRow = {
   id: string
@@ -159,12 +162,41 @@ function validateCreatorNotAssignee(assignees: QuestAssignee[]): Error | null {
   return null
 }
 
-export function sessionIsRecurringTemplateCreator(
-  template: Pick<RecurringQuestTemplate, 'created_by' | 'created_by_child_id'>,
-  session: FamilySession,
-): boolean {
-  if (session.memberKind === 'parent') return template.created_by === session.memberId
-  return template.created_by_child_id === session.memberId
+/** Ergänzt fehlende Ersteller-Felder auf Tages-Instanzen aus der Vorlage. */
+export async function enrichQuestsWithRecurringTemplateCreators<T extends Quest>(quests: T[]): Promise<T[]> {
+  const templateIds = [
+    ...new Set(
+      quests
+        .filter((quest) => quest.recurring_template_id && !quest.created_by && !quest.created_by_child_id)
+        .map((quest) => quest.recurring_template_id as string),
+    ),
+  ]
+  if (templateIds.length === 0) return quests
+
+  const { data, error } = await supabase
+    .from('recurring_quest_templates')
+    .select('id, created_by, created_by_child_id')
+    .in('id', templateIds)
+
+  if (error || !data?.length) return quests
+
+  const byId = new Map(data.map((row) => [row.id as string, row]))
+
+  return quests.map((quest) => {
+    if (quest.created_by || quest.created_by_child_id || !quest.recurring_template_id) return quest
+    const template = byId.get(quest.recurring_template_id)
+    if (!template) return quest
+    return {
+      ...quest,
+      created_by: template.created_by as string | null,
+      created_by_child_id: template.created_by_child_id as string | null,
+    }
+  })
+}
+
+export async function enrichQuestCreatorFromRecurringTemplate(quest: Quest): Promise<Quest> {
+  const [enriched] = await enrichQuestsWithRecurringTemplateCreators([quest])
+  return enriched ?? quest
 }
 
 async function fetchTemplateRow(

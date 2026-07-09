@@ -1,3 +1,5 @@
+import { scopeClientStorageKey } from './clientStorageScope'
+
 const COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 400
 
 function cookieSecureSuffix(): string {
@@ -7,12 +9,14 @@ function cookieSecureSuffix(): string {
 
 export function setBridgedCookie(name: string, value: string): void {
   if (typeof document === 'undefined') return
-  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${COOKIE_MAX_AGE_SEC}; SameSite=Lax${cookieSecureSuffix()}`
+  const scopedName = scopeClientStorageKey(name)
+  document.cookie = `${scopedName}=${encodeURIComponent(value)}; path=/; max-age=${COOKIE_MAX_AGE_SEC}; SameSite=Lax${cookieSecureSuffix()}`
 }
 
 export function getBridgedCookie(name: string): string | null {
   if (typeof document === 'undefined') return null
-  const prefix = `${name}=`
+  const scopedName = scopeClientStorageKey(name)
+  const prefix = `${scopedName}=`
   for (const part of document.cookie.split(';')) {
     const trimmed = part.trim()
     if (trimmed.startsWith(prefix)) {
@@ -24,14 +28,16 @@ export function getBridgedCookie(name: string): string | null {
 
 export function clearBridgedCookie(name: string): void {
   if (typeof document === 'undefined') return
-  document.cookie = `${name}=; path=/; max-age=0${cookieSecureSuffix()}`
+  const scopedName = scopeClientStorageKey(name)
+  document.cookie = `${scopedName}=; path=/; max-age=0${cookieSecureSuffix()}`
 }
 
 /** localStorage + Cookie — überlebt Wechsel Browser ↔ Home-Bildschirm-App (iOS). */
 export function saveBridgedStorage(localKey: string, cookieKey: string, value: string): void {
   if (typeof window === 'undefined') return
+  const scopedLocalKey = scopeClientStorageKey(localKey)
   try {
-    localStorage.setItem(localKey, value)
+    localStorage.setItem(scopedLocalKey, value)
   } catch {
     /* privater Modus — Cookie als Fallback */
   }
@@ -40,8 +46,9 @@ export function saveBridgedStorage(localKey: string, cookieKey: string, value: s
 
 export function loadBridgedStorage(localKey: string, cookieKey: string): string | null {
   if (typeof window === 'undefined') return null
+  const scopedLocalKey = scopeClientStorageKey(localKey)
   try {
-    const fromLocal = localStorage.getItem(localKey)
+    const fromLocal = localStorage.getItem(scopedLocalKey)
     if (fromLocal !== null && fromLocal !== '') return fromLocal
   } catch {
     /* ignore */
@@ -49,7 +56,7 @@ export function loadBridgedStorage(localKey: string, cookieKey: string): string 
   const fromCookie = getBridgedCookie(cookieKey)
   if (fromCookie !== null && fromCookie !== '') {
     try {
-      localStorage.setItem(localKey, fromCookie)
+      localStorage.setItem(scopedLocalKey, fromCookie)
     } catch {
       /* ignore */
     }
@@ -60,8 +67,9 @@ export function loadBridgedStorage(localKey: string, cookieKey: string): string 
 
 export function clearBridgedStorage(localKey: string, cookieKey: string): void {
   if (typeof window === 'undefined') return
+  const scopedLocalKey = scopeClientStorageKey(localKey)
   try {
-    localStorage.removeItem(localKey)
+    localStorage.removeItem(scopedLocalKey)
   } catch {
     /* ignore */
   }

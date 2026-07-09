@@ -11,7 +11,7 @@ import DangerConfirmAction from '../../components/DangerConfirmAction'
 import ParentMemberEditor from '../../components/ParentMemberEditor'
 import PageHeaderBar from '../../components/PageHeaderBar'
 import { notifyFamilyDataChanged, useFamily } from '../../components/FamilyProvider'
-import { markSetupGuideAdminVisited } from '../../lib/family/setupGuide'
+import { markSetupGuideAdminVisited, totalFamilyMembers } from '../../lib/family/setupGuide'
 import { deleteChildById, deleteParentById } from '../../lib/family/admin'
 import {
   childCanBeRemoved,
@@ -124,6 +124,8 @@ export default function AdminPage() {
     return true
   }
 
+  const showInviteTeaser = totalFamilyMembers(parents.length, children.length) >= 2
+
   return (
     <AdminScrollPage>
       <PageHeaderBar backHref="/" backLabel={HOME_BACK_LABEL} compact />
@@ -154,7 +156,11 @@ export default function AdminPage() {
               </span>
             </p>
             {family?.invite_code ? (
-              <AdminFamilyInviteSection inviteCode={family.invite_code} familyName={family.name} />
+              <AdminFamilyInviteSection
+                inviteCode={family.invite_code}
+                familyName={family.name}
+                showTeaser={showInviteTeaser}
+              />
             ) : (
               <p className={MUTED_BODY_TEXT_CLASS}>Einladungscode: —</p>
             )}

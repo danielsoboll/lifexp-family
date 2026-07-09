@@ -185,6 +185,103 @@ export async function deleteFamilyById(familyId: string): Promise<{ error: Error
   return { error: null }
 }
 
+const FAMILY_PROGRESS_RESET_TABLES = [
+  'quest_completion_creator_reactions',
+  'quest_completion_assignee_photos',
+  'reward_redemptions',
+  'member_personal_goal_tracking',
+  'family_personal_goal_tracking',
+  'member_xp_goal_daily_progress',
+  'member_daily_xp_history',
+  'family_daily_xp_history',
+  'family_challenge_progress',
+  'quest_completions',
+  'daily_xp_entries',
+] as const
+
+/**
+ * XP, Verlauf und Fortschritt zurücksetzen — Familie, Mitglieder und Quests bleiben erhalten.
+ */
+export async function resetFamilyProgressById(familyId: string): Promise<{ error: Error | null }> {
+  const adminError = await assertFamilyAdminSession(familyId)
+  if (adminError.error) return adminError
+
+  await deleteQuestCompletionStorageForFamily(familyId)
+
+  for (const table of FAMILY_PROGRESS_RESET_TABLES) {
+    const prepError = await deleteRowsByFamilyId(table, familyId)
+    if (prepError) return { error: prepError }
+  }
+
+  const now = new Date().toISOString()
+
+  const { error: childXpError } = await supabase
+    .from('child_profiles')
+    .update({ total_xp: 0, updated_at: now })
+    .eq('family_id', familyId)
+
+  if (childXpError && !isMissingRelationError(childXpError)) {
+    return { error: new Error(childXpError.message) }
+  }
+
+  const goalProgressReset = { progress_xp: 0, completed_at: null, updated_at: now }
+
+  const { error: memberGoalsError } = await supabase
+    .from('member_personal_goals')
+    .update(goalProgressReset)
+    .eq('family_id', familyId)
+
+  if (memberGoalsError && !isMissingRelationError(memberGoalsError)) {
+    return { error: new Error(memberGoalsError.message) }
+  }
+
+  const { error: familyGoalsError } = await supabase
+    .from('family_personal_goals')
+    .update(goalProgressReset)
+    .eq('family_id', familyId)
+
+  if (familyGoalsError && !isMissingRelationError(familyGoalsError)) {
+    return { error: new Error(familyGoalsError.message) }
+  }
+
+  const { error: familyXpGoalError } = await supabase
+    .from('family_xp_goal_periods')
+    .update({ progress_xp: 0, updated_at: now })
+    .eq('family_id', familyId)
+    .is('ended_at', null)
+
+  if (familyXpGoalError && !isMissingRelationError(familyXpGoalError)) {
+    return { error: new Error(familyXpGoalError.message) }
+  }
+
+  const { error: memberXpGoalError } = await supabase
+    .from('member_xp_goal_periods')
+    .update({ progress_xp: 0, updated_at: now })
+    .eq('family_id', familyId)
+    .is('ended_at', null)
+
+  if (memberXpGoalError && !isMissingRelationError(memberXpGoalError)) {
+    return { error: new Error(memberXpGoalError.message) }
+  }
+
+  await resyncFamilyXpHistoryForDate(familyId, getLocalDateKey())
+
+  const { error: syncGoalsError } = await supabase.rpc('sync_all_xp_goals_for_family', {
+    p_family_id: familyId,
+  })
+
+  if (syncGoalsError && !isMissingRelationError(syncGoalsError)) {
+    const { error: syncPersonalGoalsError } = await supabase.rpc('sync_all_personal_goals_for_family', {
+      p_family_id: familyId,
+    })
+    if (syncPersonalGoalsError && !isMissingRelationError(syncPersonalGoalsError)) {
+      return { error: new Error(syncPersonalGoalsError.message) }
+    }
+  }
+
+  return { error: null }
+}
+
 export async function deleteParentById(parentId: string, familyId: string): Promise<{ error: Error | null }> {
   const sessionError = await assertValidFamilySession(familyId)
   if (sessionError.error) return sessionError

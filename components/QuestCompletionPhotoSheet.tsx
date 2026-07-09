@@ -4,7 +4,8 @@ import { useRef, useState } from 'react'
 
 import SheetPortal from './SheetPortal'
 import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
-import { uploadQuestCompletionAssigneePhotos } from '../lib/family/questCompletionPlus'
+import { multilineTextInputProps } from '../lib/formInputAutofill'
+import { saveQuestCompletionAssigneeContent } from '../lib/family/questCompletionPlus'
 
 type QuestCompletionPhotoSheetProps = {
   familyId: string
@@ -24,6 +25,7 @@ export default function QuestCompletionPhotoSheet({
   const inputRef = useRef<HTMLInputElement>(null)
   const [files, setFiles] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
+  const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -43,16 +45,19 @@ export default function QuestCompletionPhotoSheet({
     })
   }
 
-  const handleUpload = async () => {
-    if (files.length === 0) {
+  const hasContent = files.length > 0 || message.trim().length > 0
+
+  const handleSend = async () => {
+    if (!hasContent) {
       onClose()
       return
     }
     setLoading(true)
     setError(null)
-    const { error: uploadError } = await uploadQuestCompletionAssigneePhotos({
+    const { error: uploadError } = await saveQuestCompletionAssigneeContent({
       familyId,
       completionId,
+      message: message.trim() || undefined,
       files,
     })
     setLoading(false)
@@ -78,10 +83,23 @@ export default function QuestCompletionPhotoSheet({
           aria-modal="true"
         >
           <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-400/70 dark:bg-slate-500" />
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Foto hinzufügen (PLUS)</h2>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Nachricht & Fotos (PLUS)</h2>
           <p className="mt-1 text-sm text-slate-950 dark:text-slate-300">
-            Optional bis zu 2 Fotos zu „{questTitle}“ — z. B. das aufgeräumte Zimmer.
+            Optional Text und bis zu 2 Fotos zu „{questTitle}“ — z. B. „Zimmer ist sauber!“
           </p>
+
+          <label className="mt-4 block">
+            <span className="mb-1 block text-xs font-semibold text-slate-950 dark:text-slate-200">Deine Nachricht</span>
+            <textarea
+              {...multilineTextInputProps('lifexp-quest-completion-assignee-message')}
+              rows={3}
+              maxLength={280}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="z. B. Fertig — alles aufgeräumt!"
+              className="w-full resize-none rounded-xl border-2 border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950"
+            />
+          </label>
 
           <input
             ref={inputRef}
@@ -131,16 +149,16 @@ export default function QuestCompletionPhotoSheet({
               onClick={onClose}
               className={`${PRESSABLE_3D_CLASS} flex-1 rounded-xl border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-300 px-4 py-3 text-sm font-bold text-slate-900 dark:border-slate-600 dark:from-slate-700 dark:to-slate-900 dark:text-slate-100`}
             >
-              {files.length > 0 ? 'Überspringen' : 'Schließen'}
+              {hasContent ? 'Überspringen' : 'Schließen'}
             </button>
-            {files.length > 0 ? (
+            {hasContent ? (
               <button
                 type="button"
                 disabled={loading}
-                onClick={() => void handleUpload()}
+                onClick={() => void handleSend()}
                 className={`${PRESSABLE_3D_CLASS} flex-1 rounded-xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-60`}
               >
-                {loading ? 'Hochladen …' : 'Fotos senden'}
+                {loading ? 'Wird gesendet …' : 'Senden'}
               </button>
             ) : null}
           </div>

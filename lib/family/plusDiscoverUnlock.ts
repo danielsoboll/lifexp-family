@@ -2,6 +2,8 @@ import { isMemberJoinReadySeen } from './memberJoinGuide'
 import { setupGuideStateFromFamily } from './setupGuideFamily'
 import type { Family } from './types'
 
+import { scopedLocalGet, scopedLocalSet } from '../scopedClientStorage'
+
 const STORAGE_KEY_PREFIX = 'lifexp_plus_discover_unlocked_v1_'
 
 export const PLUS_DISCOVER_UNLOCK_CHANGED_EVENT = 'lifexp-plus-discover-unlock-changed'
@@ -12,13 +14,13 @@ function storageKey(familyId: string): string {
 
 export function isPlusDiscoverUnlocked(familyId: string): boolean {
   if (typeof window === 'undefined') return false
-  return localStorage.getItem(storageKey(familyId)) === '1'
+  return scopedLocalGet(storageKey(familyId)) === '1'
 }
 
 export function markPlusDiscoverUnlocked(familyId: string): void {
   if (typeof window === 'undefined') return
   if (isPlusDiscoverUnlocked(familyId)) return
-  localStorage.setItem(storageKey(familyId), '1')
+  scopedLocalSet(storageKey(familyId), '1')
   window.dispatchEvent(new CustomEvent(PLUS_DISCOVER_UNLOCK_CHANGED_EVENT))
 }
 

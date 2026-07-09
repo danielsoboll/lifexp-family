@@ -6,6 +6,7 @@ import { fetchQuestAssignmentsForQuests, replaceQuestAssignments } from './quest
 import { assigneesForFamilyQuestXpBudget, fetchMemberXpBudget } from './questXpBudget'
 import { clampQuestXp, isAllowedQuestTaskDate, isQuestFromYesterday } from './questRules'
 import { aggregateQuestFulfillmentStatus, sessionIsQuestCreator } from './questConfirmation'
+import { enrichQuestsWithRecurringTemplateCreators } from './recurringQuests'
 import type { Quest, QuestAssignee, QuestRecurrence, QuestWithCompletion, QuestAssigneeCompletion, QuestCompletionOnDate } from './types'
 
 export type CreateQuestInput = {
@@ -77,8 +78,10 @@ export async function fetchQuestsWithCompletions(
   if (questsError) return { quests: [], error: questsError }
   if (quests.length === 0) return { quests: [], error: null }
 
-  const questIds = quests.map((q) => q.id)
-  const taskDates = [...new Set(quests.map((q) => normalizeDateKey(q.task_date)).filter(Boolean))]
+  const questsWithCreators = await enrichQuestsWithRecurringTemplateCreators(quests)
+
+  const questIds = questsWithCreators.map((q) => q.id)
+  const taskDates = [...new Set(questsWithCreators.map((q) => normalizeDateKey(q.task_date)).filter(Boolean))]
 
   const [{ assignmentsByQuest, error: assignError }, { data: completions, error: completionsError }] =
     await Promise.all([
@@ -132,7 +135,7 @@ export async function fetchQuestsWithCompletions(
     }
   }
 
-  const enriched: QuestWithCompletion[] = quests.map((quest) => {
+  const enriched: QuestWithCompletion[] = questsWithCreators.map((quest) => {
     const dateKey = normalizeDateKey(quest.task_date)
     const completionKey = `${quest.id}:${dateKey}`
     const completionChildIds = childDoneByQuestDate.get(completionKey) ?? []

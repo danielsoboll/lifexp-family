@@ -49,6 +49,21 @@ export const PRESSABLE_3D_CLASS = 'lifexp-pressable-3d'
 /** Leichtes 3D für Avatar-Kacheln und klickbare Member-Cards. */
 export const TILE_3D_CLASS = 'lifexp-tile-3d'
 
+/** Klickfläche vertikaler Belohnungs-Balken — ohne globale Button-Steintafel. */
+export const GOAL_BAR_HIT_CLASS = 'lifexp-goal-bar-hit'
+
+/** Avatar-Detail: Portrait-Karte (5:6 in p-3). */
+export const MEMBER_DETAIL_CARD_WIDTH_CLASS = 'w-[15.5rem] sm:w-[16.5rem]'
+
+/** Platz für Balken-Beschriftung („Belohnung“, „noch nicht eingetragen“). */
+export const MEMBER_DETAIL_GOAL_BAR_COLUMN_CLASS = 'w-[4.25rem] shrink-0'
+
+/**
+ * Kopfbereich Mitglieder-Detail: links Luft für Balken-Text, rechts für Denkblase.
+ */
+export const MEMBER_DETAIL_HERO_CLASS =
+  'lifexp-member-detail-hero relative w-full max-w-full pl-1 pr-[min(4.75rem,21vw)]'
+
 /** Zurück-Link zur Familien-Startseite. */
 export const HOME_BACK_LABEL = 'Übersicht'
 

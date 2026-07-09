@@ -31,7 +31,14 @@ import { fetchMemberPersonalGoalBarState, type MemberPersonalGoalBarState } from
 import { fetchQuestCompletionEnrichment, type QuestCompletionEnrichment } from '../lib/family/questCompletionPlus'
 import { personalGoalSymbolEmoji } from '../lib/family/personalGoalSymbols'
 import type { QuestCompletionOnDate, QuestWithCompletion } from '../lib/family/types'
-import { CARD_SURFACE_CLASS, PRESSABLE_3D_CLASS, TILE_3D_CLASS } from '../lib/appShell'
+import {
+  CARD_SURFACE_CLASS,
+  GOAL_BAR_HIT_CLASS,
+  MEMBER_DETAIL_CARD_WIDTH_CLASS,
+  MEMBER_DETAIL_GOAL_BAR_COLUMN_CLASS,
+  MEMBER_DETAIL_HERO_CLASS,
+  PRESSABLE_3D_CLASS,
+} from '../lib/appShell'
 import { useThoughtBubbleVisibility } from '../lib/useThoughtBubbleVisibility'
 
 type MemberDetailViewProps = {
@@ -369,9 +376,11 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="font-semibold text-slate-900 dark:text-slate-100">{quest.title}</p>
+                <p className="text-base font-bold leading-snug text-slate-900 dark:text-slate-100">{quest.title}</p>
                 {quest.description ? (
-                  <p className="mt-0.5 text-xs text-slate-950 dark:text-slate-400">{quest.description}</p>
+                  <p className="mt-1 text-sm font-bold leading-snug text-slate-950 dark:text-slate-300">
+                    {quest.description}
+                  </p>
                 ) : null}
               </div>
               <span className="shrink-0 text-xs font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
@@ -389,9 +398,10 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
             >
               {done ? 'Erledigt' : awaiting ? 'Wartet auf Bestätigung' : 'Offen'}
             </p>
-            {(done || awaiting) && enrichment && enrichment.photos.length > 0 ? (
+            {(done || awaiting) && enrichment && (enrichment.photos.length > 0 || enrichment.assigneeMessage) ? (
               <QuestCompletionAssigneePhotosDisplay
                 photos={enrichment.photos}
+                message={enrichment.assigneeMessage}
                 label={isSelf ? 'Deine Fotos' : 'Fotos'}
               />
             ) : null}
@@ -413,6 +423,20 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
                 completionId={completion.id}
                 xpReward={quest.xp_reward}
                 assigneeName={displayName}
+                assigneeChildId={completion.childId}
+                assigneeParentId={completion.parentId}
+                onConfirmed={() => {
+                  if (hasActiveGoal && goalBar) {
+                    setGoalBar((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            progress: Math.min(prev.target, prev.progress + quest.xp_reward),
+                          }
+                        : prev,
+                    )
+                  }
+                }}
               />
             ) : null}
             {canAdminRemove && completion ? (
@@ -459,9 +483,12 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
   const goalBarBottomInset =
     memberKind === 'child' && child && formatChildAge(child.age) ? 'pb-[2.75rem]' : 'pb-[1.75rem]'
 
+  const goalBarHitClass = `${GOAL_BAR_HIT_CLASS} flex w-full items-center justify-center overflow-visible rounded-xl px-0 py-0.5`
+
   const goalBarControl = (
     <XpGoalVerticalBar
       detail
+      rewardLabel
       emptyState={!hasActiveGoal}
       progress={hasActiveGoal ? goalBar!.progress : 0}
       target={hasActiveGoal ? goalBar!.target : 100}
@@ -471,30 +498,33 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
 
   return (
     <div className="space-y-6">
-      <div className="mx-auto flex w-full max-w-[18.5rem] items-stretch sm:max-w-[19.5rem]">
-        <div className={`flex w-12 shrink-0 flex-col justify-end ${goalBarBottomInset}`}>
-          {isSelf ? (
-            <button
-              type="button"
-              onClick={openGoalsEditor}
-              className={`-ml-3.5 flex w-full items-center justify-center rounded-xl px-0.5 py-0.5 ${TILE_3D_CLASS} cursor-pointer`}
-              aria-label={hasActiveGoal ? 'Ziel-Fortschritt anzeigen' : 'Eigene Ziele anlegen'}
-              title={hasActiveGoal ? 'Ziele verwalten' : 'Eigene Ziele anlegen'}
-            >
-              {goalBarControl}
-            </button>
-          ) : (
-            <div
-              className="-ml-3.5 flex w-full cursor-default items-center justify-center rounded-xl px-0.5 py-0.5"
-              aria-label={hasActiveGoal ? 'Ziel-Fortschritt' : 'Noch kein eigenes Ziel'}
-            >
-              {goalBarControl}
-            </div>
-          )}
-        </div>
-        <article
-          className={`${CARD_SURFACE_CLASS} ml-0.5 flex w-full max-w-[15rem] shrink-0 flex-col items-center rounded-2xl p-3 text-center sm:max-w-[16rem]`}
-        >
+      <div className={MEMBER_DETAIL_HERO_CLASS}>
+        <div className="mx-auto flex w-full max-w-[18.5rem] items-stretch sm:max-w-[19.5rem]">
+          <div
+            className={`flex ${MEMBER_DETAIL_GOAL_BAR_COLUMN_CLASS} flex-col justify-end ${goalBarBottomInset}`}
+          >
+            {isSelf ? (
+              <button
+                type="button"
+                onClick={openGoalsEditor}
+                className={`${goalBarHitClass} cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600`}
+                aria-label={hasActiveGoal ? 'Belohnungs-Fortschritt anzeigen' : 'Belohnung anlegen'}
+                title={hasActiveGoal ? 'Belohnungen verwalten' : 'Belohnung anlegen'}
+              >
+                {goalBarControl}
+              </button>
+            ) : (
+              <div
+                className={`${goalBarHitClass} cursor-default`}
+                aria-label={hasActiveGoal ? 'Belohnungs-Fortschritt' : 'Noch keine Belohnung eingetragen'}
+              >
+                {goalBarControl}
+              </div>
+            )}
+          </div>
+          <article
+            className={`${CARD_SURFACE_CLASS} ${MEMBER_DETAIL_CARD_WIDTH_CLASS} ml-0.5 flex shrink-0 flex-col items-center rounded-2xl p-3 text-center`}
+          >
         {avatar.error ? (
           <div className="flex aspect-[5/6] w-full items-center justify-center rounded-xl bg-slate-100 px-1 dark:bg-slate-800">
             <p className="text-[10px] leading-tight text-amber-800 dark:text-amber-200">{avatar.error}</p>
@@ -505,8 +535,11 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={avatar.src} alt="" className="absolute inset-0 h-full w-full object-cover object-top" />
             </div>
-            {showThoughtBubble ? (
-              <AvatarWasJetztTunThoughtBubble onActivate={handleThoughtBubbleActivate} />
+            {thoughtBubbleEligible ? (
+              <AvatarWasJetztTunThoughtBubble
+                visible={showThoughtBubble}
+                onActivate={handleThoughtBubbleActivate}
+              />
             ) : null}
           </div>
         ) : (
@@ -531,7 +564,8 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
         {memberKind === 'child' && child && formatChildAge(child.age) ? (
           <p className="mt-0.5 text-xs text-slate-950 dark:text-slate-400">{formatChildAge(child.age)}</p>
         ) : null}
-        </article>
+          </article>
+        </div>
       </div>
 
       <section id="quests-heute" className={`${CARD_SURFACE_CLASS} space-y-3 rounded-2xl p-4 scroll-mt-4`}>

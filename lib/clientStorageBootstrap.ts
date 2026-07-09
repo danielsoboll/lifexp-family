@@ -1,4 +1,5 @@
 import { getBridgedCookie, saveBridgedStorage } from './bridgedStorage'
+import { CLIENT_STORAGE_SCOPE_INLINE, scopeClientStorageKey } from './clientStorageScope'
 import {
   FAMILY_ONBOARDING_DRAFT_COOKIE_KEY,
   FAMILY_ONBOARDING_DRAFT_LOCAL_KEY,
@@ -24,7 +25,7 @@ export function bootstrapClientStorageFromCookies(): void {
   for (const { localKey, cookieKey } of BRIDGED_STORAGE_PAIRS) {
     let fromLocal: string | null = null
     try {
-      fromLocal = localStorage.getItem(localKey)
+      fromLocal = localStorage.getItem(scopeClientStorageKey(localKey))
     } catch {
       /* ignore */
     }
@@ -33,7 +34,7 @@ export function bootstrapClientStorageFromCookies(): void {
     const fromCookie = getBridgedCookie(cookieKey)
     if (fromCookie !== null && fromCookie !== '') {
       try {
-        localStorage.setItem(localKey, fromCookie)
+        localStorage.setItem(scopeClientStorageKey(localKey), fromCookie)
       } catch {
         /* localStorage voll/blockiert */
       }
@@ -50,7 +51,7 @@ export function mirrorBridgedStorageToCookies(): void {
   for (const { localKey, cookieKey } of BRIDGED_STORAGE_PAIRS) {
     let value: string | null = null
     try {
-      value = localStorage.getItem(localKey)
+      value = localStorage.getItem(scopeClientStorageKey(localKey))
     } catch {
       /* ignore */
     }
@@ -74,5 +75,5 @@ export function clientStorageBootstrapScript(): string {
   const parentIdKey = JSON.stringify('lifexp_parent_id')
   const sessionCookie = JSON.stringify('lifexp_fs')
 
-  return `(function(){try{var pairs=${pairsJson};function gc(n){var p=n+"=";var c=document.cookie.split(";");for(var i=0;i<c.length;i++){var t=c[i].trim();if(t.indexOf(p)===0)return decodeURIComponent(t.slice(p.length));}return null;}function sc(n,v){document.cookie=n+"="+encodeURIComponent(v)+"; path=/; max-age="+(60*60*24*400)+"; SameSite=Lax"+(location.protocol==="https:"?"; Secure":"");}function flush(){try{for(var j=0;j<pairs.length;j++){var lk=pairs[j][0],ck=pairs[j][1];var v=localStorage.getItem(lk);if(v!==null&&v!=="")sc(ck,v);}var fid=localStorage.getItem(${familyIdKey});var mid=localStorage.getItem(${memberIdKey});var mk=localStorage.getItem(${memberKindKey});if(fid&&mid&&(mk==="parent"||mk==="child"))sc(${sessionCookie},JSON.stringify({familyId:fid,memberId:mid,memberKind:mk}));}catch(e){}}for(var j=0;j<pairs.length;j++){var lk=pairs[j][0],ck=pairs[j][1];var cur=localStorage.getItem(lk);if(cur!==null&&cur!=="")continue;var v=gc(ck);if(v!==null&&v!=="")localStorage.setItem(lk,v);}var fid=localStorage.getItem(${familyIdKey});var mid=localStorage.getItem(${memberIdKey});var mk=localStorage.getItem(${memberKindKey});if(fid&&mid&&(mk==="parent"||mk==="child")){sc(${sessionCookie},JSON.stringify({familyId:fid,memberId:mid,memberKind:mk}));}else if(!fid){var fs=gc(${sessionCookie});if(fs){var s=JSON.parse(fs);if(s.familyId&&s.memberId&&(s.memberKind==="parent"||s.memberKind==="child")){localStorage.setItem(${familyIdKey},s.familyId);localStorage.setItem(${memberKindKey},s.memberKind);localStorage.setItem(${memberIdKey},s.memberId);if(s.memberKind==="parent")localStorage.setItem(${parentIdKey},s.memberId);else localStorage.removeItem(${parentIdKey});}}}window.addEventListener("pagehide",flush);document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")flush();});}catch(e){}})();`
+  return `(function(){try{${CLIENT_STORAGE_SCOPE_INLINE}var pairs=${pairsJson};function gc(n){var p=lifexpScopedKey(n)+"=";var c=document.cookie.split(";");for(var i=0;i<c.length;i++){var t=c[i].trim();if(t.indexOf(p)===0)return decodeURIComponent(t.slice(p.length));}return null;}function sc(n,v){var sn=lifexpScopedKey(n);document.cookie=sn+"="+encodeURIComponent(v)+"; path=/; max-age="+(60*60*24*400)+"; SameSite=Lax"+(location.protocol==="https:"?"; Secure":"");}function flush(){try{for(var j=0;j<pairs.length;j++){var lk=lifexpScopedKey(pairs[j][0]),ck=pairs[j][1];var v=localStorage.getItem(lk);if(v!==null&&v!=="")sc(ck,v);}var fid=localStorage.getItem(lifexpScopedKey(${familyIdKey}));var mid=localStorage.getItem(lifexpScopedKey(${memberIdKey}));var mk=localStorage.getItem(lifexpScopedKey(${memberKindKey}));if(fid&&mid&&(mk==="parent"||mk==="child"))sc(${sessionCookie},JSON.stringify({familyId:fid,memberId:mid,memberKind:mk}));}catch(e){}}for(var j=0;j<pairs.length;j++){var lk=lifexpScopedKey(pairs[j][0]),ck=pairs[j][1];var cur=localStorage.getItem(lk);if(cur!==null&&cur!=="")continue;var v=gc(ck);if(v!==null&&v!=="")localStorage.setItem(lk,v);}var fid=localStorage.getItem(lifexpScopedKey(${familyIdKey}));var mid=localStorage.getItem(lifexpScopedKey(${memberIdKey}));var mk=localStorage.getItem(lifexpScopedKey(${memberKindKey}));if(fid&&mid&&(mk==="parent"||mk==="child")){sc(${sessionCookie},JSON.stringify({familyId:fid,memberId:mid,memberKind:mk}));}else if(!fid){var fs=gc(${sessionCookie});if(fs){var s=JSON.parse(fs);if(s.familyId&&s.memberId&&(s.memberKind==="parent"||s.memberKind==="child")){localStorage.setItem(lifexpScopedKey(${familyIdKey}),s.familyId);localStorage.setItem(lifexpScopedKey(${memberKindKey}),s.memberKind);localStorage.setItem(lifexpScopedKey(${memberIdKey}),s.memberId);if(s.memberKind==="parent")localStorage.setItem(lifexpScopedKey(${parentIdKey}),s.memberId);else localStorage.removeItem(lifexpScopedKey(${parentIdKey}));}}}window.addEventListener("pagehide",flush);document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")flush();});}catch(e){}})();`
 }

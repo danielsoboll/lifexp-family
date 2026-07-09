@@ -14,6 +14,7 @@ import QuestCreatorConfirmSheet from "../components/QuestCreatorConfirmSheet";
 import PwaSessionBootstrap from "../components/PwaSessionBootstrap";
 import SessionGate from "../components/SessionGate";
 import { FamilyProvider } from "../components/FamilyProvider";
+import { CLIENT_STORAGE_SCOPE_INLINE } from "../lib/clientStorageScope";
 import { productionDomainFreshStartScript } from "../lib/productionDomainFreshStart";
 import { clientStorageBootstrapScript } from "../lib/clientStorageBootstrap";
 import {
@@ -65,10 +66,11 @@ export const viewport: Viewport = {
 const themeInitScript = `
 (function () {
   try {
-    var k = ${JSON.stringify(THEME_STORAGE_KEY)};
+    ${CLIENT_STORAGE_SCOPE_INLINE}
+    var k = lifexpScopedKey(${JSON.stringify(THEME_STORAGE_KEY)});
     var t = localStorage.getItem(k);
     if (t !== "dark" && t !== "light") {
-      var p = "lifexp_t=";
+      var p = lifexpScopedKey("lifexp_t") + "=";
       var c = document.cookie.split(";");
       for (var i = 0; i < c.length; i++) {
         var part = c[i].trim();

@@ -1,5 +1,7 @@
 import { markMemberStreakIntroSeen as markMemberStreakIntroSeenDb } from './setupGuidePersistence'
 
+import { scopedLocalGet, scopedLocalSet } from '../scopedClientStorage'
+
 export const MEMBER_STREAK_INTRO_CACHE_KEY = 'lifexp_member_streak_intro_v1'
 
 export const MEMBER_STREAK_INTRO_CHANGED_EVENT = 'lifexp-streak-intro-changed'
@@ -11,7 +13,7 @@ export function memberStreakIntroStorageKey(memberKind: 'parent' | 'child', memb
 function readAll(): Record<string, true> {
   if (typeof window === 'undefined') return {}
   try {
-    const raw = localStorage.getItem(MEMBER_STREAK_INTRO_CACHE_KEY)
+    const raw = scopedLocalGet(MEMBER_STREAK_INTRO_CACHE_KEY)
     if (!raw) return {}
     const parsed = JSON.parse(raw) as Record<string, true>
     return parsed && typeof parsed === 'object' ? parsed : {}
@@ -23,7 +25,7 @@ function readAll(): Record<string, true> {
 function writeAll(map: Record<string, true>): void {
   if (typeof window === 'undefined') return
   try {
-    localStorage.setItem(MEMBER_STREAK_INTRO_CACHE_KEY, JSON.stringify(map))
+    scopedLocalSet(MEMBER_STREAK_INTRO_CACHE_KEY, JSON.stringify(map))
   } catch {
     /* ignore */
   }

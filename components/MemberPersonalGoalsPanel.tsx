@@ -121,30 +121,30 @@ export default function MemberPersonalGoalsPanel({
 
   const xpGoal = xpGoalId ? goals.find((goal) => goal.id === xpGoalId) : null
 
-  const buttonLabel = hasGoals ? 'Eigene Ziele' : 'Eigene Ziele anlegen'
+  const buttonLabel = hasGoals ? 'Eigene Belohnungen' : 'Eigene Belohnung anlegen'
   const buttonClass = hasGoals
     ? `${PRESSABLE_3D_CLASS} w-full rounded-xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-400 to-emerald-700 px-4 py-3 text-sm font-bold text-white`
     : `${PRESSABLE_3D_CLASS} w-full rounded-xl border-2 border-orange-500 bg-gradient-to-b from-orange-300 to-orange-500 px-4 py-3 text-sm font-bold text-orange-950`
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Eigene Ziele</h2>
+      <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Belohnungen</h2>
 
       {loading ? (
-        <p className="text-sm text-slate-950 dark:text-slate-400">Ziele werden geladen …</p>
+        <p className="text-sm text-slate-950 dark:text-slate-400">Belohnungen werden geladen …</p>
       ) : null}
 
       {isSelf && goalsAwaitingXp > 0 ? (
         <div className="rounded-xl border-2 border-orange-400/80 bg-gradient-to-b from-orange-50 to-orange-100/80 px-3 py-2.5 dark:border-orange-700/70 dark:from-orange-950/40 dark:to-orange-900/25">
-          <p className="text-sm font-bold text-orange-950 dark:text-orange-100">Dein Ziel wartet</p>
+          <p className="text-sm font-bold text-orange-950 dark:text-orange-100">Deine Belohnung wartet</p>
           <p className="mt-1 text-xs leading-relaxed text-orange-900 dark:text-orange-200">
-            Die für dein Ziel nötigen XP müssen von der Familie entschieden werden.
+            Frag deine Familie, wie viele XP du für deine Belohnung sammeln musst.
           </p>
         </div>
       ) : null}
 
       {!loading && !isSelf && !hasGoals ? (
-        <p className="text-sm text-slate-950 dark:text-slate-400">Noch keine eigenen Ziele eingetragen.</p>
+        <p className="text-sm text-slate-950 dark:text-slate-400">Noch keine eigenen Belohnungen eingetragen.</p>
       ) : null}
 
       {!loading && !isSelf && hasGoals && !canAdmin ? (
@@ -160,7 +160,7 @@ export default function MemberPersonalGoalsPanel({
       {!loading && !isSelf && hasGoals && canAdmin ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-slate-950 dark:text-slate-400">
-            {allGoalsHaveXp ? 'Ziele' : 'Ziele — tippe, um XP zu vergeben (1–999)'}
+            {allGoalsHaveXp ? 'Belohnungen' : 'Belohnungen — tippe, um XP zu vergeben (1–999)'}
           </p>
           <ul className="space-y-2">
             {goals.map((goal) => (

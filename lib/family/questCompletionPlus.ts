@@ -24,6 +24,7 @@ export type QuestCompletionCreatorReaction = {
 
 export type QuestCompletionEnrichment = {
   photos: QuestCompletionPhoto[]
+  assigneeMessage: string | null
   reaction: QuestCompletionCreatorReaction | null
 }
 
@@ -75,7 +76,7 @@ export async function fetchQuestCompletionEnrichment(
 
   const ids = [...new Set(completionIds)]
 
-  const [{ data: photoRows, error: photoError }, { data: reactionRows, error: reactionError }] =
+  const [{ data: photoRows, error: photoError }, { data: reactionRows, error: reactionError }, { data: completionRows, error: completionError }] =
     await Promise.all([
       supabase
         .from('quest_completion_assignee_photos')
@@ -88,6 +89,7 @@ export async function fetchQuestCompletionEnrichment(
           'completion_id, message, portrait_id, creator_kind, creator_parent_id, creator_child_id, created_at',
         )
         .in('completion_id', ids),
+      supabase.from('quest_completions').select('id, note').in('id', ids),
     ])
 
   if (photoError && !isMissingPlusTableError(photoError)) {
@@ -96,9 +98,20 @@ export async function fetchQuestCompletionEnrichment(
   if (reactionError && !isMissingPlusTableError(reactionError)) {
     return { byCompletionId, error: new Error(reactionError.message) }
   }
+  if (completionError) {
+    return { byCompletionId, error: new Error(completionError.message) }
+  }
 
   for (const id of ids) {
-    byCompletionId.set(id, { photos: [], reaction: null })
+    byCompletionId.set(id, { photos: [], assigneeMessage: null, reaction: null })
+  }
+
+  for (const row of completionRows ?? []) {
+    const completionId = row.id as string
+    const entry = byCompletionId.get(completionId)
+    if (!entry) continue
+    const note = typeof row.note === 'string' ? row.note.trim() : ''
+    entry.assigneeMessage = note.length > 0 ? note : null
   }
 
   const photoEntries: Omit<QuestCompletionPhoto, 'url'>[] = []
@@ -192,6 +205,52 @@ export async function uploadQuestCompletionAssigneePhotos(input: {
   }
 
   return { photos: uploaded, error: null }
+}
+
+export async function saveQuestCompletionAssigneeMessage(input: {
+  familyId: string
+  completionId: string
+  message: string
+}): Promise<{ error: Error | null }> {
+  const trimmed = input.message.trim()
+  if (trimmed.length === 0) return { error: null }
+  if (trimmed.length > 280) {
+    return { error: new Error('Maximal 280 Zeichen.') }
+  }
+
+  const { error } = await supabase
+    .from('quest_completions')
+    .update({ note: trimmed })
+    .eq('id', input.completionId)
+    .eq('family_id', input.familyId)
+
+  if (error) return { error: new Error(error.message) }
+  return { error: null }
+}
+
+export async function saveQuestCompletionAssigneeContent(input: {
+  familyId: string
+  completionId: string
+  message?: string
+  files?: readonly File[]
+}): Promise<{ photos: QuestCompletionPhoto[]; error: Error | null }> {
+  const messageError = input.message
+    ? (await saveQuestCompletionAssigneeMessage({
+        familyId: input.familyId,
+        completionId: input.completionId,
+        message: input.message,
+      })).error
+    : null
+  if (messageError) return { photos: [], error: messageError }
+
+  const files = input.files ?? []
+  if (files.length === 0) return { photos: [], error: null }
+
+  return uploadQuestCompletionAssigneePhotos({
+    familyId: input.familyId,
+    completionId: input.completionId,
+    files,
+  })
 }
 
 export async function saveQuestCompletionCreatorReaction(input: {

@@ -89,6 +89,10 @@ export default function MemberAvatarSelectScreen({
           </h1>
         </div>
 
+        <p className="mb-3 shrink-0 text-sm leading-relaxed text-slate-950 dark:text-slate-400">
+          Dein Avatar wird im Laufe des Tages glücklicher — je mehr XP du sammelst, desto fröhlicher das Gesicht.
+        </p>
+
         <div
           className="lifexp-admin-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y"
           style={{ paddingBottom: scrollPaddingBottom }}
