@@ -1,11 +1,11 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
-import Stripe from 'https://esm.sh/stripe@14.25.0?target=deno'
 
 import {
   assertFamilySessionBillingAdmin,
+  createCheckoutSessionViaFetch,
   fetchFamilyForBilling,
   getSiteUrl,
-  getStripe,
+  requireBillingUuid,
   requireStripePriceId,
 } from '../_shared/billing.ts'
 import { handleCors, jsonResponse } from '../_shared/cors.ts'
@@ -21,7 +21,6 @@ serve(async (req) => {
 
   try {
     const priceId = requireStripePriceId()
-    getStripe()
 
     const body = (await req.json()) as {
       family_id?: string
@@ -41,38 +40,24 @@ serve(async (req) => {
       return jsonResponse({ error: 'member_kind und member_id sind erforderlich.' }, 400)
     }
 
+    requireBillingUuid(familyId, 'family_id')
+    requireBillingUuid(memberId, 'member_id')
+
     const admin = getServiceClient()
     await assertFamilySessionBillingAdmin(admin, familyId, memberKind, memberId)
     const family = await fetchFamilyForBilling(admin, familyId)
-    const stripe = getStripe()
     const siteUrl = getSiteUrl(req, body.site_url)
 
-    // Nur lesen — Billing-Felder schreibt ausschließlich stripe-webhook.
-    const sessionParams: Stripe.Checkout.SessionCreateParams = {
-      mode: 'subscription',
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${siteUrl}/plus/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/plus/cancel`,
-      client_reference_id: familyId,
-      metadata: {
-        family_id: familyId,
-        member_kind: memberKind,
-        member_id: memberId,
-      },
-      subscription_data: {
-        metadata: {
-          family_id: familyId,
-        },
-      },
-    }
-
-    if (family.stripe_customer_id) {
-      sessionParams.customer = family.stripe_customer_id
-    }
-
-    let session: Stripe.Checkout.Session
+    let session: { id: string; url: string | null }
     try {
-      session = await stripe.checkout.sessions.create(sessionParams)
+      session = await createCheckoutSessionViaFetch({
+        priceId,
+        siteUrl,
+        familyId,
+        memberKind,
+        memberId,
+        customerId: family.stripe_customer_id,
+      })
     } catch (stripeError) {
       const message =
         stripeError instanceof Error ? stripeError.message.toLowerCase() : String(stripeError).toLowerCase()
@@ -93,8 +78,22 @@ serve(async (req) => {
 
       if (!staleCustomer) throw stripeError
 
-      delete sessionParams.customer
-      session = await stripe.checkout.sessions.create(sessionParams)
+      await admin
+        .from('families')
+        .update({
+          stripe_customer_id: null,
+          stripe_subscription_id: null,
+          subscription_status: null,
+        })
+        .eq('id', familyId)
+
+      session = await createCheckoutSessionViaFetch({
+        priceId,
+        siteUrl,
+        familyId,
+        memberKind,
+        memberId,
+      })
     }
 
     if (!session.url) {

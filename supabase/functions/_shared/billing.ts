@@ -1,13 +1,16 @@
-import Stripe from 'https://esm.sh/stripe@14.25.0?target=denonext'
+import Stripe from 'https://esm.sh/stripe@14.25.0?target=deno'
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 /** Deno Edge Functions nutzen Web Crypto — für Webhook-Signaturprüfung erforderlich. */
 export const stripeCryptoProvider = Stripe.createSubtleCryptoProvider()
 
 export function getStripe(): Stripe {
-  const secret = Deno.env.get('STRIPE_SECRET_KEY')
+  const secret = Deno.env.get('STRIPE_SECRET_KEY')?.trim()
   if (!secret) throw new Error('STRIPE_SECRET_KEY missing')
-  return new Stripe(secret, { apiVersion: '2023-10-16' })
+  return new Stripe(secret, {
+    apiVersion: '2023-10-16',
+    httpClient: Stripe.createFetchHttpClient(),
+  })
 }
 
 const PRODUCTION_SITE_URL = 'https://family.life-xp.de'
@@ -65,6 +68,56 @@ export function requireStripePriceId(): string {
   const priceId = Deno.env.get('STRIPE_PRICE_ID')?.trim()
   if (!priceId) throw new Error('STRIPE_PRICE_ID fehlt in Edge Function Secrets.')
   return priceId
+}
+
+function requireStripeSecretKey(): string {
+  const secret = Deno.env.get('STRIPE_SECRET_KEY')?.trim()
+  if (!secret) throw new Error('STRIPE_SECRET_KEY missing')
+  return secret
+}
+
+type StripeApiError = { error?: { message?: string } }
+
+/** Stripe Checkout — natives fetch statt SDK (zuverlässiger in Deno Edge). */
+export async function createCheckoutSessionViaFetch(input: {
+  priceId: string
+  siteUrl: string
+  familyId: string
+  memberKind: string
+  memberId: string
+  customerId?: string | null
+}): Promise<{ id: string; url: string | null }> {
+  const fields: Record<string, string> = {
+    mode: 'subscription',
+    'line_items[0][price]': input.priceId,
+    'line_items[0][quantity]': '1',
+    success_url: `${input.siteUrl}/plus/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${input.siteUrl}/plus/cancel`,
+    client_reference_id: input.familyId,
+    'metadata[family_id]': input.familyId,
+    'metadata[member_kind]': input.memberKind,
+    'metadata[member_id]': input.memberId,
+    'subscription_data[metadata][family_id]': input.familyId,
+  }
+  if (input.customerId) fields.customer = input.customerId
+
+  const secret = requireStripeSecretKey()
+  const body = new URLSearchParams(fields)
+  const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${secret}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body,
+  })
+
+  const json = (await res.json()) as { id?: string; url?: string | null } & StripeApiError
+  if (!res.ok) {
+    throw new Error(json.error?.message ?? 'Stripe Checkout fehlgeschlagen.')
+  }
+  if (!json.id) throw new Error('Stripe Checkout-Antwort ungültig.')
+  return { id: json.id, url: json.url ?? null }
 }
 
 export function planFromSubscriptionStatus(status: string): 'free' | 'plus' {
@@ -153,6 +206,16 @@ const TERMINAL_SUBSCRIPTION_STATUSES = new Set([
   'incomplete_expired',
 ])
 
+const BILLING_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+/** family_id / member_id aus FamilySession — vor DB-Queries prüfen (kein Postgres-UUID-Fehler). */
+export function requireBillingUuid(value: string, field: string): void {
+  if (!BILLING_UUID_RE.test(value)) {
+    throw new Response(JSON.stringify({ error: `${field} muss eine gültige UUID sein.` }), { status: 400 })
+  }
+}
+
 /** Webhook-Events können unvollständige Subscription-Objekte liefern. */
 export async function ensureFullStripeSubscription(
   stripe: Stripe,
@@ -237,7 +300,7 @@ export async function assertFamilySessionBillingAdmin(
   if (memberKind === 'parent') {
     const { data: membership, error: membershipError } = await admin
       .from('family_members')
-      .select('role, parent_profiles!inner(id, can_admin)')
+      .select('role, parent_id')
       .eq('family_id', familyId)
       .eq('parent_id', memberId)
       .maybeSingle()
@@ -247,13 +310,19 @@ export async function assertFamilySessionBillingAdmin(
       throw new Response(JSON.stringify({ error: 'Kein Zugriff auf diese Familie.' }), { status: 403 })
     }
 
-    const profileRaw = membership.parent_profiles as { can_admin?: boolean } | { can_admin?: boolean }[] | null
-    const profile = Array.isArray(profileRaw) ? profileRaw[0] : profileRaw
     const role = membership.role as string
-    const canAdmin = profile?.can_admin !== false
-    const isFamilyParent = role === 'owner' || role === 'parent'
+    if (role !== 'owner' && role !== 'parent') {
+      throw new Response(JSON.stringify({ error: 'Nur Familien-Admins dürfen das Abo verwalten.' }), { status: 403 })
+    }
 
-    if (!canAdmin || !isFamilyParent) {
+    const { data: profile, error: profileError } = await admin
+      .from('parent_profiles')
+      .select('can_admin')
+      .eq('id', memberId)
+      .maybeSingle()
+
+    if (profileError) throw new Error(profileError.message)
+    if (!profile || profile.can_admin === false) {
       throw new Response(JSON.stringify({ error: 'Nur Familien-Admins dürfen das Abo verwalten.' }), { status: 403 })
     }
     return

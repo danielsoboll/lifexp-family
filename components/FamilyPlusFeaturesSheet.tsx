@@ -7,7 +7,6 @@ import FamilyPlusCheckoutLegalNote from './FamilyPlusCheckoutLegalNote'
 import FamilyPlusFeaturesList from './FamilyPlusFeaturesList'
 import FamilyPlusPriceDisplay from './FamilyPlusPriceDisplay'
 import SheetPortal from './SheetPortal'
-import { PlusCheckoutProvider } from '../hooks/usePlusCheckout'
 import { useFamily } from './FamilyProvider'
 import {
   FAMILY_PLUS_SHEET,
@@ -50,7 +49,7 @@ export default function FamilyPlusFeaturesSheet({ onClose }: FamilyPlusFeaturesS
               {plusActive ? FAMILY_PLUS_SHEET.titleActive : FAMILY_PLUS_SHEET.titleFree}
             </h2>
             {!plusActive ? (
-              <PlusCheckoutProvider>
+              <>
                 <p className="mt-2 text-sm leading-relaxed text-slate-950 dark:text-slate-300">
                   {FAMILY_PLUS_SHEET.introFree}
                 </p>
@@ -63,7 +62,7 @@ export default function FamilyPlusFeaturesSheet({ onClose }: FamilyPlusFeaturesS
                 <div className="mt-5">
                   <FamilyPlusBillingControls compact showPriceBadge={false} showActiveWelcome={false} showLegalNote={false} />
                 </div>
-              </PlusCheckoutProvider>
+              </>
             ) : (
               <>
                 <FamilyPlusActiveWelcome className="mt-4" />

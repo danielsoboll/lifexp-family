@@ -14,7 +14,6 @@ import FamilyPlusPriceDisplay from '../../../components/FamilyPlusPriceDisplay'
 import MemberRecoveryAdminSection from '../../../components/MemberRecoveryAdminSection'
 import PageHeaderBar from '../../../components/PageHeaderBar'
 import { useFamily, notifyFamilyDataChanged } from '../../../components/FamilyProvider'
-import { PlusCheckoutProvider } from '../../../hooks/usePlusCheckout'
 import { deleteFamilyById, resetFamilyProgressById } from '../../../lib/family/admin'
 import { isFamilyPlus } from '../../../lib/family/familyPlus'
 import { FAMILY_PLUS_TAGLINE } from '../../../lib/family/familyPlusFeatures'
@@ -124,14 +123,12 @@ export default function AdminSettingsPage() {
                   </p>
                 ) : null}
                 {!plusActive ? (
-                  <PlusCheckoutProvider>
-                    <div className="mt-3 space-y-3">
-                      <FamilyPlusPriceDisplay variant="hero" />
-                      <FamilyPlusAboCallout showPrice={false} />
-                      <FamilyPlusCheckoutLegalNote />
-                      <FamilyPlusBillingControls family={family} compact showPriceBadge={false} showActiveWelcome={false} showLegalNote={false} />
-                    </div>
-                  </PlusCheckoutProvider>
+                  <div className="mt-3 space-y-3">
+                    <FamilyPlusPriceDisplay variant="hero" />
+                    <FamilyPlusAboCallout showPrice={false} />
+                    <FamilyPlusCheckoutLegalNote />
+                    <FamilyPlusBillingControls family={family} compact showPriceBadge={false} showActiveWelcome={false} showLegalNote={false} />
+                  </div>
                 ) : null}
               </div>
               {plusActive ? (

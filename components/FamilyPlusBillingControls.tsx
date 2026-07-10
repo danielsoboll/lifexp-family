@@ -17,7 +17,6 @@ import {
   createPlusPortalSession,
   syncPlusBillingFromStripe,
 } from '../lib/family/stripeBilling'
-import { usePlusCheckout } from '../hooks/usePlusCheckout'
 import type { Family } from '../lib/family/types'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 import PlusLockHeaderButton from './PlusLockHeaderButton'
@@ -25,44 +24,45 @@ import PlusLockHeaderButton from './PlusLockHeaderButton'
 type FamilyPlusBillingControlsProps = {
   family?: Family | null
   compact?: boolean
-  /** Preis-Streifen über dem CTA — aus, wenn oben schon FamilyPlusPriceDisplay steht. */
   showPriceBadge?: boolean
-  /** Willkommensblock — aus, wenn er schon darüber steht (z. B. PLUS-Sheet). */
   showActiveWelcome?: boolean
-  /** Nicht-Admins: goldenen PLUS-Button → Hinweis-Sheet („Frag Mama oder Papa“). */
   onDiscoverPlus?: () => void
-  /** Rechtshinweis unter dem Checkout-Button — aus, wenn er schon darüber steht. */
   showLegalNote?: boolean
 }
 
-function useLocalPlusCheckout(family: Family | null | undefined, canAdmin: boolean) {
-  const { refresh } = useFamily()
+export default function FamilyPlusBillingControls({
+  family: familyProp,
+  compact = false,
+  showPriceBadge = true,
+  showActiveWelcome = true,
+  onDiscoverPlus,
+  showLegalNote = true,
+}: FamilyPlusBillingControlsProps) {
+  const { family: familyFromContext, canAdmin, refresh } = useFamily()
+  const family = familyProp ?? familyFromContext
   const [busy, setBusy] = useState<'checkout' | 'portal' | 'sync' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const plusActive = family ? isFamilyPlus(family) : false
 
   const startCheckout = async () => {
     setError(null)
-    if (!family) return
-    if (!canAdmin) {
+    if (!family || !canAdmin) {
       setError('Nur Familien-Admins können das Abo verwalten.')
       return
     }
     setBusy('checkout')
     try {
-      const { url } = await createPlusCheckoutSession(family.id)
+      const { url } = await createPlusCheckoutSession()
       window.location.assign(url)
     } catch (checkoutError) {
       setError(checkoutError instanceof Error ? checkoutError.message : 'Checkout fehlgeschlagen.')
-    } finally {
       setBusy(null)
     }
   }
 
   const openPortal = async () => {
     setError(null)
-    if (!family) return
-    if (!canAdmin) {
+    if (!family || !canAdmin) {
       setError('Nur Familien-Admins können das Abo verwalten.')
       return
     }
@@ -72,15 +72,13 @@ function useLocalPlusCheckout(family: Family | null | undefined, canAdmin: boole
       window.location.assign(url)
     } catch (portalError) {
       setError(portalError instanceof Error ? portalError.message : 'Portal konnte nicht geöffnet werden.')
-    } finally {
       setBusy(null)
     }
   }
 
   const syncBilling = async () => {
     setError(null)
-    if (!family) return
-    if (!canAdmin) {
+    if (!family || !canAdmin) {
       setError('Nur Familien-Admins können das Abo verwalten.')
       return
     }
@@ -95,37 +93,6 @@ function useLocalPlusCheckout(family: Family | null | undefined, canAdmin: boole
       setBusy(null)
     }
   }
-
-  return {
-    plusActive,
-    canStartCheckout: Boolean(family && canAdmin && !plusActive),
-    busy,
-    error,
-    startCheckout,
-    openPortal,
-    syncBilling,
-  }
-}
-
-export default function FamilyPlusBillingControls({
-  family: familyProp,
-  compact = false,
-  showPriceBadge = true,
-  showActiveWelcome = true,
-  onDiscoverPlus,
-  showLegalNote = true,
-}: FamilyPlusBillingControlsProps) {
-  const { family: familyFromContext, canAdmin, refresh } = useFamily()
-  const family = familyProp ?? familyFromContext
-  const checkoutContext = usePlusCheckout()
-  const localCheckout = useLocalPlusCheckout(family, canAdmin)
-
-  const plusActive = checkoutContext?.plusActive ?? localCheckout.plusActive
-  const busy = checkoutContext?.busy ?? localCheckout.busy
-  const error = checkoutContext?.error ?? localCheckout.error
-  const startCheckout = checkoutContext?.startCheckout ?? localCheckout.startCheckout
-  const openPortal = checkoutContext?.openPortal ?? localCheckout.openPortal
-  const syncBilling = checkoutContext?.syncBilling ?? localCheckout.syncBilling
 
   if (!family) return null
 

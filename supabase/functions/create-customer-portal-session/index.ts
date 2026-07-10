@@ -5,6 +5,7 @@ import {
   fetchFamilyForBilling,
   getSiteUrl,
   getStripe,
+  requireBillingUuid,
   resolveBillingPortalConfigurationId,
 } from '../_shared/billing.ts'
 import { handleCors, jsonResponse } from '../_shared/cors.ts'
@@ -38,6 +39,9 @@ serve(async (req) => {
     if (!memberId || (memberKind !== 'parent' && memberKind !== 'child')) {
       return jsonResponse({ error: 'member_kind und member_id sind erforderlich.' }, 400)
     }
+
+    requireBillingUuid(familyId, 'family_id')
+    requireBillingUuid(memberId, 'member_id')
 
     const admin = getServiceClient()
     await assertFamilySessionBillingAdmin(admin, familyId, memberKind, memberId)

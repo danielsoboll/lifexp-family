@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 
 import {
   assertFamilySessionBillingAdmin,
+  requireBillingUuid,
   syncFamilyBillingFromStripe,
 } from '../_shared/billing.ts'
 import { handleCors, jsonResponse } from '../_shared/cors.ts'
@@ -32,6 +33,9 @@ serve(async (req) => {
     if (!memberId || (memberKind !== 'parent' && memberKind !== 'child')) {
       return jsonResponse({ error: 'member_kind und member_id sind erforderlich.' }, 400)
     }
+
+    requireBillingUuid(familyId, 'family_id')
+    requireBillingUuid(memberId, 'member_id')
 
     const admin = getServiceClient()
     await assertFamilySessionBillingAdmin(admin, familyId, memberKind, memberId)

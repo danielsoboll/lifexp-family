@@ -1,183 +1,86 @@
 import { prepareBillingExternalRedirect, type VerifiedCheckoutSession } from './billingReturn'
 import { readFamilySession } from '../familySession'
 import { resolveFamilySiteOrigin } from './siteOrigin'
+import { supabase } from '../supabase'
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://rethdsbfcwwvyynkmbjb.supabase.co'
+type BillingUrlResponse = { url?: string; error?: string }
 
-const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  'sb_publishable_TOEljSaQMk7hp6DoOV_QcA_kZ4iZMSf'
-
-function functionsBaseUrl(): string {
-  return `${supabaseUrl.replace(/\/$/, '')}/functions/v1`
-}
-
-function edgeHeaders(): Record<string, string> {
+function checkoutBody(session: NonNullable<ReturnType<typeof readFamilySession>>) {
   return {
-    Authorization: `Bearer ${supabaseAnonKey}`,
-    apikey: supabaseAnonKey,
-    'Content-Type': 'application/json',
-  }
-}
-
-function billingRequestBody(familyId: string, session: NonNullable<ReturnType<typeof readFamilySession>>) {
-  return {
-    family_id: familyId,
+    family_id: session.familyId,
     member_kind: session.memberKind,
     member_id: session.memberId,
     site_url: resolveFamilySiteOrigin(),
   }
 }
 
-type BillingUrlResponse = { url?: string; error?: string }
+async function invokeBilling<T>(name: string, body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke<T & { error?: string }>(name, { body })
 
-function shouldFallbackFromBillingBackend(status: number, payload: BillingUrlResponse): boolean {
-  if (status === 404) return true
-  if (status === 503) return true
-  const message = payload.error?.toLowerCase() ?? ''
-  return (
-    message.includes('stripe_secret_key fehlt') ||
-    message.includes('stripe_secret_key missing') ||
-    message.includes('stripe_price_id fehlt') ||
-    message.includes('supabase_service_role_key fehlt')
-  )
-}
-
-async function requestBillingUrl(
-  url: string,
-  headers: Record<string, string>,
-  body: Record<string, string>,
-): Promise<{ ok: boolean; status: number; payload: BillingUrlResponse }> {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  })
-  let payload: BillingUrlResponse = {}
-  try {
-    payload = (await response.json()) as BillingUrlResponse
-  } catch {
-    payload = {}
-  }
-  return { ok: response.ok, status: response.status, payload }
-}
-
-/**
- * Checkout/Portal: zuerst Supabase Edge Function (Stripe-Secrets dort),
- * optional Fallback auf Vercel /api/billing/* wenn konfiguriert.
- */
-async function postBillingUrlRequest(
-  apiPath: string,
-  edgePath: string,
-  body: Record<string, string>,
-  fallbackLabel: string,
-): Promise<{ url: string }> {
-  let edgeError: string | null = null
-
-  try {
-    const edge = await requestBillingUrl(`${functionsBaseUrl()}${edgePath}`, edgeHeaders(), body)
-    if (edge.ok && edge.payload.url) {
-      return { url: edge.payload.url }
+  if (error) {
+    if (typeof error === 'object' && error !== null && 'context' in error) {
+      const response = (error as { context?: Response }).context
+      if (response instanceof Response) {
+        try {
+          const payload = (await response.clone().json()) as { error?: string }
+          if (payload.error) throw new Error(payload.error)
+        } catch (parseError) {
+          if (parseError instanceof Error && parseError.message !== 'Unexpected end of JSON input') {
+            throw parseError
+          }
+        }
+      }
     }
-    if (shouldFallbackFromBillingBackend(edge.status, edge.payload)) {
-      edgeError = edge.payload.error ?? `Edge ${edge.status}`
-    } else {
-      throw new Error(edge.payload.error ?? `${fallbackLabel} fehlgeschlagen.`)
-    }
-  } catch (error) {
-    if (error instanceof Error && !edgeError) {
-      edgeError = error.message
-    }
+    throw new Error(error.message || 'Stripe-Anfrage fehlgeschlagen.')
   }
 
-  try {
-    const api = await requestBillingUrl(apiPath, { 'Content-Type': 'application/json' }, body)
-    if (api.ok && api.payload.url) {
-      return { url: api.payload.url }
-    }
-    const apiMessage = api.payload.error ?? `${fallbackLabel} fehlgeschlagen.`
-    if (edgeError && shouldFallbackFromBillingBackend(api.status, api.payload)) {
-      throw new Error(edgeError)
-    }
-    throw new Error(apiMessage)
-  } catch (error) {
-    if (error instanceof Error && edgeError && error.message !== edgeError) {
-      throw new Error(edgeError)
-    }
-    throw error
+  if (data && typeof data === 'object' && 'error' in data && data.error) {
+    throw new Error(data.error)
   }
+
+  return data as T
 }
 
-/** Checkout — Stripe Live über Vercel-API oder Supabase Edge Function. */
-export async function createPlusCheckoutSession(familyId: string): Promise<{ url: string }> {
+export async function createPlusCheckoutSession(): Promise<{ url: string }> {
   const session = readFamilySession()
   if (!session) {
     throw new Error('Keine aktive Familien-Sitzung — bitte erneut einloggen.')
   }
 
-  const result = await postBillingUrlRequest(
-    '/api/billing/create-checkout-session',
-    '/create-checkout-session',
-    billingRequestBody(familyId, session),
-    'Checkout',
-  )
+  const data = await invokeBilling<BillingUrlResponse>('create-checkout-session', checkoutBody(session))
+  if (!data?.url) throw new Error('Checkout-URL fehlt.')
 
   prepareBillingExternalRedirect()
-  return result
+  return { url: data.url }
 }
 
-/** Portal — Vercel-API oder Supabase Edge Function. */
-export async function createPlusPortalSession(familyId: string): Promise<{ url: string }> {
+export async function createPlusPortalSession(_familyId: string): Promise<{ url: string }> {
   const session = readFamilySession()
   if (!session) {
     throw new Error('Keine aktive Familien-Sitzung — bitte erneut einloggen.')
   }
 
-  const result = await postBillingUrlRequest(
-    '/api/billing/create-customer-portal-session',
-    '/create-customer-portal-session',
-    billingRequestBody(familyId, session),
-    'Portal',
-  )
+  const data = await invokeBilling<BillingUrlResponse>('create-customer-portal-session', checkoutBody(session))
+  if (!data?.url) throw new Error('Portal-URL fehlt.')
 
   prepareBillingExternalRedirect()
-  return result
+  return { url: data.url }
 }
 
-/** Stripe Checkout nach Redirect verifizieren (family_id aus metadata). */
 export async function verifyStripeCheckoutSession(sessionId: string): Promise<VerifiedCheckoutSession> {
-  const response = await fetch(`${functionsBaseUrl()}/verify-checkout-session`, {
-    method: 'POST',
-    headers: edgeHeaders(),
-    body: JSON.stringify({ session_id: sessionId }),
+  const data = await invokeBilling<VerifiedCheckoutSession>('verify-checkout-session', {
+    session_id: sessionId,
   })
-
-  const payload = (await response.json()) as VerifiedCheckoutSession & { error?: string }
-  if (!response.ok || !payload.family_id) {
-    throw new Error(payload.error ?? 'Checkout konnte nicht verifiziert werden.')
-  }
-
-  return payload
+  if (!data?.family_id) throw new Error('Checkout konnte nicht verifiziert werden.')
+  return data
 }
 
-/** Stripe-Abo manuell synchronisieren (Fallback wenn Webhook verzögert/fehlgeschlagen). */
-export async function syncPlusBillingFromStripe(familyId: string): Promise<{ synced: boolean }> {
+export async function syncPlusBillingFromStripe(_familyId: string): Promise<{ synced: boolean }> {
   const session = readFamilySession()
   if (!session) {
     throw new Error('Keine aktive Familien-Sitzung — bitte erneut einloggen.')
   }
 
-  const response = await fetch(`${functionsBaseUrl()}/sync-family-billing`, {
-    method: 'POST',
-    headers: edgeHeaders(),
-    body: JSON.stringify(billingRequestBody(familyId, session)),
-  })
-
-  const payload = (await response.json()) as { synced?: boolean; error?: string }
-  if (!response.ok) {
-    throw new Error(payload.error ?? 'Synchronisation fehlgeschlagen.')
-  }
-
-  return { synced: payload.synced === true }
+  const data = await invokeBilling<{ synced?: boolean }>('sync-family-billing', checkoutBody(session))
+  return { synced: data?.synced === true }
 }
