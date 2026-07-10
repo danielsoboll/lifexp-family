@@ -27,6 +27,7 @@ serve(async (req) => {
       family_id?: string
       member_kind?: 'parent' | 'child'
       member_id?: string
+      site_url?: string
     }
 
     const familyId = body.family_id?.trim()
@@ -44,7 +45,7 @@ serve(async (req) => {
     await assertFamilySessionBillingAdmin(admin, familyId, memberKind, memberId)
     const family = await fetchFamilyForBilling(admin, familyId)
     const stripe = getStripe()
-    const siteUrl = getSiteUrl(req)
+    const siteUrl = getSiteUrl(req, body.site_url)
 
     // Nur lesen — Billing-Felder schreibt ausschließlich stripe-webhook.
     const sessionParams: Stripe.Checkout.SessionCreateParams = {

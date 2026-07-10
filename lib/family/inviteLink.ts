@@ -1,24 +1,12 @@
 import { normalizeInviteCodeInput } from '../parseInviteCode'
+import { FAMILY_SITE_ORIGIN, resolveFamilySiteOrigin } from './siteOrigin'
 
 /** Kanonische Domain für teilbare Einladungslinks und QR-Codes. */
-export const FAMILY_INVITE_ORIGIN = 'https://family.life-xp.de'
-
-const PRODUCTION_FAMILY_HOSTS = new Set(['family.life-xp.de', 'www.family.life-xp.de'])
+export const FAMILY_INVITE_ORIGIN = FAMILY_SITE_ORIGIN
 
 /** Origin für Einladungslinks — auf family.life-xp.de immer die Hauptdomain (https, ohne www). */
 export function resolveFamilyInviteOrigin(): string {
-  if (typeof window === 'undefined') return FAMILY_INVITE_ORIGIN
-
-  const host = window.location.hostname.toLowerCase()
-  if (PRODUCTION_FAMILY_HOSTS.has(host) || host.endsWith('.vercel.app')) {
-    return FAMILY_INVITE_ORIGIN
-  }
-
-  if (host === 'localhost' || host === '127.0.0.1') {
-    return window.location.origin.replace(/\/$/, '')
-  }
-
-  return FAMILY_INVITE_ORIGIN
+  return resolveFamilySiteOrigin()
 }
 
 export function buildFamilyInviteLink(inviteCode: string, origin?: string): string {

@@ -25,6 +25,7 @@ serve(async (req) => {
       family_id?: string
       member_kind?: 'parent' | 'child'
       member_id?: string
+      site_url?: string
     }
 
     const familyId = body.family_id?.trim()
@@ -47,7 +48,7 @@ serve(async (req) => {
     }
 
     const stripe = getStripe()
-    const siteUrl = getSiteUrl(req)
+    const siteUrl = getSiteUrl(req, body.site_url)
     const configuration = await resolveBillingPortalConfigurationId(stripe)
     const portal = await stripe.billingPortal.sessions.create({
       customer: family.stripe_customer_id,

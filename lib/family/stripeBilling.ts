@@ -1,5 +1,6 @@
 import { prepareBillingExternalRedirect, type VerifiedCheckoutSession } from './billingReturn'
 import { readFamilySession } from '../familySession'
+import { resolveFamilySiteOrigin } from './siteOrigin'
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://rethdsbfcwwvyynkmbjb.supabase.co'
@@ -20,6 +21,15 @@ function edgeHeaders(): Record<string, string> {
   }
 }
 
+function billingRequestBody(familyId: string, session: NonNullable<ReturnType<typeof readFamilySession>>) {
+  return {
+    family_id: familyId,
+    member_kind: session.memberKind,
+    member_id: session.memberId,
+    site_url: resolveFamilySiteOrigin(),
+  }
+}
+
 /** Ruft create-checkout-session auf — kein Schreiben von Billing-Feldern im Frontend. */
 export async function createPlusCheckoutSession(familyId: string): Promise<{ url: string }> {
   const session = readFamilySession()
@@ -30,11 +40,7 @@ export async function createPlusCheckoutSession(familyId: string): Promise<{ url
   const response = await fetch(`${functionsBaseUrl()}/create-checkout-session`, {
     method: 'POST',
     headers: edgeHeaders(),
-    body: JSON.stringify({
-      family_id: familyId,
-      member_kind: session.memberKind,
-      member_id: session.memberId,
-    }),
+    body: JSON.stringify(billingRequestBody(familyId, session)),
   })
 
   const payload = (await response.json()) as { url?: string; error?: string }
@@ -57,11 +63,7 @@ export async function createPlusPortalSession(familyId: string): Promise<{ url: 
   const response = await fetch(`${functionsBaseUrl()}/create-customer-portal-session`, {
     method: 'POST',
     headers: edgeHeaders(),
-    body: JSON.stringify({
-      family_id: familyId,
-      member_kind: session.memberKind,
-      member_id: session.memberId,
-    }),
+    body: JSON.stringify(billingRequestBody(familyId, session)),
   })
 
   const payload = (await response.json()) as { url?: string; error?: string }
@@ -100,11 +102,7 @@ export async function syncPlusBillingFromStripe(familyId: string): Promise<{ syn
   const response = await fetch(`${functionsBaseUrl()}/sync-family-billing`, {
     method: 'POST',
     headers: edgeHeaders(),
-    body: JSON.stringify({
-      family_id: familyId,
-      member_kind: session.memberKind,
-      member_id: session.memberId,
-    }),
+    body: JSON.stringify(billingRequestBody(familyId, session)),
   })
 
   const payload = (await response.json()) as { synced?: boolean; error?: string }

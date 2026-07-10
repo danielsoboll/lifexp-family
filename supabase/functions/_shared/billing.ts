@@ -10,12 +10,55 @@ export function getStripe(): Stripe {
   return new Stripe(secret, { apiVersion: '2023-10-16' })
 }
 
-export function getSiteUrl(req: Request): string {
-  const configured = Deno.env.get('SITE_URL')
-  if (configured?.trim()) return configured.trim().replace(/\/$/, '')
-  const origin = req.headers.get('origin')
-  if (origin) return origin.replace(/\/$/, '')
-  return 'http://localhost:3000'
+const PRODUCTION_SITE_URL = 'https://family.life-xp.de'
+
+const ALLOWED_SITE_HOSTS = new Set([
+  'family.life-xp.de',
+  'www.family.life-xp.de',
+  'localhost',
+  '127.0.0.1',
+])
+
+function normalizeSiteUrl(raw: string | null | undefined): string | null {
+  if (!raw?.trim()) return null
+  try {
+    const url = new URL(raw.trim())
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    const host = url.hostname.toLowerCase()
+    if (!ALLOWED_SITE_HOSTS.has(host) && !host.endsWith('.vercel.app')) return null
+    return url.origin.replace(/\/$/, '')
+  } catch {
+    return null
+  }
+}
+
+/** Stripe-Redirects — bevorzugt die aktuelle App-Origin vom Client, dann Secret, dann Produktion. */
+export function resolveSiteUrl(req: Request, bodySiteUrl?: string | null): string {
+  const fromBody = normalizeSiteUrl(bodySiteUrl)
+  if (fromBody) return fromBody
+
+  const fromEnv = normalizeSiteUrl(Deno.env.get('SITE_URL'))
+  if (fromEnv) return fromEnv
+
+  const fromOrigin = normalizeSiteUrl(req.headers.get('origin'))
+  if (fromOrigin) return fromOrigin
+
+  const referer = req.headers.get('referer')
+  if (referer) {
+    try {
+      const fromReferer = normalizeSiteUrl(new URL(referer).origin)
+      if (fromReferer) return fromReferer
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return PRODUCTION_SITE_URL
+}
+
+/** @deprecated Nutze resolveSiteUrl — Alias für bestehende Imports. */
+export function getSiteUrl(req: Request, bodySiteUrl?: string | null): string {
+  return resolveSiteUrl(req, bodySiteUrl)
 }
 
 export function requireStripePriceId(): string {
