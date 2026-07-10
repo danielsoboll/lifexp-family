@@ -15,6 +15,7 @@ import YesterdayOpenQuestsSection from './YesterdayOpenQuestsSection'
 import XpGoalVerticalBar from './XpGoalVerticalBar'
 import DailyStreakCheckin from './DailyStreakCheckin'
 import DangerConfirmAction from './DangerConfirmAction'
+import MemberImpersonationActions from './MemberImpersonationActions'
 import { notifyFamilyDataChanged, useFamily, FAMILY_DATA_CHANGED_EVENT } from './FamilyProvider'
 import { formatChildAge } from '../lib/family/memberGender'
 import { markPlusDiscoverUnlocked } from '../lib/family/plusDiscoverUnlock'
@@ -620,6 +621,13 @@ export default function MemberDetailView({ memberKind, memberId }: MemberDetailV
         isSelf={isSelf}
         editorOpen={goalsEditorOpen}
         onEditorOpenChange={setGoalsEditorOpen}
+      />
+
+      <MemberImpersonationActions
+        memberKind={memberKind}
+        memberId={memberId}
+        memberDisplayName={displayName}
+        childNoOwnDevice={child?.no_own_device}
       />
 
       {photoSheet && family ? (

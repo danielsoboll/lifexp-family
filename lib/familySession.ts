@@ -1,3 +1,4 @@
+import { clearChildImpersonationBackup } from './family/childImpersonation'
 import { clearAvatarDisplayCache } from './avatarDisplayCache'
 import {
   matchesScopedClientStorageKey,
@@ -170,6 +171,7 @@ export function storeFamilySession(session: FamilySession): void {
 
 export function clearFamilySession(): void {
   if (typeof window === 'undefined') return
+  clearChildImpersonationBackup()
   scopedLocalRemove(FAMILY_ID_KEY)
   scopedLocalRemove(MEMBER_KIND_KEY)
   scopedLocalRemove(MEMBER_ID_KEY)

@@ -24,14 +24,9 @@ export function memberRecoveryInsertFields(
 
 async function isRecoveryCodeTaken(client: SupabaseClient, code: string): Promise<boolean> {
   const normalized = normalizeRecoveryCodeInput(code)
-  const [parentResult, childResult] = await Promise.all([
-    client.from('parent_profiles').select('id').eq('rec_code', normalized).maybeSingle(),
-    client.from('child_profiles').select('id').eq('rec_code', normalized).maybeSingle(),
-  ])
-
-  if (parentResult.error) throw new Error(parentResult.error.message)
-  if (childResult.error) throw new Error(childResult.error.message)
-  return Boolean(parentResult.data?.id || childResult.data?.id)
+  const { data, error } = await client.rpc('lifexp_recovery_code_taken', { check_code: normalized })
+  if (error) throw new Error(error.message)
+  return Boolean(data)
 }
 
 export async function generateUniqueMemberRecoveryCode(client: SupabaseClient): Promise<string> {

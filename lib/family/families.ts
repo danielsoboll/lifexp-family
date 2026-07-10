@@ -1,6 +1,7 @@
 import { newId } from '../newId'
 import { getStoredParentId, type FamilySession } from '../familySession'
 import { supabase } from '../supabase'
+import { withSupabaseRlsContextAsync } from '../supabaseRlsContext'
 import { familyDbError } from './dbError'
 import { generateInviteCode } from './inviteCode'
 import { defaultCanAdminForChild, defaultCanAdminForParent } from './memberAdmin'
@@ -197,13 +198,15 @@ export async function joinFamilyWithInviteCode(
   profile: OnboardingMemberProfile,
   devicePrefs?: OnboardingDevicePrefs,
 ): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
-  const { familyId, error: familyError } = await resolveFamilyIdByInviteCode(inviteCode)
-  if (familyError || !familyId) return { result: null, error: familyError }
+  return withSupabaseRlsContextAsync({ onboarding: 'join', inviteCode }, async () => {
+    const { familyId, error: familyError } = await resolveFamilyIdByInviteCode(inviteCode)
+    if (familyError || !familyId) return { result: null, error: familyError }
 
-  if (profile.memberKind === 'parent') {
-    return joinFamilyAsParent(familyId, inviteCode, profile, devicePrefs)
-  }
-  return joinFamilyAsChild(familyId, inviteCode, profile, devicePrefs)
+    if (profile.memberKind === 'parent') {
+      return joinFamilyAsParent(familyId, inviteCode, profile, devicePrefs)
+    }
+    return joinFamilyAsChild(familyId, inviteCode, profile, devicePrefs)
+  })
 }
 
 async function createFamilyAsParent(
@@ -335,10 +338,12 @@ export async function createFamilyWithMember(
 
   const inviteCode = generateInviteCode()
 
-  if (profile.memberKind === 'parent') {
-    return createFamilyAsParent(name, inviteCode, profile, devicePrefs)
-  }
-  return createFamilyAsChild(name, inviteCode, profile, devicePrefs)
+  return withSupabaseRlsContextAsync({ onboarding: 'create' }, async () => {
+    if (profile.memberKind === 'parent') {
+      return createFamilyAsParent(name, inviteCode, profile, devicePrefs)
+    }
+    return createFamilyAsChild(name, inviteCode, profile, devicePrefs)
+  })
 }
 
 type FamilyApiMode = 'join' | 'create'
@@ -394,33 +399,35 @@ export async function fetchClaimableMembers(
   const code = inviteCode.trim()
   if (!code) return { members: [], error: new Error('Bitte einen Einladungscode eingeben.') }
 
-  const direct = await fetchClaimableMembersDirect(supabase, code)
-  if (!direct.error || !isRlsError(direct.error)) {
-    return direct
-  }
-
-  try {
-    const response = await fetch('/api/family/join/slots', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inviteCode: code }),
-    })
-    const payload = (await response.json()) as { members?: ClaimableMember[]; error?: string }
-    if (!response.ok) {
-      const apiMessage = payload.error ?? ''
-      const needsRlsFix =
-        response.status === 503 ||
-        apiMessage.includes('SUPABASE_SERVICE_ROLE_KEY') ||
-        apiMessage.toLowerCase().includes('row-level security')
-      return {
-        members: [],
-        error: new Error(needsRlsFix ? RLS_SETUP_HINT : apiMessage || 'Profile konnten nicht geladen werden.'),
-      }
+  return withSupabaseRlsContextAsync({ inviteCode: code }, async () => {
+    const direct = await fetchClaimableMembersDirect(supabase, code)
+    if (!direct.error || !isRlsError(direct.error)) {
+      return direct
     }
-    return { members: payload.members ?? [], error: null }
-  } catch {
-    return { members: [], error: new Error('Profile konnten nicht geladen werden.') }
-  }
+
+    try {
+      const response = await fetch('/api/family/join/slots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteCode: code }),
+      })
+      const payload = (await response.json()) as { members?: ClaimableMember[]; error?: string }
+      if (!response.ok) {
+        const apiMessage = payload.error ?? ''
+        const needsRlsFix =
+          response.status === 503 ||
+          apiMessage.includes('SUPABASE_SERVICE_ROLE_KEY') ||
+          apiMessage.toLowerCase().includes('row-level security')
+        return {
+          members: [],
+          error: new Error(needsRlsFix ? RLS_SETUP_HINT : apiMessage || 'Profile konnten nicht geladen werden.'),
+        }
+      }
+      return { members: payload.members ?? [], error: null }
+    } catch {
+      return { members: [], error: new Error('Profile konnten nicht geladen werden.') }
+    }
+  })
 }
 
 export async function claimFamilyMember(
@@ -428,43 +435,45 @@ export async function claimFamilyMember(
   claim: ClaimMemberInput,
   devicePrefs?: OnboardingDevicePrefs,
 ): Promise<{ result: FamilyOnboardingResult | null; error: Error | null }> {
-  const direct = await claimFamilyMemberDirect(supabase, inviteCode, claim, devicePrefs)
-  if (!direct.error || !isRlsError(direct.error)) {
-    return direct
-  }
+  return withSupabaseRlsContextAsync({ onboarding: 'join', inviteCode }, async () => {
+    const direct = await claimFamilyMemberDirect(supabase, inviteCode, claim, devicePrefs)
+    if (!direct.error || !isRlsError(direct.error)) {
+      return direct
+    }
 
-  try {
-    const response = await fetch('/api/family/join', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inviteCode, claim, devicePrefs }),
-    })
-    const payload = (await response.json()) as {
-      result?: FamilySession
-      recoveryCode?: string
-      error?: string
-    }
-    if (!response.ok) {
-      const apiMessage = payload.error ?? ''
-      const needsRlsFix =
-        response.status === 503 ||
-        apiMessage.includes('SUPABASE_SERVICE_ROLE_KEY') ||
-        apiMessage.toLowerCase().includes('row-level security')
-      return {
-        result: null,
-        error: new Error(needsRlsFix ? RLS_SETUP_HINT : apiMessage || 'Verbindung fehlgeschlagen.'),
+    try {
+      const response = await fetch('/api/family/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteCode, claim, devicePrefs }),
+      })
+      const payload = (await response.json()) as {
+        result?: FamilySession
+        recoveryCode?: string
+        error?: string
       }
+      if (!response.ok) {
+        const apiMessage = payload.error ?? ''
+        const needsRlsFix =
+          response.status === 503 ||
+          apiMessage.includes('SUPABASE_SERVICE_ROLE_KEY') ||
+          apiMessage.toLowerCase().includes('row-level security')
+        return {
+          result: null,
+          error: new Error(needsRlsFix ? RLS_SETUP_HINT : apiMessage || 'Verbindung fehlgeschlagen.'),
+        }
+      }
+      if (!payload.result || !payload.recoveryCode) {
+        return { result: null, error: new Error('Familie konnte nicht verbunden werden.') }
+      }
+      return {
+        result: { session: payload.result, recoveryCode: payload.recoveryCode },
+        error: null,
+      }
+    } catch {
+      return { result: null, error: new Error('Verbindung fehlgeschlagen.') }
     }
-    if (!payload.result || !payload.recoveryCode) {
-      return { result: null, error: new Error('Familie konnte nicht verbunden werden.') }
-    }
-    return {
-      result: { session: payload.result, recoveryCode: payload.recoveryCode },
-      error: null,
-    }
-  } catch {
-    return { result: null, error: new Error('Verbindung fehlgeschlagen.') }
-  }
+  })
 }
 
 export async function fetchFamilyByInviteCode(
@@ -473,13 +482,15 @@ export async function fetchFamilyByInviteCode(
   const code = inviteCode.trim()
   if (!code) return { family: null, error: new Error('Code fehlt.') }
 
-  const { data, error } = await supabase
-    .from('families')
-    .select('*')
-    .ilike('invite_code', code)
-    .maybeSingle()
+  return withSupabaseRlsContextAsync({ inviteCode: code }, async () => {
+    const { data, error } = await supabase
+      .from('families')
+      .select('*')
+      .ilike('invite_code', code)
+      .maybeSingle()
 
-  if (error) return { family: null, error: new Error(error.message) }
-  if (!data) return { family: null, error: null }
-  return { family: mapFamilyRow(data as Record<string, unknown>), error: null }
+    if (error) return { family: null, error: new Error(error.message) }
+    if (!data) return { family: null, error: null }
+    return { family: mapFamilyRow(data as Record<string, unknown>), error: null }
+  })
 }

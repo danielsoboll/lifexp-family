@@ -69,6 +69,7 @@ export type OnboardingPreviewChild = {
   gender: ChildGender
   age: number
   can_admin: false
+  no_own_device: false
   todayXp: number
   family_id: ''
   portrait_id: string
@@ -99,6 +100,7 @@ const previewParentMeta = {
 
 const previewChildMeta = {
   can_admin: false as const,
+  no_own_device: false as const,
   family_id: '' as const,
   total_xp: 0 as const,
   level: 1 as const,

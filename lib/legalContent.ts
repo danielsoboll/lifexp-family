@@ -327,7 +327,7 @@ export const AGB_SECTIONS: LegalSection[] = [
     paragraphs: [
       'Die Darstellung von PLUS in der App stellt kein bindendes Angebot dar, sondern eine Einladung zur Abgabe einer Bestellung.',
       'Mit Klick auf den Checkout-Button und Abschluss des Zahlungsvorgangs bei Stripe geben Sie als Familien-Admin ein verbindliches Angebot zum Abschluss eines monatlichen PLUS-Abonnements ab. Der Vertrag kommt zustande, wenn wir die Bestellung annehmen — in der Regel durch Freischaltung von PLUS nach erfolgreicher Zahlung.',
-      'PLUS ist ein digitaler Dienst ohne körperlichen Datenträger, der unmittelbar nach Vertragsschluss bereitgestellt wird. Mit Abschluss des Checkouts willigen Sie ausdrücklich ein, dass wir vor Ablauf der 14-tägigen Widerrufsfrist mit der Leistung beginnen, und bestätigen, dass Sie Ihr Widerrufsrecht mit Beginn der Bereitstellung verlieren (§ 356 Abs. 5 BGB; nähere Ausführungen in § 7 und 8).',
+      'PLUS ist ein digitaler Dienst ohne körperlichen Datenträger, der unmittelbar nach Vertragsschluss bereitgestellt wird. Mit Abschluss des Checkouts verlangen Sie ausdrücklich, dass LifeXP Family PLUS bereits vor Ablauf der 14-tägigen Widerrufsfrist bereitgestellt wird. Ihnen ist bekannt, dass Sie bei einem Widerruf gegebenenfalls Wertersatz für die bis dahin erbrachte Leistung schulden (§ 357 Abs. 8 BGB). Zugleich willigen Sie ein, dass wir vor Ablauf der Widerrufsfrist mit der Leistung beginnen, und bestätigen, dass Ihr Widerrufsrecht mit vollständiger Vertragserfüllung — spätestens mit Freischaltung von PLUS — erlischt (§ 356 Abs. 5 BGB; nähere Ausführungen in § 7 und 8).',
       'Vertragssprache ist Deutsch. Der Vertragstext (AGB, Bestellübersicht) kann in der App abgespeichert bzw. ausgedruckt werden.',
     ],
   },

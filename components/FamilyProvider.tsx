@@ -12,6 +12,13 @@ import {
 } from 'react'
 
 import { fetchChildById, fetchChildrenForFamily } from '../lib/family/children'
+import {
+  clearChildImpersonationBackup,
+  isChildImpersonationActive,
+  readChildImpersonationBackup,
+  storeChildImpersonationBackup,
+} from '../lib/family/childImpersonation'
+import { formatParentDisplayName } from '../lib/family/familyDisplayName'
 import { fetchFamilyById, fetchParentById } from '../lib/family/families'
 import { migrateLegacySetupGuideIfNeeded } from '../lib/family/setupGuide'
 import { sessionHasAdminAccess } from '../lib/family/memberAdmin'
@@ -51,6 +58,11 @@ type FamilyContextValue = {
   refreshXpTotals: () => Promise<void>
   applyTodayXpDelta: (memberKind: FamilySessionMemberKind, memberId: string, delta: number) => void
   setSession: (session: FamilySession) => void
+  isImpersonatingChild: boolean
+  impersonationParentLabel: string | null
+  impersonationParentId: string | null
+  startChildImpersonation: (childId: string) => void
+  endChildImpersonation: () => string | null
 }
 
 const FamilyContext = createContext<FamilyContextValue | null>(null)
@@ -308,6 +320,39 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [refresh],
   )
 
+  const impersonationBackup = useMemo(() => readChildImpersonationBackup(), [session])
+  const isImpersonatingChild = useMemo(
+    () => isChildImpersonationActive(session),
+    [session, impersonationBackup],
+  )
+
+  const startChildImpersonation = useCallback(
+    (childId: string) => {
+      if (!session || session.memberKind !== 'parent' || !parent || !canAdmin || !family) return
+      const child = childrenWithXp.find((row) => row.id === childId)
+      if (!child?.no_own_device) return
+
+      storeChildImpersonationBackup({
+        parentSession: session,
+        parentDisplayName: formatParentDisplayName(parent.display_name, parent.gender),
+      })
+      storeFamilySession({
+        familyId: family.id,
+        memberKind: 'child',
+        memberId: childId,
+      })
+    },
+    [session, parent, canAdmin, family, childrenWithXp],
+  )
+
+  const endChildImpersonation = useCallback((): string | null => {
+    const backup = readChildImpersonationBackup()
+    if (!backup) return null
+    clearChildImpersonationBackup()
+    storeFamilySession(backup.parentSession)
+    return backup.parentSession.memberId
+  }, [])
+
   const value = useMemo<FamilyContextValue>(
     () => ({
       family,
@@ -326,8 +371,32 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       refreshXpTotals,
       applyTodayXpDelta,
       setSession,
+      isImpersonatingChild,
+      impersonationParentLabel: impersonationBackup?.parentDisplayName ?? null,
+      impersonationParentId: impersonationBackup?.parentSession.memberId ?? null,
+      startChildImpersonation,
+      endChildImpersonation,
     }),
-    [family, parent, activeChild, memberKind, parents, childrenWithXp, loading, canAdmin, error, session, refresh, refreshXpTotals, applyTodayXpDelta, setSession],
+    [
+      family,
+      parent,
+      activeChild,
+      memberKind,
+      parents,
+      childrenWithXp,
+      loading,
+      canAdmin,
+      error,
+      session,
+      refresh,
+      refreshXpTotals,
+      applyTodayXpDelta,
+      setSession,
+      isImpersonatingChild,
+      impersonationBackup,
+      startChildImpersonation,
+      endChildImpersonation,
+    ],
   )
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>

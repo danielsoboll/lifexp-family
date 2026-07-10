@@ -88,6 +88,7 @@ export function mapChildProfileRow(row: ChildProfileRow): ChildProfile | null {
     app_installed: boolValue(row.app_installed),
     app_later: boolValue(row.app_later),
     streak_intro_seen: boolValue(row.streak_intro_seen),
+    no_own_device: boolValue(row.no_own_device),
     created_at: textValue(row.created_at),
     updated_at: textValue(row.updated_at),
   }

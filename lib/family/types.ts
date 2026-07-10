@@ -87,6 +87,7 @@ export type ChildProfile = {
   app_installed: boolean
   app_later: boolean
   streak_intro_seen: boolean
+  no_own_device: boolean
   created_at: string
   updated_at: string
 }

@@ -126,7 +126,7 @@ export async function createChild(input: CreateChildInput): Promise<{ child: Chi
 export async function updateChild(
   childId: string,
   patch: Partial<
-    Pick<ChildProfile, 'display_name' | 'gender' | 'age' | 'can_admin' | 'portrait_id' | 'notes' | 'is_active' | 'accent_key'>
+    Pick<ChildProfile, 'display_name' | 'gender' | 'age' | 'can_admin' | 'no_own_device' | 'portrait_id' | 'notes' | 'is_active' | 'accent_key'>
   >,
 ): Promise<{ error: Error | null }> {
   const dbPatch: Record<string, unknown> = { ...patch }

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 
 import GenderChoice from './GenderChoice'
 import AdminAccessToggle from './AdminAccessToggle'
+import ChildNoOwnDeviceToggle from './ChildNoOwnDeviceToggle'
 import MemberAccentField from './MemberAccentField'
 import MemberAvatarPicker from './MemberAvatarPicker'
 import MemberEditorSaveBar from './MemberEditorSaveBar'
@@ -35,6 +36,7 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
   const [ageInput, setAgeInput] = useState(child.age !== null ? String(child.age) : '')
   const [gender, setGender] = useState<ChildGender>(child.gender)
   const [canAdmin, setCanAdmin] = useState(child.can_admin)
+  const [noOwnDevice, setNoOwnDevice] = useState(child.no_own_device)
   const [accentKey, setAccentKey] = useState<MemberAccentKey>(normalizeMemberAccentKey(child.accent_key))
   const [portraitId, setPortraitId] = useState<AvatarPortraitId | null>(() => savedChildPortraitId(child))
   const [loading, setLoading] = useState(false)
@@ -57,6 +59,7 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
     displayName.trim() !== child.display_name ||
     gender !== child.gender ||
     canAdmin !== child.can_admin ||
+    noOwnDevice !== child.no_own_device ||
     accentKey !== normalizeMemberAccentKey(child.accent_key) ||
     (parsedAge ?? null) !== child.age ||
     effectivePortraitId !== savedChildPortraitId(child)
@@ -87,6 +90,7 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
       gender,
       age,
       can_admin: canAdmin,
+      no_own_device: noOwnDevice,
       accent_key: accentKey,
       portrait_id: effectivePortraitId,
     })
@@ -162,6 +166,7 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
       </div>
       {isDirty ? <MemberEditorSaveBar loading={loading} /> : null}
       <AdminAccessToggle checked={canAdmin} onChange={setCanAdmin} />
+      <ChildNoOwnDeviceToggle checked={noOwnDevice} onChange={setNoOwnDevice} />
       <MemberAccentField value={accentKey} onChange={setAccentKey} />
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">

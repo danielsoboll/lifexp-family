@@ -1,5 +1,6 @@
 import { normalizeRecoveryCodeInput, isValidRecoveryCodeFormat } from '../recoveryCode'
 import { supabase } from '../supabase'
+import { withSupabaseRlsContextAsync } from '../supabaseRlsContext'
 import { clearFamilyOnboardingDraft } from './onboardingDraft'
 import { bootstrapOnboardingBridge, flushOnboardingBridge } from './onboardingBridge'
 import { clearPwaInstallLater } from '../pwaInstall'
@@ -30,6 +31,7 @@ export async function fetchMemberByRecoveryCode(code: string): Promise<{
     }
   }
 
+  return withSupabaseRlsContextAsync({ recoveryCode: normalized }, async () => {
   const { data: parentRow, error: parentError } = await supabase
     .from('parent_profiles')
     .select('id, display_name')
@@ -105,6 +107,7 @@ export async function fetchMemberByRecoveryCode(code: string): Promise<{
     },
     error: null,
   }
+  })
 }
 
 /** Recovery-Code → lokale Familien-Session, Onboarding-Entwurf weg. */
