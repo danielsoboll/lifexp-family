@@ -70,7 +70,21 @@ serve(async (req) => {
       sessionParams.customer = family.stripe_customer_id
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams)
+    let session: Stripe.Checkout.Session
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams)
+    } catch (stripeError) {
+      const message =
+        stripeError instanceof Error ? stripeError.message.toLowerCase() : String(stripeError).toLowerCase()
+      const staleCustomer =
+        family.stripe_customer_id &&
+        (message.includes('no such customer') || message.includes('a similar object exists in test mode'))
+
+      if (!staleCustomer) throw stripeError
+
+      delete sessionParams.customer
+      session = await stripe.checkout.sessions.create(sessionParams)
+    }
 
     if (!session.url) {
       return jsonResponse({ error: 'Checkout-URL konnte nicht erstellt werden.' }, 500)

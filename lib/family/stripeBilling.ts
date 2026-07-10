@@ -1,6 +1,5 @@
 import { prepareBillingExternalRedirect, type VerifiedCheckoutSession } from './billingReturn'
 import { readFamilySession } from '../familySession'
-import { resolveFamilySiteOrigin } from './siteOrigin'
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://rethdsbfcwwvyynkmbjb.supabase.co'
@@ -26,53 +25,55 @@ function billingRequestBody(familyId: string, session: NonNullable<ReturnType<ty
     family_id: familyId,
     member_kind: session.memberKind,
     member_id: session.memberId,
-    site_url: resolveFamilySiteOrigin(),
   }
 }
 
-/** Ruft create-checkout-session auf — kein Schreiben von Billing-Feldern im Frontend. */
+async function postBillingApi<T extends { url?: string; error?: string }>(
+  path: string,
+  body: Record<string, string>,
+): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  const payload = (await response.json()) as T
+  if (!response.ok || !payload.url) {
+    throw new Error(payload.error ?? 'Anfrage fehlgeschlagen.')
+  }
+  return payload
+}
+
+/** Checkout — Next.js API auf Vercel (Stripe Live Secrets dort). */
 export async function createPlusCheckoutSession(familyId: string): Promise<{ url: string }> {
   const session = readFamilySession()
   if (!session) {
     throw new Error('Keine aktive Familien-Sitzung — bitte erneut einloggen.')
   }
 
-  const response = await fetch(`${functionsBaseUrl()}/create-checkout-session`, {
-    method: 'POST',
-    headers: edgeHeaders(),
-    body: JSON.stringify(billingRequestBody(familyId, session)),
-  })
-
-  const payload = (await response.json()) as { url?: string; error?: string }
-  if (!response.ok || !payload.url) {
-    throw new Error(payload.error ?? 'Checkout fehlgeschlagen.')
-  }
+  const payload = await postBillingApi<{ url: string; error?: string }>(
+    '/api/billing/create-checkout-session',
+    billingRequestBody(familyId, session),
+  )
 
   prepareBillingExternalRedirect()
-
   return { url: payload.url }
 }
 
-/** Portal — liest stripe_customer_id nur serverseitig (Webhook). */
+/** Portal — Next.js API auf Vercel. */
 export async function createPlusPortalSession(familyId: string): Promise<{ url: string }> {
   const session = readFamilySession()
   if (!session) {
     throw new Error('Keine aktive Familien-Sitzung — bitte erneut einloggen.')
   }
 
-  const response = await fetch(`${functionsBaseUrl()}/create-customer-portal-session`, {
-    method: 'POST',
-    headers: edgeHeaders(),
-    body: JSON.stringify(billingRequestBody(familyId, session)),
-  })
-
-  const payload = (await response.json()) as { url?: string; error?: string }
-  if (!response.ok || !payload.url) {
-    throw new Error(payload.error ?? 'Portal fehlgeschlagen.')
-  }
+  const payload = await postBillingApi<{ url: string; error?: string }>(
+    '/api/billing/create-customer-portal-session',
+    billingRequestBody(familyId, session),
+  )
 
   prepareBillingExternalRedirect()
-
   return { url: payload.url }
 }
 
