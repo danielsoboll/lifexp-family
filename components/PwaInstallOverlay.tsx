@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import PwaInstallPanel from './PwaInstallPanel'
+import { useFamily } from './FamilyProvider'
 import {
   hasPwaInstallLater,
   isStandaloneDisplayMode,
@@ -11,6 +12,9 @@ import {
 } from '../lib/pwaInstall'
 
 export default function PwaInstallOverlay() {
+  const { parent, activeChild } = useFamily()
+  const member = parent ?? activeChild
+  const appInstalled = member?.app_installed === true
   const [open, setOpen] = useState(false)
 
   const syncVisibility = useCallback(async () => {
@@ -18,15 +22,19 @@ export default function PwaInstallOverlay() {
       setOpen(false)
       return
     }
-    setOpen(shouldOfferPwaInstall())
-  }, [])
+    setOpen(shouldOfferPwaInstall(appInstalled))
+  }, [appInstalled])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Overlay-Sichtbarkeit aus PWA-Status
     void syncVisibility()
     const onChange = () => void syncVisibility()
     window.addEventListener('storage', onChange)
-    return () => window.removeEventListener('storage', onChange)
+    window.addEventListener('lifexp-family-data-changed', onChange)
+    return () => {
+      window.removeEventListener('storage', onChange)
+      window.removeEventListener('lifexp-family-data-changed', onChange)
+    }
   }, [syncVisibility])
 
   const handleLater = () => {
@@ -50,18 +58,21 @@ export default function PwaInstallOverlay() {
       aria-modal="true"
       aria-labelledby="pwa-install-title"
     >
-      <div className="w-full max-w-md rounded-2xl border-2 border-slate-300/90 bg-gradient-to-b from-white via-white to-slate-50/95 p-5 shadow-[0_16px_48px_-12px_rgba(15,23,42,0.35)] dark:border-slate-600 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950/95">
+      <div className="w-full max-w-md rounded-2xl border-2 border-emerald-500/35 bg-gradient-to-b from-white via-white to-emerald-50/40 p-5 shadow-[0_16px_48px_-12px_rgba(15,23,42,0.35)] dark:border-emerald-600/40 dark:from-slate-900 dark:via-slate-900 dark:to-emerald-950/30">
+        <p className="text-xs font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
+          Empfohlen
+        </p>
         <h2
           id="pwa-install-title"
-          className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100"
+          className="mt-1 text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100"
         >
           LifeXP Family zum Home-Bildschirm
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-slate-950 dark:text-slate-400">
-          So startest du die App wie auf dem Home-Bildschirm — ohne Browser-Leiste.
+          Starte die App mit einem Tipp — ohne Browser-Leiste, direkt vom Startbildschirm.
         </p>
         <div className="mt-4">
-          <PwaInstallPanel showLaterButton onLater={handleLater} onInstalled={handleInstalled} />
+          <PwaInstallPanel prominent showLaterButton onLater={handleLater} onInstalled={handleInstalled} />
         </div>
       </div>
     </div>

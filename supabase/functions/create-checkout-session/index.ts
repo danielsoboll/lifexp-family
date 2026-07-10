@@ -76,6 +76,17 @@ serve(async (req) => {
     } catch (stripeError) {
       const message =
         stripeError instanceof Error ? stripeError.message.toLowerCase() : String(stripeError).toLowerCase()
+
+      if (message.includes('no such price') || message.includes('a similar object exists in test mode')) {
+        return jsonResponse(
+          {
+            error:
+              'STRIPE_PRICE_ID passt nicht zum Stripe-Modus (Live vs. Test). Bitte Live-Price-ID in den Secrets prüfen.',
+          },
+          500,
+        )
+      }
+
       const staleCustomer =
         family.stripe_customer_id &&
         (message.includes('no such customer') || message.includes('a similar object exists in test mode'))

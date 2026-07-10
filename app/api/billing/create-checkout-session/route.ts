@@ -8,6 +8,7 @@ type CheckoutBody = {
   family_id?: string
   member_kind?: FamilySessionMemberKind
   member_id?: string
+  site_url?: string
 }
 
 export async function POST(request: Request) {
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const env = readBillingEnv(request)
+    const env = readBillingEnv(request, body.site_url)
     const result = await createFamilyCheckoutSession(admin, env, {
       familyId,
       memberKind,

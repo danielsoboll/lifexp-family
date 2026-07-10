@@ -50,6 +50,8 @@ export default function AdminSettingsPage() {
   }
 
   const plusActive = isFamilyPlus(family)
+  const activeMember = parent ?? activeChild
+  const showPwaPromo = activeMember ? !activeMember.app_installed : false
 
   const handleResetFamily = async (): Promise<boolean> => {
     if (!family) return false
@@ -101,6 +103,17 @@ export default function AdminSettingsPage() {
         <p className={MUTED_BODY_TEXT_CLASS}>Wird geladen …</p>
       ) : (
         <div className="space-y-4">
+          {showPwaPromo && activeMember ? (
+            <MemberRecoveryAdminSection
+              memberKind={parent ? 'parent' : 'child'}
+              memberId={activeMember.id}
+              recCode={activeMember.rec_code}
+              recCodeOk={activeMember.rec_code_ok}
+              appInstalled={activeMember.app_installed}
+              appLater={activeMember.app_later}
+            />
+          ) : null}
+
           {family ? (
             <section className={`${CARD_SURFACE_CLASS} space-y-3 rounded-2xl p-4`}>
               <div>
@@ -131,7 +144,7 @@ export default function AdminSettingsPage() {
             <FamilyQuestAccentEditor family={family} />
           ) : null}
 
-          {parent ? (
+          {!showPwaPromo && parent ? (
             <MemberRecoveryAdminSection
               memberKind="parent"
               memberId={parent.id}
@@ -140,7 +153,7 @@ export default function AdminSettingsPage() {
               appInstalled={parent.app_installed}
               appLater={parent.app_later}
             />
-          ) : activeChild ? (
+          ) : !showPwaPromo && activeChild ? (
             <MemberRecoveryAdminSection
               memberKind="child"
               memberId={activeChild.id}

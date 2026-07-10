@@ -14,8 +14,8 @@ export type PwaInstallPlatform = 'android' | 'iphone' | 'ipad' | 'other'
 const PREFERENCE_KEY = 'lifexp_home_screen_icon'
 export const PWA_INSTALL_LATER_KEY = 'lifexp-pwa-install-later'
 export const LIFEXP_PWA_INSTALL_PROMPT_READY_EVENT = 'lifexp-pwa-install-prompt-ready'
-/** Vollbild-Overlay nach Login — im Family-MVP optional. */
-export const PWA_INSTALL_OVERLAY_ENABLED = false
+/** Vollbild-Overlay, wenn noch nicht installiert und nicht „später“. */
+export const PWA_INSTALL_OVERLAY_ENABLED = true
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
@@ -199,10 +199,18 @@ export async function requestPwaInstall(): Promise<PwaInstallResult> {
   }
 }
 
-export function shouldOfferPwaInstall(): boolean {
+/** Home-Bildschirm-Hinweis anzeigen (Dashboard, Einstellungen, Onboarding). */
+export function shouldShowPwaInstallPromo(appInstalled = false): boolean {
+  if (typeof window === 'undefined') return false
+  if (isStandaloneDisplayMode()) return false
+  if (appInstalled) return false
+  return true
+}
+
+export function shouldOfferPwaInstall(appInstalled = false): boolean {
   if (typeof window === 'undefined') return false
   if (!PWA_INSTALL_OVERLAY_ENABLED) return false
-  if (isStandaloneDisplayMode()) return false
+  if (!shouldShowPwaInstallPromo(appInstalled)) return false
   if (hasPwaInstallLater()) return false
   return true
 }

@@ -22,6 +22,8 @@ type PwaInstallPanelProps = {
   onInstalled?: () => void
   /** Kompakter Text für Onboarding-Einstellungen. */
   compact?: boolean
+  /** Hero oben, Install-CTA vor den Schritten — Dashboard & Onboarding. */
+  prominent?: boolean
   /** iOS Einstellungen: „Erledigt!“ unter den Schritten. */
   showIosDoneButton?: boolean
   iosInstallConfirmed?: boolean
@@ -110,7 +112,25 @@ function IosInstallSteps() {
   return <IphoneInstallSteps />
 }
 
-function FamilyAppIconPreview({ compact = false }: { compact?: boolean }) {
+function FamilyAppIconPreview({ compact = false, prominent = false }: { compact?: boolean; prominent?: boolean }) {
+  if (prominent) {
+    return (
+      <div className="flex flex-col items-center gap-3 text-center">
+        <Image
+          src={APP_ICON_SOURCE}
+          alt=""
+          width={72}
+          height={72}
+          className="h-[4.5rem] w-[4.5rem] shrink-0 rounded-2xl object-cover shadow-lg ring-4 ring-emerald-500/25"
+          priority
+        />
+        <p className="max-w-xs text-sm font-semibold leading-snug text-slate-950 dark:text-slate-200">
+          So erscheint LifeXP Family auf deinem Home-Bildschirm.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div
       className={`flex items-center gap-3 rounded-2xl border-2 border-slate-400/90 bg-slate-100/95 dark:border-slate-600 dark:bg-slate-900/80 ${
@@ -139,6 +159,7 @@ export default function PwaInstallPanel({
   onLater,
   onInstalled,
   compact = false,
+  prominent = false,
   showIosDoneButton = false,
   iosInstallConfirmed = false,
   onIosDone,
@@ -190,6 +211,47 @@ export default function PwaInstallPanel({
     }
   }
 
+  const installButton =
+    canInstall && !isIosDevice() ? (
+      <button
+        type="button"
+        disabled={installing}
+        onClick={() => void handleInstall()}
+        className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3.5 text-base font-bold text-white hover:from-emerald-400 hover:to-emerald-600 disabled:opacity-60 dark:border-emerald-500`}
+      >
+        {installing ? 'Wird geöffnet …' : 'LifeXP Family installieren'}
+      </button>
+    ) : null
+
+  const iosDoneButton =
+    showIosDoneButton && (platform === 'iphone' || platform === 'ipad') ? (
+      <button
+        type="button"
+        disabled={iosInstallConfirmed || iosDoneSaving}
+        onClick={onIosDone}
+        className={`lifexp-pressable-3d w-full rounded-2xl border-2 px-4 py-3.5 text-base font-bold disabled:cursor-default ${
+          iosInstallConfirmed
+            ? 'border-emerald-600 bg-gradient-to-b from-emerald-100 to-emerald-200/90 text-emerald-900 opacity-95 dark:border-emerald-500 dark:from-emerald-900/70 dark:to-emerald-950/80 dark:text-emerald-100'
+            : 'border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 text-white hover:from-emerald-400 hover:to-emerald-600 disabled:opacity-60 dark:border-emerald-500'
+        }`}
+      >
+        {iosDoneSaving ? 'Wird gespeichert …' : 'Erledigt!'}
+      </button>
+    ) : null
+
+  const stepBlock =
+    platform === 'iphone' ? (
+      <div className={iosInstallConfirmedVisual ? 'opacity-80' : undefined}>
+        <IphoneInstallSteps />
+      </div>
+    ) : platform === 'ipad' ? (
+      <div className={iosInstallConfirmedVisual ? 'opacity-80' : undefined}>
+        <IpadInstallSteps />
+      </div>
+    ) : platform === 'android' && !canInstall ? (
+      <AndroidInstallHint />
+    ) : null
+
   if (isStandaloneDisplayMode() && !showIosDoneButton) {
     return (
       <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
@@ -198,49 +260,51 @@ export default function PwaInstallPanel({
     )
   }
 
+  if (prominent) {
+    return (
+      <div className="flex flex-col gap-4">
+        <FamilyAppIconPreview compact={compact} prominent />
+
+        {installButton}
+        {iosDoneButton}
+
+        {stepBlock ? (
+          <div className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-sky-800 dark:text-sky-300">
+              {isIosDevice() ? 'So geht’s in Safari' : 'Oder manuell'}
+            </p>
+            {stepBlock}
+          </div>
+        ) : null}
+
+        {hint ? (
+          <p className="rounded-xl border border-emerald-200 bg-emerald-50/90 px-3 py-2 text-xs leading-relaxed text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-100">
+            {hint}
+          </p>
+        ) : null}
+
+        {showLaterButton && onLater && !iosInstallConfirmed ? (
+          <button
+            type="button"
+            onClick={onLater}
+            className={`${PRESSABLE_3D_CLASS} rounded-2xl border-2 border-stone-400 bg-gradient-to-b from-stone-100 via-stone-200/95 to-stone-400/75 px-4 py-2.5 text-sm font-bold text-stone-800 dark:border-stone-600 dark:from-stone-700 dark:via-stone-800 dark:to-stone-950 dark:text-stone-100`}
+          >
+            Später
+          </button>
+        ) : null}
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <FamilyAppIconPreview compact={compact} />
 
-      {platform === 'iphone' ? (
-        <div className={iosInstallConfirmedVisual ? 'opacity-80' : undefined}>
-          <IphoneInstallSteps />
-        </div>
-      ) : null}
+      {stepBlock}
 
-      {platform === 'ipad' ? (
-        <div className={iosInstallConfirmedVisual ? 'opacity-80' : undefined}>
-          <IpadInstallSteps />
-        </div>
-      ) : null}
+      {iosDoneButton}
 
-      {platform === 'android' && !canInstall ? <AndroidInstallHint /> : null}
-
-      {showIosDoneButton && (platform === 'iphone' || platform === 'ipad') ? (
-        <button
-          type="button"
-          disabled={iosInstallConfirmed || iosDoneSaving}
-          onClick={onIosDone}
-          className={`lifexp-pressable-3d w-full rounded-2xl border-2 px-4 py-3 text-base font-bold disabled:cursor-default ${
-            iosInstallConfirmed
-              ? 'border-emerald-600 bg-gradient-to-b from-emerald-100 to-emerald-200/90 text-emerald-900 opacity-95 dark:border-emerald-500 dark:from-emerald-900/70 dark:to-emerald-950/80 dark:text-emerald-100'
-              : 'border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 text-white hover:from-emerald-400 hover:to-emerald-600 disabled:opacity-60 dark:border-emerald-500'
-          }`}
-        >
-          {iosDoneSaving ? 'Wird gespeichert …' : 'Erledigt!'}
-        </button>
-      ) : null}
-
-      {canInstall && !isIosDevice() ? (
-        <button
-          type="button"
-          disabled={installing}
-          onClick={() => void handleInstall()}
-          className={`${PRESSABLE_3D_CLASS} w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-bold text-white hover:from-emerald-400 hover:to-emerald-600 disabled:opacity-60 dark:border-emerald-500`}
-        >
-          {installing ? 'Wird geöffnet …' : 'LifeXP Family installieren'}
-        </button>
-      ) : null}
+      {installButton}
 
       {hint ? (
         <p className="rounded-xl border border-emerald-200 bg-emerald-50/90 px-3 py-2 text-xs leading-relaxed text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-100">

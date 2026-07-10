@@ -6,6 +6,7 @@ import PwaInstallPanel from './PwaInstallPanel'
 import { flushOnboardingBridge } from '../lib/family/onboardingBridge'
 import {
   getPwaInstallPlatform,
+  isIosDevice,
   isStandaloneDisplayMode,
   recordPwaInstallLaterChoice,
   savePwaInstallLater,
@@ -21,7 +22,7 @@ type OnboardingPwaStepProps = {
 
 export default function OnboardingPwaStep({ onInstallDone, onInstallLater, disabled = false }: OnboardingPwaStepProps) {
   const platform = getPwaInstallPlatform()
-  const isIos = platform === 'iphone' || platform === 'ipad'
+  const isIos = isIosDevice()
 
   useEffect(() => {
     applyAppIcons()
@@ -42,22 +43,25 @@ export default function OnboardingPwaStep({ onInstallDone, onInstallLater, disab
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+      <div className="rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-50/90 via-white to-amber-50/50 p-4 dark:border-emerald-600/40 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900">
+        <p className="text-xs font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
+          Fast geschafft
+        </p>
+        <h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">
           LifeXP Family zum Home-Bildschirm
         </h2>
-        <p className="mt-1 text-sm leading-relaxed text-slate-950 dark:text-slate-400">
+        <p className="mt-2 text-sm leading-relaxed text-slate-950 dark:text-slate-300">
           {isIos
-            ? 'So startest du die App wie auf dem Home-Bildschirm — ohne Browser-Leiste.'
+            ? 'Einmal hinzufügen — danach startest du die App ohne Browser-Leiste, direkt vom Startbildschirm.'
             : platform === 'android'
-              ? 'Installiere LifeXP Family auf deinem Startbildschirm — oder folge den Hinweisen in Chrome.'
-              : 'So startest du die App schneller vom Home-Bildschirm oder Startmenü.'}
+              ? 'Installiere LifeXP Family auf deinem Startbildschirm — ein Tipp, und die App ist da.'
+              : 'So startest du LifeXP Family schneller vom Home-Bildschirm oder Startmenü.'}
         </p>
       </div>
 
-      <PwaInstallPanel compact onInstalled={handleNativeInstalled} />
+      <PwaInstallPanel prominent onInstalled={handleNativeInstalled} />
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 pt-1">
         <button
           type="button"
           onClick={handleLater}

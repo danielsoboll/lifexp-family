@@ -1,5 +1,6 @@
 import { prepareBillingExternalRedirect, type VerifiedCheckoutSession } from './billingReturn'
 import { readFamilySession } from '../familySession'
+import { resolveFamilySiteOrigin } from './siteOrigin'
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://rethdsbfcwwvyynkmbjb.supabase.co'
@@ -25,56 +26,123 @@ function billingRequestBody(familyId: string, session: NonNullable<ReturnType<ty
     family_id: familyId,
     member_kind: session.memberKind,
     member_id: session.memberId,
+    site_url: resolveFamilySiteOrigin(),
   }
 }
 
-async function postBillingApi<T extends { url?: string; error?: string }>(
-  path: string,
+type BillingUrlResponse = { url?: string; error?: string }
+
+function shouldFallbackFromBillingBackend(status: number, payload: BillingUrlResponse): boolean {
+  if (status === 404) return true
+  if (status === 503) return true
+  const message = payload.error?.toLowerCase() ?? ''
+  return (
+    message.includes('stripe_secret_key fehlt') ||
+    message.includes('stripe_secret_key missing') ||
+    message.includes('stripe_price_id fehlt') ||
+    message.includes('supabase_service_role_key fehlt')
+  )
+}
+
+async function requestBillingUrl(
+  url: string,
+  headers: Record<string, string>,
   body: Record<string, string>,
-): Promise<T> {
-  const response = await fetch(path, {
+): Promise<{ ok: boolean; status: number; payload: BillingUrlResponse }> {
+  const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   })
-
-  const payload = (await response.json()) as T
-  if (!response.ok || !payload.url) {
-    throw new Error(payload.error ?? 'Anfrage fehlgeschlagen.')
+  let payload: BillingUrlResponse = {}
+  try {
+    payload = (await response.json()) as BillingUrlResponse
+  } catch {
+    payload = {}
   }
-  return payload
+  return { ok: response.ok, status: response.status, payload }
 }
 
-/** Checkout — Next.js API auf Vercel (Stripe Live Secrets dort). */
+/**
+ * Checkout/Portal: zuerst Supabase Edge Function (Stripe-Secrets dort),
+ * optional Fallback auf Vercel /api/billing/* wenn konfiguriert.
+ */
+async function postBillingUrlRequest(
+  apiPath: string,
+  edgePath: string,
+  body: Record<string, string>,
+  fallbackLabel: string,
+): Promise<{ url: string }> {
+  let edgeError: string | null = null
+
+  try {
+    const edge = await requestBillingUrl(`${functionsBaseUrl()}${edgePath}`, edgeHeaders(), body)
+    if (edge.ok && edge.payload.url) {
+      return { url: edge.payload.url }
+    }
+    if (shouldFallbackFromBillingBackend(edge.status, edge.payload)) {
+      edgeError = edge.payload.error ?? `Edge ${edge.status}`
+    } else {
+      throw new Error(edge.payload.error ?? `${fallbackLabel} fehlgeschlagen.`)
+    }
+  } catch (error) {
+    if (error instanceof Error && !edgeError) {
+      edgeError = error.message
+    }
+  }
+
+  try {
+    const api = await requestBillingUrl(apiPath, { 'Content-Type': 'application/json' }, body)
+    if (api.ok && api.payload.url) {
+      return { url: api.payload.url }
+    }
+    const apiMessage = api.payload.error ?? `${fallbackLabel} fehlgeschlagen.`
+    if (edgeError && shouldFallbackFromBillingBackend(api.status, api.payload)) {
+      throw new Error(edgeError)
+    }
+    throw new Error(apiMessage)
+  } catch (error) {
+    if (error instanceof Error && edgeError && error.message !== edgeError) {
+      throw new Error(edgeError)
+    }
+    throw error
+  }
+}
+
+/** Checkout — Stripe Live über Vercel-API oder Supabase Edge Function. */
 export async function createPlusCheckoutSession(familyId: string): Promise<{ url: string }> {
   const session = readFamilySession()
   if (!session) {
     throw new Error('Keine aktive Familien-Sitzung — bitte erneut einloggen.')
   }
 
-  const payload = await postBillingApi<{ url: string; error?: string }>(
+  const result = await postBillingUrlRequest(
     '/api/billing/create-checkout-session',
+    '/create-checkout-session',
     billingRequestBody(familyId, session),
+    'Checkout',
   )
 
   prepareBillingExternalRedirect()
-  return { url: payload.url }
+  return result
 }
 
-/** Portal — Next.js API auf Vercel. */
+/** Portal — Vercel-API oder Supabase Edge Function. */
 export async function createPlusPortalSession(familyId: string): Promise<{ url: string }> {
   const session = readFamilySession()
   if (!session) {
     throw new Error('Keine aktive Familien-Sitzung — bitte erneut einloggen.')
   }
 
-  const payload = await postBillingApi<{ url: string; error?: string }>(
+  const result = await postBillingUrlRequest(
     '/api/billing/create-customer-portal-session',
+    '/create-customer-portal-session',
     billingRequestBody(familyId, session),
+    'Portal',
   )
 
   prepareBillingExternalRedirect()
-  return { url: payload.url }
+  return result
 }
 
 /** Stripe Checkout nach Redirect verifizieren (family_id aus metadata). */

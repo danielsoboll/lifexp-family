@@ -34,12 +34,12 @@ function normalizeSiteUrl(raw: string | null | undefined): string | null {
   }
 }
 
-export function readBillingEnv(request?: Request): BillingEnv {
+export function readBillingEnv(request?: Request, siteUrlOverride?: string | null): BillingEnv {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim()
   const stripePriceId = process.env.STRIPE_PRICE_ID?.trim()
 
-  const fromEnv = normalizeSiteUrl(process.env.SITE_URL)
-  let siteUrl = fromEnv
+  const fromOverride = normalizeSiteUrl(siteUrlOverride)
+  let siteUrl = fromOverride ?? normalizeSiteUrl(process.env.SITE_URL)
 
   if (!siteUrl && request) {
     const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host')
@@ -126,6 +126,42 @@ function isStaleStripeCustomerError(error: unknown): boolean {
   return message.includes('no such customer') || message.includes('a similar object exists in test mode')
 }
 
+let cachedPortalConfigurationId: string | null | undefined
+
+/** Portal-Konfiguration mit Kündigung zum Periodenende (Cancel at end of billing period). */
+async function resolveBillingPortalConfigurationId(stripe: Stripe): Promise<string | undefined> {
+  const fromEnv = process.env.STRIPE_PORTAL_CONFIGURATION_ID?.trim()
+  if (fromEnv) return fromEnv
+
+  if (cachedPortalConfigurationId !== undefined) {
+    return cachedPortalConfigurationId ?? undefined
+  }
+
+  try {
+    const configs = await stripe.billingPortal.configurations.list({ limit: 20 })
+    const match = configs.data.find(
+      (row) =>
+        row.active &&
+        row.features?.subscription_cancel?.enabled === true &&
+        row.features.subscription_cancel.mode === 'at_period_end',
+    )
+    if (match) {
+      cachedPortalConfigurationId = match.id
+      return match.id
+    }
+
+    console.warn(
+      'stripe portal: keine Konfiguration mit subscription_cancel.mode=at_period_end — Dashboard prüfen oder STRIPE_PORTAL_CONFIGURATION_ID setzen',
+    )
+    cachedPortalConfigurationId = null
+    return undefined
+  } catch (error) {
+    console.warn('stripe portal configuration lookup failed', error)
+    cachedPortalConfigurationId = null
+    return undefined
+  }
+}
+
 export async function createFamilyCheckoutSession(
   admin: SupabaseClient,
   env: BillingEnv,
@@ -162,6 +198,14 @@ export async function createFamilyCheckoutSession(
     if (!session.url) throw new Error('Checkout-URL konnte nicht erstellt werden.')
     return { url: session.url }
   } catch (error) {
+    if (error instanceof Stripe.errors.StripeError) {
+      const message = error.message.toLowerCase()
+      if (message.includes('no such price') || message.includes('a similar object exists in test mode')) {
+        throw new Error(
+          'STRIPE_PRICE_ID passt nicht zum Stripe-Modus (Live vs. Test). Bitte Live-Price-ID in den Secrets prüfen.',
+        )
+      }
+    }
     if (!family.stripe_customer_id || !isStaleStripeCustomerError(error)) throw error
 
     const retryParams = { ...sessionParams }
@@ -185,11 +229,21 @@ export async function createFamilyPortalSession(
   }
 
   const stripe = createStripeClient(env.stripeSecretKey)
-  const portal = await stripe.billingPortal.sessions.create({
-    customer: family.stripe_customer_id,
-    return_url: `${env.siteUrl}/admin/settings`,
-  })
 
-  if (!portal.url) throw new Error('Portal-URL konnte nicht erstellt werden.')
-  return { url: portal.url }
+  try {
+    const configuration = await resolveBillingPortalConfigurationId(stripe)
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: family.stripe_customer_id,
+      return_url: `${env.siteUrl}/admin/settings`,
+      ...(configuration ? { configuration } : {}),
+    })
+
+    if (!portal.url) throw new Error('Portal-URL konnte nicht erstellt werden.')
+    return { url: portal.url }
+  } catch (error) {
+    if (!isStaleStripeCustomerError(error)) throw error
+    throw new Error(
+      'Der gespeicherte Stripe-Kunde passt nicht mehr (z. B. nach Wechsel Test → Live). Bitte PLUS erneut aktivieren.',
+    )
+  }
 }

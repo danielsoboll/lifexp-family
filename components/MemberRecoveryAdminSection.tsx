@@ -69,7 +69,7 @@ export default function MemberRecoveryAdminSection({
       <div className="space-y-2">
         <p className="text-xs font-semibold text-slate-950 dark:text-slate-300">Zum Home-Bildschirm</p>
         <PwaInstallPanel
-          compact
+          prominent
           showIosDoneButton
           iosInstallConfirmed={appInstalled}
           iosDoneSaving={installSaving}
