@@ -123,19 +123,6 @@ async function deleteQuestCompletionStorageForFamily(familyId: string): Promise<
   }
 }
 
-async function deleteOrphanedParentProfiles(parentIds: readonly string[]): Promise<void> {
-  for (const parentId of parentIds) {
-    const { count, error } = await supabase
-      .from('family_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('parent_id', parentId)
-
-    if (error || (count ?? 0) > 0) continue
-
-    await supabase.from('parent_profiles').delete().eq('id', parentId)
-  }
-}
-
 export async function deleteFamilyById(familyId: string): Promise<{ error: Error | null }> {
   const adminError = await assertFamilyAdminSession(familyId)
   if (adminError.error) return adminError
@@ -166,6 +153,11 @@ export async function deleteFamilyById(familyId: string): Promise<{ error: Error
     if (prepError) return { error: prepError }
   }
 
+  for (const parentId of parentIds) {
+    const { error: parentDeleteError } = await supabase.from('parent_profiles').delete().eq('id', parentId)
+    if (parentDeleteError) return { error: new Error(parentDeleteError.message) }
+  }
+
   const { data: deleted, error } = await supabase.from('families').delete().eq('id', familyId).select('id')
 
   if (error) {
@@ -181,7 +173,6 @@ export async function deleteFamilyById(familyId: string): Promise<{ error: Error
     }
   }
 
-  await deleteOrphanedParentProfiles(parentIds)
   return { error: null }
 }
 
@@ -283,8 +274,8 @@ export async function resetFamilyProgressById(familyId: string): Promise<{ error
 }
 
 export async function deleteParentById(parentId: string, familyId: string): Promise<{ error: Error | null }> {
-  const sessionError = await assertValidFamilySession(familyId)
-  if (sessionError.error) return sessionError
+  const adminError = await assertFamilyAdminSession(familyId)
+  if (adminError.error) return adminError
 
   const { data: membership, error: membershipError } = await supabase
     .from('family_members')
@@ -323,8 +314,8 @@ export async function deleteParentById(parentId: string, familyId: string): Prom
 }
 
 export async function deleteChildById(childId: string, familyId: string): Promise<{ error: Error | null }> {
-  const sessionError = await assertValidFamilySession(familyId)
-  if (sessionError.error) return sessionError
+  const adminError = await assertFamilyAdminSession(familyId)
+  if (adminError.error) return adminError
 
   const xpError = await assertMemberHasNoDayXp({ familyId, memberKind: 'child', memberId: childId })
   if (xpError.error) return xpError

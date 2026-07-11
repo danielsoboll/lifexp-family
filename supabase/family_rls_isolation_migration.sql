@@ -293,7 +293,43 @@ RETURNS boolean
 LANGUAGE sql
 STABLE
 AS $$
-  SELECT lifexp_is_service_role() OR lifexp_onboarding_mode() IN ('create', 'join'  );
+  SELECT lifexp_is_service_role() OR lifexp_onboarding_mode() IN ('create', 'join');
+$$;
+
+CREATE OR REPLACE FUNCTION public.lifexp_session_is_family_admin()
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  fam uuid;
+  mem uuid;
+BEGIN
+  fam := nullif(lifexp_header('x-lifexp-family-id'), '')::uuid;
+  mem := nullif(lifexp_header('x-lifexp-member-id'), '')::uuid;
+
+  IF fam IS NULL OR mem IS NULL THEN
+    RETURN false;
+  END IF;
+
+  IF nullif(lifexp_header('x-lifexp-member-kind'), '') <> 'parent' THEN
+    RETURN false;
+  END IF;
+
+  PERFORM set_config('row_security', 'off', true);
+
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.family_members fm
+    JOIN public.parent_profiles pp ON pp.id = fm.parent_id
+    WHERE fm.family_id = fam
+      AND fm.parent_id = mem
+      AND fm.role IN ('owner', 'parent')
+      AND pp.can_admin = true
+  );
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.lifexp_recovery_code_taken(check_code text)
@@ -326,6 +362,7 @@ REVOKE ALL ON FUNCTION public.lifexp_invite_family_match(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.lifexp_parent_in_family(uuid, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.lifexp_parent_visible(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.lifexp_child_visible(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.lifexp_session_is_family_admin() TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.lifexp_parent_already_in_any_family(uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.lifexp_session_is_valid() TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.lifexp_invite_family_match(uuid) TO anon, authenticated;
@@ -378,7 +415,13 @@ CREATE POLICY family_rls_families ON public.families FOR ALL TO anon, authentica
 ALTER TABLE public.parent_profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS family_rls_parent_profiles ON public.parent_profiles;
 CREATE POLICY family_rls_parent_profiles ON public.parent_profiles FOR ALL TO anon, authenticated
-  USING (lifexp_parent_visible(id))
+  USING (
+    lifexp_parent_visible(id)
+    OR (
+      lifexp_session_is_family_admin()
+      AND NOT lifexp_parent_already_in_any_family(id)
+    )
+  )
   WITH CHECK (
     lifexp_is_service_role()
     OR lifexp_onboarding_write_allowed()
@@ -391,6 +434,7 @@ CREATE POLICY family_rls_parent_profiles ON public.parent_profiles FOR ALL TO an
       lifexp_session_is_valid()
       AND lifexp_parent_in_family(id, lifexp_session_family_id())
     )
+    OR lifexp_session_is_family_admin()
   );
 
 ALTER TABLE public.family_members ENABLE ROW LEVEL SECURITY;
@@ -404,6 +448,7 @@ CREATE POLICY family_rls_family_members ON public.family_members FOR ALL TO anon
   WITH CHECK (
     lifexp_is_service_role()
     OR lifexp_same_family(family_id)
+    OR lifexp_session_is_family_admin()
     OR (
       lifexp_onboarding_mode() = 'create'
       AND NOT lifexp_parent_already_in_any_family(parent_id)
