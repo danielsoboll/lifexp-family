@@ -9,7 +9,6 @@ import {
 } from "../lib/appIcon";
 import PwaIconSync from "../components/PwaIconSync";
 import PwaInstallListener from "../components/PwaInstallListener";
-import PwaInstallTopBanner from "../components/PwaInstallTopBanner";
 import QuestCreatorConfirmSheet from "../components/QuestCreatorConfirmSheet";
 import PwaSessionBootstrap from "../components/PwaSessionBootstrap";
 import SessionGate from "../components/SessionGate";
@@ -146,7 +145,6 @@ export default function RootLayout({
         <PwaIconSync />
         <FamilyProvider>
           <SessionGate>
-            <PwaInstallTopBanner />
             {children}
             <QuestCreatorConfirmSheet />
           </SessionGate>

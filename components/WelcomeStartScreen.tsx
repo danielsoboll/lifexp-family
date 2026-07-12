@@ -17,6 +17,7 @@ import {
   onboardingPreviewFamily2PromoHideMs,
 } from '../lib/family/onboardingPreviewFamily'
 import { bootstrapPwaClientStorage } from '../lib/pwaClientStorage'
+import { markOnboardingUiActive } from '../lib/family/onboardingFlow'
 import { isStandaloneDisplayMode } from '../lib/pwaInstall'
 import { normalizeInviteCodeInput, parseInviteCodeFromQr } from '../lib/parseInviteCode'
 import { CARD_SURFACE_CLASS, ONBOARDING_BACKDROP_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
@@ -188,6 +189,11 @@ export default function WelcomeStartScreen() {
       setPromoVisible(true)
     }
   }, [previewActive, family2PromoEligible, previewAlternate])
+
+  useEffect(() => {
+    markOnboardingUiActive(true)
+    return () => markOnboardingUiActive(false)
+  }, [])
 
   const showBackdropHint = previewActive && loadFamilyOnboardingDraft()?.incomplete
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import PwaInstallPanel from './PwaInstallPanel'
 import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
+import { ONBOARDING_UI_ACTIVE_EVENT } from '../lib/family/onboardingFlow'
 import { FAMILY_SESSION_CHANGED_EVENT } from '../lib/familySession'
 import { updateMemberAppInstalled } from '../lib/family/memberSettings'
 import {
@@ -14,43 +15,59 @@ import {
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 export default function PwaInstallTopBanner() {
-  const { session, refresh } = useFamily()
+  const { session, family, hasSession, loading, refresh } = useFamily()
   const [visible, setVisible] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [onboardingUiActive, setOnboardingUiActive] = useState(false)
   const [installSaving, setInstallSaving] = useState(false)
 
+  const familyReady = hasSession && family !== null && !loading
+
   const syncVisibility = useCallback(() => {
-    if (isStandaloneDisplayMode()) {
+    if (isStandaloneDisplayMode() || onboardingUiActive) {
       setVisible(false)
-      setDismissed(false)
       return
     }
     if (dismissed) {
       setVisible(false)
       return
     }
-    setVisible(shouldShowPwaInstallTopBanner())
-  }, [dismissed])
+    setVisible(shouldShowPwaInstallTopBanner({ familyReady }))
+  }, [dismissed, familyReady, onboardingUiActive])
 
   useEffect(() => {
+    const onOnboardingUi = (event: Event) => {
+      const active = (event as CustomEvent<{ active?: boolean }>).detail?.active === true
+      setOnboardingUiActive(active)
+    }
+
     const onAppStart = () => {
-      setDismissed(false)
-      setExpanded(false)
+      if (!familyReady) {
+        setDismissed(false)
+        setExpanded(false)
+      }
       void syncVisibility()
     }
+
     void syncVisibility()
     const onChange = () => void syncVisibility()
     window.addEventListener('storage', onChange)
     window.addEventListener('lifexp-family-data-changed', onChange)
     window.addEventListener(FAMILY_SESSION_CHANGED_EVENT, onChange)
+    window.addEventListener(ONBOARDING_UI_ACTIVE_EVENT, onOnboardingUi)
     window.addEventListener('pageshow', onAppStart)
     return () => {
       window.removeEventListener('storage', onChange)
       window.removeEventListener('lifexp-family-data-changed', onChange)
       window.removeEventListener(FAMILY_SESSION_CHANGED_EVENT, onChange)
+      window.removeEventListener(ONBOARDING_UI_ACTIVE_EVENT, onOnboardingUi)
       window.removeEventListener('pageshow', onAppStart)
     }
+  }, [syncVisibility, familyReady])
+
+  useEffect(() => {
+    void syncVisibility()
   }, [syncVisibility])
 
   const handleInstallDone = async () => {
@@ -71,7 +88,7 @@ export default function PwaInstallTopBanner() {
   if (!expanded) {
     return (
       <div
-        className="sticky top-0 z-[110] border-b-2 border-emerald-500/40 bg-gradient-to-r from-emerald-50 via-white to-amber-50/80 px-3 py-2.5 shadow-sm dark:border-emerald-600/40 dark:from-emerald-950/80 dark:via-slate-900 dark:to-slate-900"
+        className="sticky top-0 z-[30] border-b-2 border-emerald-500/40 bg-gradient-to-r from-emerald-50 via-white to-amber-50/80 px-3 py-2.5 shadow-sm dark:border-emerald-600/40 dark:from-emerald-950/80 dark:via-slate-900 dark:to-slate-900"
         role="region"
         aria-label="App auf den Home-Bildschirm"
       >
@@ -101,7 +118,7 @@ export default function PwaInstallTopBanner() {
 
   return (
     <div
-      className="sticky top-0 z-[110] border-b-2 border-emerald-500/40 bg-gradient-to-b from-emerald-50 via-white to-white px-3 py-3 shadow-md dark:border-emerald-600/40 dark:from-emerald-950/80 dark:via-slate-900 dark:to-slate-900"
+      className="sticky top-0 z-[30] border-b-2 border-emerald-500/40 bg-gradient-to-b from-emerald-50 via-white to-white px-3 py-3 shadow-md dark:border-emerald-600/40 dark:from-emerald-950/80 dark:via-slate-900 dark:to-slate-900"
       role="region"
       aria-label="App auf den Home-Bildschirm"
     >

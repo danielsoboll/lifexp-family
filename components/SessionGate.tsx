@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 import { useFamily } from './FamilyProvider'
+import PwaInstallTopBanner from './PwaInstallTopBanner'
 import {
   isBillingReturnPath,
   notifyFamilySessionRestoredIfNeeded,
@@ -82,5 +83,10 @@ export default function SessionGate({ children }: { children: React.ReactNode })
     )
   }
 
-  return <>{children}</>
+  return (
+    <>
+      <PwaInstallTopBanner />
+      {children}
+    </>
+  )
 }

@@ -1,5 +1,6 @@
 import { scopedLocalGet, scopedLocalRemove, scopedLocalSet } from './scopedClientStorage'
 import { hasIncompleteFamilyOnboardingDraft } from './family/onboardingDraft'
+import { isOnboardingFlowActive } from './family/onboardingFlow'
 import { hasFamilySession } from './familySession'
 
 export type HomeScreenIconPreference = 'yes' | 'no'
@@ -216,25 +217,37 @@ export function shouldShowPwaInstallPromo(_appInstalled = false): boolean {
   return !isStandaloneDisplayMode()
 }
 
-export function shouldShowPwaInstallTopBanner(): boolean {
-  if (typeof window === 'undefined') return false
-  if (!PWA_INSTALL_TOP_BANNER_ENABLED) return false
-  if (!isPwaGlobalOverlayEligible()) return false
-  return shouldShowPwaInstallPromo()
+export type PwaPostOnboardingContext = {
+  /** Familie aus FamilyProvider erfolgreich geladen */
+  familyReady?: boolean
 }
 
-/** Vollbild-Overlay nur nach abgeschlossenem Onboarding (Dashboard), nicht auf dem Willkommens-Screen. */
-export function isPwaGlobalOverlayEligible(): boolean {
+/** Globaler PWA-Hinweis nur nach abgeschlossenem Onboarding — nie auf Willkommen/Formular. */
+export function isPostOnboardingPwaPromptEligible(context: PwaPostOnboardingContext = {}): boolean {
   if (typeof window === 'undefined') return false
+  if (isOnboardingFlowActive()) return false
   if (!hasFamilySession()) return false
   if (hasIncompleteFamilyOnboardingDraft()) return false
+  if (context.familyReady === false) return false
   return true
 }
 
-export function shouldOfferPwaInstall(appInstalled = false): boolean {
+/** @deprecated Alias — bitte isPostOnboardingPwaPromptEligible verwenden. */
+export function isPwaGlobalOverlayEligible(context: PwaPostOnboardingContext = {}): boolean {
+  return isPostOnboardingPwaPromptEligible(context)
+}
+
+export function shouldShowPwaInstallTopBanner(context: PwaPostOnboardingContext = {}): boolean {
+  if (typeof window === 'undefined') return false
+  if (!PWA_INSTALL_TOP_BANNER_ENABLED) return false
+  if (!isPostOnboardingPwaPromptEligible(context)) return false
+  return shouldShowPwaInstallPromo()
+}
+
+export function shouldOfferPwaInstall(appInstalled = false, context: PwaPostOnboardingContext = {}): boolean {
   if (typeof window === 'undefined') return false
   if (!PWA_INSTALL_OVERLAY_ENABLED) return false
-  if (!isPwaGlobalOverlayEligible()) return false
+  if (!isPostOnboardingPwaPromptEligible(context)) return false
   if (!shouldShowPwaInstallPromo(appInstalled)) return false
   if (hasPwaInstallLater()) return false
   return true
