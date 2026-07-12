@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react'
 
 import MemberAvatarPicker from './MemberAvatarPicker'
 import ParentDisplayNameField from './ParentDisplayNameField'
+import AdminAccessToggle from './AdminAccessToggle'
+import ChildNoOwnDeviceToggle from './ChildNoOwnDeviceToggle'
 import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
 import { createChild } from '../lib/family/children'
 import {
@@ -26,6 +28,7 @@ import {
   type OnboardingMemberGender,
 } from '../lib/family/onboardingMember'
 import { CHILD_GENDER_OPTIONS, parseAgeInput, type ChildGender, type ParentGender } from '../lib/family/memberGender'
+import { defaultCanAdminForParent } from '../lib/family/memberAdmin'
 import { createParentForFamily } from '../lib/family/parents'
 import { CARD_SURFACE_CLASS, FORM_FIELD_INPUT_COMPACT_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 import { displayNameInputProps, integerInputProps } from '../lib/formInputAutofill'
@@ -43,6 +46,8 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
   const [childGender, setChildGender] = useState<ChildGender>('boy')
   const [ageInput, setAgeInput] = useState('')
   const [portraitId, setPortraitId] = useState<AvatarPortraitId | null>(null)
+  const [canAdmin, setCanAdmin] = useState(() => defaultCanAdminForParent('male'))
+  const [noOwnDevice, setNoOwnDevice] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -116,6 +121,7 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
         displayName: name,
         gender: adultGender,
         portraitId: nextPortrait,
+        canAdmin,
       })
 
       setLoading(false)
@@ -137,6 +143,7 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
         setDisplayName('')
         setAdultGender('male')
         setPortraitId(null)
+        setCanAdmin(defaultCanAdminForParent('male'))
       }
       return
     }
@@ -163,6 +170,8 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
       age,
       gender: childGender,
       portraitId: nextPortrait,
+      canAdmin,
+      noOwnDevice,
     })
 
     setLoading(false)
@@ -185,6 +194,8 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
       setAgeInput('')
       setChildGender('boy')
       setPortraitId(null)
+      setCanAdmin(false)
+      setNoOwnDevice(false)
     }
   }
 
@@ -309,6 +320,15 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
           ) : null}
         </div>
       </div>
+
+      {memberKind === 'adult' ? (
+        <AdminAccessToggle checked={canAdmin} onChange={setCanAdmin} />
+      ) : (
+        <>
+          <AdminAccessToggle checked={canAdmin} onChange={setCanAdmin} />
+          <ChildNoOwnDeviceToggle checked={noOwnDevice} onChange={setNoOwnDevice} />
+        </>
+      )}
 
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">

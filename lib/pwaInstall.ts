@@ -1,4 +1,4 @@
-import { scopedLocalGet, scopedLocalRemove, scopedLocalSet } from './scopedClientStorage'
+import { scopedLocalGet, scopedLocalRemove, scopedLocalSet, scopedSessionGet, scopedSessionRemove, scopedSessionSet } from './scopedClientStorage'
 import { hasIncompleteFamilyOnboardingDraft } from './family/onboardingDraft'
 import { isOnboardingFlowActive } from './family/onboardingFlow'
 import { hasFamilySession } from './familySession'
@@ -21,6 +21,10 @@ export const LIFEXP_PWA_INSTALL_PROMPT_READY_EVENT = 'lifexp-pwa-install-prompt-
 export const PWA_INSTALL_OVERLAY_ENABLED = false
 /** Sticky-Hinweis oben: App auf den Home-Bildschirm, solange im Browser geöffnet. */
 export const PWA_INSTALL_TOP_BANNER_ENABLED = true
+/** Erst nach dieser Wartezeit post-onboarding anzeigen (pro Browser-Tab). */
+export const PWA_TOP_BANNER_DELAY_MS = 60_000
+
+const PWA_TOP_BANNER_ELIGIBLE_AT_KEY = 'lifexp-pwa-top-banner-eligible-at'
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
@@ -241,7 +245,36 @@ export function shouldShowPwaInstallTopBanner(context: PwaPostOnboardingContext 
   if (typeof window === 'undefined') return false
   if (!PWA_INSTALL_TOP_BANNER_ENABLED) return false
   if (!isPostOnboardingPwaPromptEligible(context)) return false
-  return shouldShowPwaInstallPromo()
+  if (!shouldShowPwaInstallPromo()) return false
+  if (!isPwaTopBannerDelayElapsed()) return false
+  return true
+}
+
+/** Startet die Wartezeit beim ersten post-onboarding Besuch im Tab. */
+export function markPwaTopBannerEligibleNow(): void {
+  if (typeof window === 'undefined') return
+  if (scopedSessionGet(PWA_TOP_BANNER_ELIGIBLE_AT_KEY)) return
+  scopedSessionSet(PWA_TOP_BANNER_ELIGIBLE_AT_KEY, String(Date.now()))
+}
+
+export function getPwaTopBannerDelayRemainingMs(): number | null {
+  if (typeof window === 'undefined') return null
+  const raw = scopedSessionGet(PWA_TOP_BANNER_ELIGIBLE_AT_KEY)
+  if (!raw) return null
+  const eligibleAt = Number(raw)
+  if (!Number.isFinite(eligibleAt)) return null
+  return Math.max(0, PWA_TOP_BANNER_DELAY_MS - (Date.now() - eligibleAt))
+}
+
+export function isPwaTopBannerDelayElapsed(): boolean {
+  const remaining = getPwaTopBannerDelayRemainingMs()
+  if (remaining === null) return false
+  return remaining <= 0
+}
+
+export function clearPwaTopBannerEligibleMark(): void {
+  if (typeof window === 'undefined') return
+  scopedSessionRemove(PWA_TOP_BANNER_ELIGIBLE_AT_KEY)
 }
 
 export function shouldOfferPwaInstall(appInstalled = false, context: PwaPostOnboardingContext = {}): boolean {

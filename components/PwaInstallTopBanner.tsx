@@ -8,7 +8,11 @@ import { ONBOARDING_UI_ACTIVE_EVENT } from '../lib/family/onboardingFlow'
 import { FAMILY_SESSION_CHANGED_EVENT } from '../lib/familySession'
 import { updateMemberAppInstalled } from '../lib/family/memberSettings'
 import {
+  getPwaTopBannerDelayRemainingMs,
+  isPwaTopBannerDelayElapsed,
   isStandaloneDisplayMode,
+  markPwaTopBannerEligibleNow,
+  PWA_TOP_BANNER_DELAY_MS,
   recordPwaInstallSuccess,
   shouldShowPwaInstallTopBanner,
 } from '../lib/pwaInstall'
@@ -21,6 +25,7 @@ export default function PwaInstallTopBanner() {
   const [dismissed, setDismissed] = useState(false)
   const [onboardingUiActive, setOnboardingUiActive] = useState(false)
   const [installSaving, setInstallSaving] = useState(false)
+  const [delayElapsed, setDelayElapsed] = useState(false)
 
   const familyReady = hasSession && family !== null && !loading
 
@@ -33,21 +38,36 @@ export default function PwaInstallTopBanner() {
       setVisible(false)
       return
     }
-    setVisible(shouldShowPwaInstallTopBanner({ familyReady }))
-  }, [dismissed, familyReady, onboardingUiActive])
+    setVisible(shouldShowPwaInstallTopBanner({ familyReady }) && delayElapsed)
+  }, [delayElapsed, dismissed, familyReady, onboardingUiActive])
+
+  useEffect(() => {
+    if (!shouldShowPwaInstallTopBanner({ familyReady }) && !familyReady) {
+      setDelayElapsed(false)
+      return
+    }
+
+    if (!familyReady || isStandaloneDisplayMode() || onboardingUiActive) {
+      return
+    }
+
+    markPwaTopBannerEligibleNow()
+
+    if (isPwaTopBannerDelayElapsed()) {
+      setDelayElapsed(true)
+      return
+    }
+
+    setDelayElapsed(false)
+    const remaining = getPwaTopBannerDelayRemainingMs() ?? PWA_TOP_BANNER_DELAY_MS
+    const timer = window.setTimeout(() => setDelayElapsed(true), remaining)
+    return () => window.clearTimeout(timer)
+  }, [familyReady, onboardingUiActive])
 
   useEffect(() => {
     const onOnboardingUi = (event: Event) => {
       const active = (event as CustomEvent<{ active?: boolean }>).detail?.active === true
       setOnboardingUiActive(active)
-    }
-
-    const onAppStart = () => {
-      if (!familyReady) {
-        setDismissed(false)
-        setExpanded(false)
-      }
-      void syncVisibility()
     }
 
     void syncVisibility()
@@ -56,15 +76,13 @@ export default function PwaInstallTopBanner() {
     window.addEventListener('lifexp-family-data-changed', onChange)
     window.addEventListener(FAMILY_SESSION_CHANGED_EVENT, onChange)
     window.addEventListener(ONBOARDING_UI_ACTIVE_EVENT, onOnboardingUi)
-    window.addEventListener('pageshow', onAppStart)
     return () => {
       window.removeEventListener('storage', onChange)
       window.removeEventListener('lifexp-family-data-changed', onChange)
       window.removeEventListener(FAMILY_SESSION_CHANGED_EVENT, onChange)
       window.removeEventListener(ONBOARDING_UI_ACTIVE_EVENT, onOnboardingUi)
-      window.removeEventListener('pageshow', onAppStart)
     }
-  }, [syncVisibility, familyReady])
+  }, [syncVisibility])
 
   useEffect(() => {
     void syncVisibility()

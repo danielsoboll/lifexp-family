@@ -18,6 +18,8 @@ export type CreateChildInput = {
   age?: number | null
   gender: ChildGender
   portraitId?: AvatarPortraitId | null
+  canAdmin?: boolean
+  noOwnDevice?: boolean
 }
 
 async function nextChildSortOrder(familyId: string): Promise<number> {
@@ -99,7 +101,8 @@ export async function createChild(input: CreateChildInput): Promise<{ child: Chi
       display_name: displayName,
       gender: input.gender,
       age: input.age ?? null,
-      can_admin: defaultCanAdminForChild(input.age ?? null),
+      can_admin: input.canAdmin ?? defaultCanAdminForChild(input.age ?? null),
+      no_own_device: input.noOwnDevice ?? false,
       avatar_key: portraitId ?? input.gender,
       sort_order: sortOrder,
       is_active: true,
