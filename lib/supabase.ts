@@ -1,14 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
 import { buildSupabaseRlsHeaders } from './supabaseRlsContext'
+import { resolveSupabaseAnonKey, resolveSupabaseUrl } from './supabaseEnv'
 
-/** Projekt-URL (ohne `/rest/v1/` — der Client hängt die REST-Pfade selbst an). */
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://rethdsbfcwwvyynkmbjb.supabase.co'
-
-const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  'sb_publishable_TOEljSaQMk7hp6DoOV_QcA_kZ4iZMSf'
+const supabaseUrl = resolveSupabaseUrl()
+const supabaseAnonKey = resolveSupabaseAnonKey()
 
 function requestUrl(input: RequestInfo | URL): string {
   if (typeof input === 'string') return input
