@@ -2,14 +2,22 @@
 
 import { useEffect } from 'react'
 
-import { attachPwaInstallListener, syncAppInstalledProfileIfStandalone, syncPwaInstallLaterFromProfile } from '../lib/pwaInstall'
+import {
+  attachPwaInstallListener,
+  syncAppInstalledFromDisplayMode,
+  syncPwaInstallLaterFromProfile,
+} from '../lib/pwaInstall'
 
-/** Hält das Browser-Install-Prompt bereit. */
+/** Hält das Browser-Install-Prompt bereit und synchronisiert den Home-Bildschirm-Status. */
 export default function PwaInstallListener() {
   useEffect(() => {
     attachPwaInstallListener()
-    void syncAppInstalledProfileIfStandalone()
+    void syncAppInstalledFromDisplayMode()
     void syncPwaInstallLaterFromProfile()
+
+    const onStart = () => void syncAppInstalledFromDisplayMode()
+    window.addEventListener('pageshow', onStart)
+    return () => window.removeEventListener('pageshow', onStart)
   }, [])
 
   return null

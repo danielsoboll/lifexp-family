@@ -20,6 +20,7 @@ import { FAMILY_PLUS_TAGLINE } from '../../../lib/family/familyPlusFeatures'
 import { markSetupGuideAdminVisited } from '../../../lib/family/setupGuide'
 import { resetLifeXpFamilyClientState } from '../../../lib/familySession'
 import { usePlusDiscoverHeader } from '../../../hooks/usePlusDiscoverHeader'
+import { shouldShowPwaInstallPromo } from '../../../lib/pwaInstall'
 import { CARD_SURFACE_CLASS, MUTED_BODY_TEXT_CLASS } from '../../../lib/appShell'
 
 export default function AdminSettingsPage() {
@@ -50,7 +51,7 @@ export default function AdminSettingsPage() {
 
   const plusActive = isFamilyPlus(family)
   const activeMember = parent ?? activeChild
-  const showPwaPromo = activeMember ? !activeMember.app_installed : false
+  const showPwaPromo = shouldShowPwaInstallPromo()
 
   const handleResetFamily = async (): Promise<boolean> => {
     if (!family) return false

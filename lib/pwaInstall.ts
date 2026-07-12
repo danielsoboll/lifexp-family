@@ -1,4 +1,6 @@
 import { scopedLocalGet, scopedLocalRemove, scopedLocalSet } from './scopedClientStorage'
+import { hasIncompleteFamilyOnboardingDraft } from './family/onboardingDraft'
+import { hasFamilySession } from './familySession'
 
 export type HomeScreenIconPreference = 'yes' | 'no'
 
@@ -14,8 +16,10 @@ export type PwaInstallPlatform = 'android' | 'iphone' | 'ipad' | 'other'
 const PREFERENCE_KEY = 'lifexp_home_screen_icon'
 export const PWA_INSTALL_LATER_KEY = 'lifexp-pwa-install-later'
 export const LIFEXP_PWA_INSTALL_PROMPT_READY_EVENT = 'lifexp-pwa-install-prompt-ready'
-/** Vollbild-Overlay, wenn noch nicht installiert und nicht „später“. */
-export const PWA_INSTALL_OVERLAY_ENABLED = true
+/** Vollbild-Overlay (deaktiviert — stattdessen Top-Banner). */
+export const PWA_INSTALL_OVERLAY_ENABLED = false
+/** Sticky-Hinweis oben: App auf den Home-Bildschirm, solange im Browser geöffnet. */
+export const PWA_INSTALL_TOP_BANNER_ENABLED = true
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
@@ -168,6 +172,13 @@ export async function syncAppInstalledProfileIfStandalone(): Promise<void> {
   await recordPwaInstallSuccess()
 }
 
+/** Bei jedem App-Start: Home-Bildschirm-App → Profil als installiert; Browser → nur Anzeige-Logik. */
+export async function syncAppInstalledFromDisplayMode(): Promise<void> {
+  if (isStandaloneDisplayMode()) {
+    await recordPwaInstallSuccess()
+  }
+}
+
 export async function requestPwaInstall(): Promise<PwaInstallResult> {
   if (typeof window === 'undefined') return 'unavailable'
 
@@ -199,17 +210,31 @@ export async function requestPwaInstall(): Promise<PwaInstallResult> {
   }
 }
 
-/** Home-Bildschirm-Hinweis anzeigen (Dashboard, Einstellungen, Onboarding). */
-export function shouldShowPwaInstallPromo(appInstalled = false): boolean {
+/** Home-Bildschirm-Hinweis: nur wenn nicht als installierte App geöffnet (Laufzeit-Check). */
+export function shouldShowPwaInstallPromo(_appInstalled = false): boolean {
   if (typeof window === 'undefined') return false
-  if (isStandaloneDisplayMode()) return false
-  if (appInstalled) return false
+  return !isStandaloneDisplayMode()
+}
+
+export function shouldShowPwaInstallTopBanner(): boolean {
+  if (typeof window === 'undefined') return false
+  if (!PWA_INSTALL_TOP_BANNER_ENABLED) return false
+  if (!isPwaGlobalOverlayEligible()) return false
+  return shouldShowPwaInstallPromo()
+}
+
+/** Vollbild-Overlay nur nach abgeschlossenem Onboarding (Dashboard), nicht auf dem Willkommens-Screen. */
+export function isPwaGlobalOverlayEligible(): boolean {
+  if (typeof window === 'undefined') return false
+  if (!hasFamilySession()) return false
+  if (hasIncompleteFamilyOnboardingDraft()) return false
   return true
 }
 
 export function shouldOfferPwaInstall(appInstalled = false): boolean {
   if (typeof window === 'undefined') return false
   if (!PWA_INSTALL_OVERLAY_ENABLED) return false
+  if (!isPwaGlobalOverlayEligible()) return false
   if (!shouldShowPwaInstallPromo(appInstalled)) return false
   if (hasPwaInstallLater()) return false
   return true

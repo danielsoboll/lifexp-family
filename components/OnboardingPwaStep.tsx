@@ -48,7 +48,7 @@ export default function OnboardingPwaStep({ onInstallDone, onInstallLater, disab
           Fast geschafft
         </p>
         <h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">
-          LifeXP Family zum Home-Bildschirm
+          App auf den Home-Bildschirm
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-slate-950 dark:text-slate-300">
           {isIos

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import PwaInstallPanel from './PwaInstallPanel'
 import { useFamily } from './FamilyProvider'
+import { FAMILY_SESSION_CHANGED_EVENT } from '../lib/familySession'
 import {
   hasPwaInstallLater,
   isStandaloneDisplayMode,
@@ -31,9 +32,11 @@ export default function PwaInstallOverlay() {
     const onChange = () => void syncVisibility()
     window.addEventListener('storage', onChange)
     window.addEventListener('lifexp-family-data-changed', onChange)
+    window.addEventListener(FAMILY_SESSION_CHANGED_EVENT, onChange)
     return () => {
       window.removeEventListener('storage', onChange)
       window.removeEventListener('lifexp-family-data-changed', onChange)
+      window.removeEventListener(FAMILY_SESSION_CHANGED_EVENT, onChange)
     }
   }, [syncVisibility])
 

@@ -398,7 +398,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
 
   const handleContinueInBrowserFromPwaHint = () => {
     setShowOpenPwaHint(false)
-    void advanceToFinish(inviteCode, { appInstalled: true, appLater: false })
+    void advanceToFinish(inviteCode, { appInstalled: false, appLater: false })
   }
 
   const handleBackToWelcome = () => {
@@ -553,7 +553,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
     const { result, error: claimError } = await claimFamilyMember(
       normalized,
       { memberKind: member.memberKind, memberId: member.memberId },
-      { appInstalled: true, appLater: false },
+      { appInstalled: isStandaloneDisplayMode(), appLater: false },
     )
 
     submitBusyRef.current = false
@@ -572,7 +572,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
     setJoinEntryPath('claim')
     setPendingSession(result.session)
     setRecoveryCode(result.recoveryCode)
-    void finishOnboarding({ appInstalled: true, appLater: false }, result)
+    void finishOnboarding({ appInstalled: isStandaloneDisplayMode(), appLater: false }, result)
   }
 
   const codeBackStep = (): JoinOnboardingStep => {

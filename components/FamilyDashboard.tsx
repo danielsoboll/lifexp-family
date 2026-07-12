@@ -8,7 +8,6 @@ import DashboardHeaderActions from './DashboardHeaderActions'
 import FamilySetupGuideBubble, { setupGuideHighlightClass } from './FamilySetupGuideBubble'
 import LegalFooterNav from './LegalFooterNav'
 import FamilyHappyAllBanner from './FamilyHappyAllBanner'
-import PwaInstallPromoCard from './PwaInstallPromoCard'
 import LifeXpBrandMark from './LifeXpBrandMark'
 import MemberSlot from './MemberSlot'
 import {
@@ -451,8 +450,6 @@ export default function FamilyDashboard({
           {error}
         </p>
       ) : null}
-
-      {!preview && !loading ? <PwaInstallPromoCard collapsible /> : null}
 
       {loading ? (
         <p className="text-sm text-slate-950 dark:text-slate-400">Wird geladen …</p>

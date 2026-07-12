@@ -126,7 +126,7 @@ export async function claimFamilyMemberDirect(
   if (familyError || !familyId) return { result: null, error: familyError }
 
   const prefs = {
-    appInstalled: true,
+    appInstalled: devicePrefs?.appInstalled ?? false,
     appLater: devicePrefs?.appLater ?? false,
   }
 

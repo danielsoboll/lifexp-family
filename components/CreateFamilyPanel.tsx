@@ -455,7 +455,7 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
 
   const handleContinueInBrowserFromPwaHint = () => {
     setShowOpenPwaHint(false)
-    void advanceToFinish({ appInstalled: true, appLater: false })
+    void advanceToFinish({ appInstalled: false, appLater: false })
   }
 
   const handleCloseTabFromPwaHint = () => {
