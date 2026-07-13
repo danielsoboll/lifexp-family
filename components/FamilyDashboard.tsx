@@ -164,7 +164,11 @@ export default function FamilyDashboard({
 
   const showSetupGuide = Boolean(!preview && guide.visible && guide.copy)
   const showStreakProfileHint =
-    !preview && sessionStreakClaimed === false && !streakIntroSeen && guide.resolvedStep === null
+    !preview &&
+    sessionStreakClaimed === false &&
+    !streakIntroSeen &&
+    guide.resolvedStep === null &&
+    !guide.visible
 
   const dismissStreakHint = () => {
     if (!session) return

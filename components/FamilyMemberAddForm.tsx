@@ -348,6 +348,8 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
       >
         {loading ? 'Wird gespeichert …' : submitLabel}
       </button>
+
+      <div className="h-28 shrink-0 sm:h-24" aria-hidden />
     </form>
   )
 }

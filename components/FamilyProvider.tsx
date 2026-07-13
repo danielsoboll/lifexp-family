@@ -307,7 +307,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       setParent(nextParent)
       setActiveChild(nextActiveChild)
       setParents(nextParents)
-      setCanAdmin(nextCanAdmin)
+      setCanAdmin(isChildImpersonationActive(stored) ? false : nextCanAdmin)
       setChildrenWithXp([])
       setError(childError.message)
       setLoading(false)
@@ -318,7 +318,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
     setParent(nextParent)
     setActiveChild(nextActiveChild)
-    setCanAdmin(nextCanAdmin)
+    setCanAdmin(isChildImpersonationActive(stored) ? false : nextCanAdmin)
     setParents(nextParents.map((p) => ({ ...p, todayXp: parentTotals[p.id] ?? 0 })))
     setChildrenWithXp(
       xpError

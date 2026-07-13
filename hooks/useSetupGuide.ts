@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Family } from '../lib/family/types'
 import {
   dismissSetupGuideStep,
@@ -25,6 +25,7 @@ export function useSetupGuide({ family, parentCount, childCount, canAdmin, membe
   const [tick, setTick] = useState(0)
   const [displayStep, setDisplayStep] = useState<SetupGuideStep | null>(null)
   const [visible, setVisible] = useState(false)
+  const pendingStepRef = useRef<SetupGuideStep | null>(null)
 
   useEffect(() => {
     const onChange = () => {
@@ -46,19 +47,29 @@ export function useSetupGuide({ family, parentCount, childCount, canAdmin, membe
 
   useEffect(() => {
     if (!step) {
+      pendingStepRef.current = null
       setVisible(false)
       setDisplayStep(null)
       return
     }
 
+    if (step === displayStep && visible) return
+    if (step === displayStep && !visible) {
+      setVisible(true)
+      return
+    }
+
+    pendingStepRef.current = step
     setVisible(false)
+
     const timer = window.setTimeout(() => {
+      if (pendingStepRef.current !== step) return
       setDisplayStep(step)
       setVisible(true)
     }, SETUP_GUIDE_STEP_REVEAL_DELAY_MS)
 
     return () => window.clearTimeout(timer)
-  }, [step])
+  }, [step, displayStep, visible])
 
   const copy = displayStep
     ? setupGuideCopy(displayStep, { welcomeMembersIntroSeen: state?.welcomeMembersIntroSeen })
@@ -68,11 +79,16 @@ export function useSetupGuide({ family, parentCount, childCount, canAdmin, membe
     if (!family || !displayStep) return
     if (displayStep === 'member_ready' && memberId) {
       markMemberJoinReadySeen(memberId)
+      pendingStepRef.current = null
+      setVisible(false)
+      setDisplayStep(null)
       return
     }
     if (displayStep === 'first_quest' || displayStep === 'invite_code' || displayStep === 'member_profile') {
       return
     }
+    pendingStepRef.current = null
+    setVisible(false)
     void dismissSetupGuideStep(family, displayStep)
   }, [family, displayStep, memberId])
 

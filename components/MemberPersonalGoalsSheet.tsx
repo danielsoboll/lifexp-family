@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import PersonalGoalSymbolPicker from './PersonalGoalSymbolPicker'
+import DangerConfirmAction from './DangerConfirmAction'
 import SheetPortal from './SheetPortal'
 import SheetViewportChrome from './SheetViewportChrome'
 import { notifyFamilyDataChanged } from './FamilyProvider'
@@ -10,6 +11,7 @@ import { CARD_SURFACE_CLASS, FORM_FIELD_INPUT_CLASS, PRESSABLE_3D_CLASS } from '
 import type { MemberPersonalGoal } from '../lib/family/personalGoals'
 import {
   memberCanEditPersonalGoals,
+  deleteMemberPersonalGoal,
   reorderMemberPersonalGoals,
   saveMemberPersonalGoals,
 } from '../lib/family/personalGoals'
@@ -67,10 +69,11 @@ export default function MemberPersonalGoalsSheet({
   onClose,
   onSaved,
 }: MemberPersonalGoalsSheetProps) {
-  const canEdit = !readOnly && memberCanEditPersonalGoals({ goals, isSelf, canAdmin })
+  const canEdit = !readOnly && memberCanEditPersonalGoals({ goals, isSelf, canAdmin, memberKind: member.memberKind })
   const [drafts, setDrafts] = useState<DraftGoal[]>(() =>
     goals.length > 0 ? draftsFromGoals(goals) : [emptyDraft()],
   )
+  const [deleteBusyId, setDeleteBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [pendingScrollToId, setPendingScrollToId] = useState<string | null>(null)
@@ -326,7 +329,37 @@ export default function MemberPersonalGoalsSheet({
                         ) : null}
                       </>
                     ) : (
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{draft.title}</p>
+                      <div className="space-y-2">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{draft.title}</p>
+                        {readOnly && isSelf && goals.some((goal) => goal.id === draft.localId) ? (
+                          <DangerConfirmAction
+                            triggerLabel="Belohnung löschen"
+                            confirmTitle="Belohnung löschen?"
+                            confirmDescription="Die Belohnung wird entfernt. Vergebene XP für dieses Ziel gehen verloren."
+                            busy={deleteBusyId === draft.localId}
+                            error={deleteBusyId === draft.localId ? error : null}
+                            onConfirm={async () => {
+                              setDeleteBusyId(draft.localId)
+                              setError(null)
+                              const { error: deleteError } = await deleteMemberPersonalGoal({
+                                familyId,
+                                member,
+                                goalId: draft.localId,
+                                canAdmin,
+                              })
+                              setDeleteBusyId(null)
+                              if (deleteError) {
+                                setError(deleteError.message)
+                                return false
+                              }
+                              notifyFamilyDataChanged()
+                              onSaved()
+                              onClose()
+                              return true
+                            }}
+                          />
+                        ) : null}
+                      </div>
                     )}
                   </li>
                 )

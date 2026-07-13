@@ -116,7 +116,9 @@ export default function MemberPersonalGoalsPanel({
 
   const hasGoals = goals.length > 0
   const goalsAwaitingXp = countPersonalGoalsAwaitingXp(goals)
-  const canEdit = memberCanEditPersonalGoals({ goals, isSelf, canAdmin })
+  const canEdit = memberCanEditPersonalGoals({ goals, isSelf, canAdmin, memberKind })
+  const canManageAsAdmin = !isSelf && canAdmin
+  const showSelfEditor = isSelf && canEdit
   const allGoalsHaveXp = goals.every((goal) => goal.targetXp !== null && goal.targetXp > 0)
 
   const xpGoal = xpGoalId ? goals.find((goal) => goal.id === xpGoalId) : null
@@ -172,7 +174,7 @@ export default function MemberPersonalGoalsPanel({
         </div>
       ) : null}
 
-      {!loading && isSelf ? (
+      {!loading && isSelf && canEdit ? (
         <button
           type="button"
           disabled={loading}
@@ -183,7 +185,18 @@ export default function MemberPersonalGoalsPanel({
         </button>
       ) : null}
 
-      {editorOpen && isSelf ? (
+      {!loading && canManageAsAdmin ? (
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => setEditorOpen(true)}
+          className={`${PRESSABLE_3D_CLASS} w-full rounded-xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-400 to-emerald-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-60`}
+        >
+          {hasGoals ? `Belohnungen für ${memberLabel}` : `Belohnung für ${memberLabel} anlegen`}
+        </button>
+      ) : null}
+
+      {editorOpen && (showSelfEditor || canManageAsAdmin) ? (
         <MemberPersonalGoalsSheet
           familyId={family.id}
           member={member}

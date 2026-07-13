@@ -106,8 +106,10 @@ export function memberCanEditPersonalGoals(input: {
   goals: readonly MemberPersonalGoal[]
   isSelf: boolean
   canAdmin: boolean
+  memberKind?: 'parent' | 'child'
 }): boolean {
-  if (!input.isSelf) return false
+  if (!input.isSelf) return input.canAdmin
+  if (input.memberKind === 'child' && !input.canAdmin) return false
   if (memberHasLockedPersonalGoals(input.goals)) return input.canAdmin
   return true
 }
@@ -289,8 +291,12 @@ export async function saveMemberPersonalGoals(
   const isSelf =
     session.memberKind === input.member.memberKind && session.memberId === input.member.memberId
 
-  if (!isSelf) {
-    return { goals: [], error: new Error('Ziele können nur vom Mitglied selbst bearbeitet werden.') }
+  if (!isSelf && !input.canAdmin) {
+    return { goals: [], error: new Error('Nur Admins können Belohnungen für andere eintragen.') }
+  }
+
+  if (isSelf && !input.canAdmin && input.member.memberKind === 'child') {
+    return { goals: [], error: new Error('Belohnungen legt ein Elternteil oder Admin fest.') }
   }
 
   if (isSelf && !input.canAdmin && memberHasLockedPersonalGoals(existing)) {
@@ -400,7 +406,7 @@ export async function reorderMemberPersonalGoals(
   if (fetchError) return { error: fetchError }
 
   const isSelf = session.memberKind === member.memberKind && session.memberId === member.memberId
-  if (!memberCanEditPersonalGoals({ goals, isSelf, canAdmin })) {
+  if (!memberCanEditPersonalGoals({ goals, isSelf, canAdmin, memberKind: member.memberKind })) {
     return { error: new Error('Ziele können gerade nicht sortiert werden.') }
   }
 
@@ -483,13 +489,7 @@ export async function deleteMemberPersonalGoal(input: {
   if (!goal) return { error: new Error('Ziel nicht gefunden.') }
 
   const isSelf = session.memberKind === input.member.memberKind && session.memberId === input.member.memberId
-  if (!isSelf) {
-    return { error: new Error('Ziele können nur vom Mitglied selbst bearbeitet werden.') }
-  }
-  if (goal.xpLockedAt && !input.canAdmin) {
-    return { error: new Error('Gesperrte Ziele kann nur ein Admin löschen.') }
-  }
-  if (!memberCanEditPersonalGoals({ goals, isSelf, canAdmin: input.canAdmin })) {
+  if (!isSelf && !input.canAdmin) {
     return { error: new Error('Keine Berechtigung.') }
   }
 
