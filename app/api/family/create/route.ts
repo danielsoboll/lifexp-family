@@ -2,20 +2,9 @@ import { NextResponse } from 'next/server'
 
 import { createFamilyWithMemberDirect } from '@/lib/family/createFamilyDirect'
 import type { OnboardingDevicePrefs, OnboardingMemberProfile } from '@/lib/family/onboardingMember'
-import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
+import { createSupabaseServerOnboardingClient } from '@/lib/supabaseServerSession'
 
 export async function POST(request: Request) {
-  const admin = getSupabaseAdmin()
-  if (!admin) {
-    return NextResponse.json(
-      {
-        error:
-          'SUPABASE_SERVICE_ROLE_KEY fehlt in .env.local — oder supabase/fix_anon_rls.sql im SQL Editor ausführen.',
-      },
-      { status: 503 },
-    )
-  }
-
   let body: { familyName?: string; profile?: OnboardingMemberProfile; devicePrefs?: OnboardingDevicePrefs }
   try {
     body = (await request.json()) as typeof body
@@ -27,8 +16,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Profil fehlt.' }, { status: 400 })
   }
 
+  const client = createSupabaseServerOnboardingClient({ mode: 'create' })
   const { result, error } = await createFamilyWithMemberDirect(
-    admin,
+    client,
     body.familyName ?? '',
     body.profile,
     body.devicePrefs,

@@ -369,15 +369,6 @@ export async function createPlusCheckoutSessionServer(input: {
 
     if (!staleCustomer) throw stripeError
 
-    await input.admin
-      .from('families')
-      .update({
-        stripe_customer_id: null,
-        stripe_subscription_id: null,
-        subscription_status: null,
-      })
-      .eq('id', input.familyId)
-
     const session = await createSession(null)
     if (!session.url) throw new Error('Checkout-URL konnte nicht erstellt werden.')
     return { url: session.url }

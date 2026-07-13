@@ -25,7 +25,7 @@ import { claimFamilyMemberDirect, fetchClaimableMembersDirect } from './joinFami
 import type { Family, ParentProfile } from './types'
 
 const RLS_SETUP_HINT =
-  'Datenbank-Zugriff blockiert (RLS). Im Supabase SQL Editor einmal supabase/migrate_to_mvp_no_auth.sql ausführen — oder SUPABASE_SERVICE_ROLE_KEY in .env.local setzen und den Dev-Server neu starten.'
+  'Datenbank-Zugriff blockiert (RLS). Im Supabase SQL Editor einmal supabase/migrate_to_mvp_no_auth.sql ausführen.'
 
 function isRlsError(error: Error): boolean {
   return error.message.toLowerCase().includes('row-level security')
@@ -45,36 +45,6 @@ export async function updateFamilyAccentKey(
   const session = readFamilySession()
   if (!session || session.familyId !== familyId) {
     return { error: new Error('Keine gültige Familien-Session.') }
-  }
-
-  try {
-    const response = await fetch('/api/family/accent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        familyId,
-        memberId: session.memberId,
-        memberKind: session.memberKind,
-        accentKey,
-      }),
-    })
-
-    let payload: { error?: string } = {}
-    try {
-      payload = (await response.json()) as { error?: string }
-    } catch {
-      payload = {}
-    }
-
-    if (response.ok) {
-      return { error: null }
-    }
-
-    if (response.status !== 503) {
-      return { error: new Error(payload.error ?? 'Farbe konnte nicht gespeichert werden.') }
-    }
-  } catch {
-    /* Client-Fallback unten */
   }
 
   const { error } = await supabase
@@ -409,9 +379,8 @@ async function familyApiFallback(
   if (!response.ok) {
     const apiMessage = payload.error ?? ''
     const needsRlsFix =
-      response.status === 503 ||
-      apiMessage.includes('SUPABASE_SERVICE_ROLE_KEY') ||
-      apiMessage.toLowerCase().includes('row-level security')
+      apiMessage.toLowerCase().includes('row-level security') ||
+      apiMessage.toLowerCase().includes('permission denied')
     return {
       result: null,
       error: new Error(needsRlsFix ? RLS_SETUP_HINT : apiMessage || RLS_SETUP_HINT),
@@ -450,9 +419,8 @@ export async function fetchClaimableMembers(
       if (!response.ok) {
         const apiMessage = payload.error ?? ''
         const needsRlsFix =
-          response.status === 503 ||
-          apiMessage.includes('SUPABASE_SERVICE_ROLE_KEY') ||
-          apiMessage.toLowerCase().includes('row-level security')
+          apiMessage.toLowerCase().includes('row-level security') ||
+          apiMessage.toLowerCase().includes('permission denied')
         return {
           members: [],
           error: new Error(needsRlsFix ? RLS_SETUP_HINT : apiMessage || 'Profile konnten nicht geladen werden.'),
@@ -490,9 +458,8 @@ export async function claimFamilyMember(
       if (!response.ok) {
         const apiMessage = payload.error ?? ''
         const needsRlsFix =
-          response.status === 503 ||
-          apiMessage.includes('SUPABASE_SERVICE_ROLE_KEY') ||
-          apiMessage.toLowerCase().includes('row-level security')
+          apiMessage.toLowerCase().includes('row-level security') ||
+          apiMessage.toLowerCase().includes('permission denied')
         return {
           result: null,
           error: new Error(needsRlsFix ? RLS_SETUP_HINT : apiMessage || 'Verbindung fehlgeschlagen.'),

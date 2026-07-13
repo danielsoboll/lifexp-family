@@ -4,20 +4,9 @@ import type { ClaimMemberInput } from '@/lib/family/claimableMembers'
 import { claimFamilyMemberDirect } from '@/lib/family/joinFamilyClaim'
 import { joinFamilyWithInviteCodeDirect } from '@/lib/family/joinFamilyDirect'
 import type { OnboardingDevicePrefs, OnboardingMemberProfile } from '@/lib/family/onboardingMember'
-import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
+import { createSupabaseServerOnboardingClient } from '@/lib/supabaseServerSession'
 
 export async function POST(request: Request) {
-  const admin = getSupabaseAdmin()
-  if (!admin) {
-    return NextResponse.json(
-      {
-        error:
-          'SUPABASE_SERVICE_ROLE_KEY fehlt in .env.local — oder supabase/fix_anon_rls.sql im SQL Editor ausführen.',
-      },
-      { status: 503 },
-    )
-  }
-
   let body: {
     inviteCode?: string
     profile?: OnboardingMemberProfile
@@ -30,13 +19,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Ungültige Anfrage.' }, { status: 400 })
   }
 
+  const inviteCode = body.inviteCode ?? ''
+  const client = createSupabaseServerOnboardingClient({ mode: 'join', inviteCode })
+
   if (body.claim?.memberId && body.claim.memberKind) {
-    const { result, error } = await claimFamilyMemberDirect(
-      admin,
-      body.inviteCode ?? '',
-      body.claim,
-      body.devicePrefs,
-    )
+    const { result, error } = await claimFamilyMemberDirect(client, inviteCode, body.claim, body.devicePrefs)
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
@@ -47,12 +34,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Profil fehlt.' }, { status: 400 })
   }
 
-  const { result, error } = await joinFamilyWithInviteCodeDirect(
-    admin,
-    body.inviteCode ?? '',
-    body.profile,
-    body.devicePrefs,
-  )
+  const { result, error } = await joinFamilyWithInviteCodeDirect(client, inviteCode, body.profile, body.devicePrefs)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })

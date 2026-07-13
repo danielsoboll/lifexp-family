@@ -1,20 +1,9 @@
 import { NextResponse } from 'next/server'
 
 import { fetchClaimableMembersDirect } from '@/lib/family/joinFamilyClaim'
-import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
+import { createSupabaseServerOnboardingClient } from '@/lib/supabaseServerSession'
 
 export async function POST(request: Request) {
-  const admin = getSupabaseAdmin()
-  if (!admin) {
-    return NextResponse.json(
-      {
-        error:
-          'SUPABASE_SERVICE_ROLE_KEY fehlt in .env.local — oder supabase/fix_anon_rls.sql im SQL Editor ausführen.',
-      },
-      { status: 503 },
-    )
-  }
-
   let body: { inviteCode?: string }
   try {
     body = (await request.json()) as typeof body
@@ -22,7 +11,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Ungültige Anfrage.' }, { status: 400 })
   }
 
-  const { members, error } = await fetchClaimableMembersDirect(admin, body.inviteCode ?? '')
+  const inviteCode = body.inviteCode ?? ''
+  const client = createSupabaseServerOnboardingClient({ mode: 'join', inviteCode })
+  const { members, error } = await fetchClaimableMembersDirect(client, inviteCode)
+
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }

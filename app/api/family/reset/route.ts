@@ -2,17 +2,9 @@ import { NextResponse } from 'next/server'
 
 import { assertFamilyAdminAuthorized } from '@/lib/family/deleteFamilyCascade'
 import { resetFamilyProgressDirect } from '@/lib/family/resetFamilyProgress'
-import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
+import { createSupabaseServerSessionClient } from '@/lib/supabaseServerSession'
 
 export async function POST(request: Request) {
-  const admin = getSupabaseAdmin()
-  if (!admin) {
-    return NextResponse.json(
-      { error: 'SUPABASE_SERVICE_ROLE_KEY fehlt — Familie kann nicht zurückgesetzt werden.' },
-      { status: 503 },
-    )
-  }
-
   let body: { familyId?: string; memberId?: string; memberKind?: 'parent' | 'child' }
   try {
     body = (await request.json()) as typeof body
@@ -28,12 +20,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Session-Daten fehlen.' }, { status: 400 })
   }
 
-  const authError = await assertFamilyAdminAuthorized(admin, familyId, memberKind, memberId)
+  const db = createSupabaseServerSessionClient({ familyId, memberId, memberKind })
+
+  const authError = await assertFamilyAdminAuthorized(db, familyId, memberKind, memberId)
   if (authError.error) {
     return NextResponse.json({ error: authError.error.message }, { status: 403 })
   }
 
-  const { error } = await resetFamilyProgressDirect(admin, familyId)
+  const { error } = await resetFamilyProgressDirect(db, familyId)
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }

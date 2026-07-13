@@ -1,9 +1,11 @@
 import { getLocalDateKey } from '../cetDate'
 import { getStoredFamilyId, readFamilySession } from '../familySession'
 import { supabase } from '../supabase'
+import { deleteFamilyCascadeDirect } from './deleteFamilyCascade'
 import { sessionHasAdminAccess } from './memberAdmin'
 import { MEMBER_HAS_XP_ERROR, memberHasCollectedDayXp } from './memberRemovable'
 import { isAdminRole } from './members'
+import { resetFamilyProgressDirect } from './resetFamilyProgress'
 import type { FamilyMemberRole } from './types'
 
 async function assertValidFamilySession(familyId: string): Promise<{ error: Error | null }> {
@@ -102,103 +104,17 @@ export async function resyncFamilyXpHistoryForDate(familyId: string, scoreDate: 
 }
 
 export async function deleteFamilyById(familyId: string): Promise<{ error: Error | null }> {
-  const sessionError = await assertValidFamilySession(familyId)
-  if (sessionError.error) return sessionError
+  const adminError = await assertFamilyAdminSession(familyId)
+  if (adminError.error) return adminError
 
-  const session = readFamilySession()
-  if (!session) {
-    return { error: new Error('Keine gültige Familien-Session.') }
-  }
-
-  try {
-    const response = await fetch('/api/family/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        familyId,
-        memberId: session.memberId,
-        memberKind: session.memberKind,
-      }),
-    })
-
-    let payload: { error?: string } = {}
-    try {
-      payload = (await response.json()) as { error?: string }
-    } catch {
-      payload = {}
-    }
-
-    if (response.ok) {
-      return { error: null }
-    }
-
-    return {
-      error: new Error(
-        payload.error ??
-          (response.status === 503
-            ? 'SUPABASE_SERVICE_ROLE_KEY fehlt in Vercel — Familie kann nicht gelöscht werden.'
-            : 'Familie konnte nicht gelöscht werden.'),
-      ),
-    }
-  } catch (networkError) {
-    return {
-      error: new Error(
-        networkError instanceof Error
-          ? networkError.message
-          : 'Netzwerkfehler — Familie konnte nicht gelöscht werden.',
-      ),
-    }
-  }
+  return deleteFamilyCascadeDirect(supabase, familyId)
 }
 
 export async function resetFamilyProgressById(familyId: string): Promise<{ error: Error | null }> {
-  const sessionError = await assertValidFamilySession(familyId)
-  if (sessionError.error) return sessionError
+  const adminError = await assertFamilyAdminSession(familyId)
+  if (adminError.error) return adminError
 
-  const session = readFamilySession()
-  if (!session) {
-    return { error: new Error('Keine gültige Familien-Session.') }
-  }
-
-  try {
-    const response = await fetch('/api/family/reset', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        familyId,
-        memberId: session.memberId,
-        memberKind: session.memberKind,
-      }),
-    })
-
-    let payload: { error?: string } = {}
-    try {
-      payload = (await response.json()) as { error?: string }
-    } catch {
-      payload = {}
-    }
-
-    if (response.ok) {
-      return { error: null }
-    }
-
-    return {
-      error: new Error(
-        payload.error ??
-          (response.status === 503
-            ? 'SUPABASE_SERVICE_ROLE_KEY fehlt in Vercel — Familie kann nicht zurückgesetzt werden.'
-            : 'Familie konnte nicht zurückgesetzt werden.'),
-      ),
-    }
-  } catch (networkError) {
-    return {
-      error: new Error(
-        networkError instanceof Error
-          ? networkError.message
-          : 'Netzwerkfehler — Familie konnte nicht zurückgesetzt werden.',
-      ),
-    }
-  }
+  return resetFamilyProgressDirect(supabase, familyId)
 }
 
 export async function deleteParentById(parentId: string, familyId: string): Promise<{ error: Error | null }> {

@@ -1,18 +1,10 @@
 import { NextResponse } from 'next/server'
 
 import { assertFamilyAdminAuthorized } from '@/lib/family/deleteFamilyCascade'
-import { normalizeMemberAccentKey, type MemberAccentKey } from '@/lib/family/memberAccentColor'
-import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
+import { normalizeMemberAccentKey } from '@/lib/family/memberAccentColor'
+import { createSupabaseServerSessionClient } from '@/lib/supabaseServerSession'
 
 export async function POST(request: Request) {
-  const admin = getSupabaseAdmin()
-  if (!admin) {
-    return NextResponse.json(
-      { error: 'SUPABASE_SERVICE_ROLE_KEY fehlt — Farbe kann nicht gespeichert werden.' },
-      { status: 503 },
-    )
-  }
-
   let body: {
     familyId?: string
     memberId?: string
@@ -34,12 +26,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Session-Daten fehlen.' }, { status: 400 })
   }
 
-  const authError = await assertFamilyAdminAuthorized(admin, familyId, memberKind, memberId)
+  const db = createSupabaseServerSessionClient({ familyId, memberId, memberKind })
+
+  const authError = await assertFamilyAdminAuthorized(db, familyId, memberKind, memberId)
   if (authError.error) {
     return NextResponse.json({ error: authError.error.message }, { status: 403 })
   }
 
-  const { data, error } = await admin
+  const { data, error } = await db
     .from('families')
     .update({ accent_key: accentKey, updated_at: new Date().toISOString() })
     .eq('id', familyId)

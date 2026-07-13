@@ -1,18 +1,9 @@
 import { NextResponse } from 'next/server'
 
-import { parseBillingSessionBody, syncFamilyBillingFromStripeServer, type BillingSessionBody } from '@/lib/family/billingServer'
-import { assertFamilyAdminAuthorized } from '@/lib/family/deleteFamilyCascade'
-import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
+import { parseBillingSessionBody, type BillingSessionBody } from '@/lib/family/billingServer'
+import { invokeSupabaseEdgeFunction } from '@/lib/supabaseEdgeFunctions'
 
 export async function POST(request: Request) {
-  const admin = getSupabaseAdmin()
-  if (!admin) {
-    return NextResponse.json(
-      { error: 'SUPABASE_SERVICE_ROLE_KEY fehlt — Billing-Sync nicht verfügbar.' },
-      { status: 503 },
-    )
-  }
-
   let body: BillingSessionBody
   try {
     body = (await request.json()) as BillingSessionBody
@@ -22,17 +13,15 @@ export async function POST(request: Request) {
 
   try {
     const session = parseBillingSessionBody(body)
-    const authError = await assertFamilyAdminAuthorized(
-      admin,
-      session.familyId,
-      session.memberKind,
-      session.memberId,
-    )
-    if (authError.error) {
-      return NextResponse.json({ error: authError.error.message }, { status: 403 })
-    }
+    const result = await invokeSupabaseEdgeFunction<{
+      synced?: boolean
+      subscription_status?: string | null
+    }>('sync-family-billing', {
+      family_id: session.familyId,
+      member_kind: session.memberKind,
+      member_id: session.memberId,
+    })
 
-    const result = await syncFamilyBillingFromStripeServer(admin, session.familyId)
     if (!result.synced) {
       return NextResponse.json(
         {
@@ -46,7 +35,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       synced: true,
-      subscription_status: result.subscriptionStatus,
+      subscription_status: result.subscription_status ?? null,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Synchronisation fehlgeschlagen.'

@@ -1,17 +1,8 @@
 import { NextResponse } from 'next/server'
 
-import { verifyCheckoutSessionServer } from '@/lib/family/billingServer'
-import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
+import { invokeSupabaseEdgeFunction } from '@/lib/supabaseEdgeFunctions'
 
 export async function POST(request: Request) {
-  const admin = getSupabaseAdmin()
-  if (!admin) {
-    return NextResponse.json(
-      { error: 'SUPABASE_SERVICE_ROLE_KEY fehlt — Checkout-Verifizierung nicht verfügbar.' },
-      { status: 503 },
-    )
-  }
-
   let body: { sessionId?: string }
   try {
     body = (await request.json()) as { sessionId?: string }
@@ -25,7 +16,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await verifyCheckoutSessionServer(admin, sessionId)
+    const result = await invokeSupabaseEdgeFunction<{
+      family_id: string
+      member_kind: 'parent' | 'child' | null
+      member_id: string | null
+      payment_status: string
+      status: string
+      plus_synced: boolean
+    }>('verify-checkout-session', { session_id: sessionId })
     return NextResponse.json(result)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Checkout konnte nicht verifiziert werden.'

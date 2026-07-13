@@ -5,17 +5,9 @@ import {
   parseBillingSessionBody,
   type BillingSessionBody,
 } from '@/lib/family/billingServer'
-import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
+import { createSupabaseServerSessionClient } from '@/lib/supabaseServerSession'
 
 export async function POST(request: Request) {
-  const admin = getSupabaseAdmin()
-  if (!admin) {
-    return NextResponse.json(
-      { error: 'SUPABASE_SERVICE_ROLE_KEY fehlt — PLUS-Checkout nicht verfügbar.' },
-      { status: 503 },
-    )
-  }
-
   let body: BillingSessionBody
   try {
     body = (await request.json()) as BillingSessionBody
@@ -26,7 +18,7 @@ export async function POST(request: Request) {
   try {
     const session = parseBillingSessionBody(body)
     const { url } = await createPlusCheckoutSessionServer({
-      admin,
+      admin: createSupabaseServerSessionClient(session),
       request,
       familyId: session.familyId,
       memberKind: session.memberKind,

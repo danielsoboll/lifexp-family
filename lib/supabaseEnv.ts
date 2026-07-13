@@ -9,8 +9,3 @@ export function resolveSupabaseUrl(): string {
 export function resolveSupabaseAnonKey(): string {
   return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || DEFAULT_SUPABASE_ANON_KEY
 }
-
-export function resolveSupabaseServiceRoleKey(): string | null {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
-  return key || null
-}
