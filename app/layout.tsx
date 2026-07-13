@@ -13,6 +13,7 @@ import QuestCreatorConfirmSheet from "../components/QuestCreatorConfirmSheet";
 import PwaSessionBootstrap from "../components/PwaSessionBootstrap";
 import SessionGate from "../components/SessionGate";
 import { FamilyProvider } from "../components/FamilyProvider";
+import ErrorNotbremse from "../components/ErrorNotbremse";
 import { CLIENT_STORAGE_SCOPE_INLINE } from "../lib/clientStorageScope";
 import { productionDomainFreshStartScript } from "../lib/productionDomainFreshStart";
 import { clientStorageBootstrapScript } from "../lib/clientStorageBootstrap";
@@ -145,6 +146,7 @@ export default function RootLayout({
         <PwaIconSync />
         <FamilyProvider>
           <SessionGate>
+            <ErrorNotbremse />
             {children}
             <QuestCreatorConfirmSheet />
           </SessionGate>
