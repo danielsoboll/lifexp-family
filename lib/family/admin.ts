@@ -1,13 +1,10 @@
 import { getLocalDateKey } from '../cetDate'
 import { getStoredFamilyId, readFamilySession } from '../familySession'
 import { supabase } from '../supabase'
-import { deleteFamilyCascadeDirect } from './deleteFamilyCascade'
-import { fetchChildById } from './children'
-import { fetchParentById } from './families'
 import { sessionHasAdminAccess } from './memberAdmin'
 import { MEMBER_HAS_XP_ERROR, memberHasCollectedDayXp } from './memberRemovable'
-import { fetchMemberRoleForParent, isAdminRole } from './members'
-import { QUEST_COMPLETION_PHOTOS_BUCKET } from './questCompletionPlus'
+import { isAdminRole } from './members'
+import type { FamilyMemberRole } from './types'
 
 async function assertValidFamilySession(familyId: string): Promise<{ error: Error | null }> {
   const storedFamilyId = getStoredFamilyId()
@@ -25,25 +22,42 @@ export async function assertFamilyAdminSession(familyId: string): Promise<{ erro
   if (!session) return { error: new Error('Keine gültige Familien-Session.') }
 
   if (session.memberKind === 'parent') {
-    const [{ parent, error: parentError }, { role, error: roleError }] = await Promise.all([
-      fetchParentById(session.memberId),
-      fetchMemberRoleForParent(familyId, session.memberId),
-    ])
-    if (parentError) return { error: parentError }
-    if (roleError) return { error: roleError }
-    if (!parent) return { error: new Error('Profil nicht gefunden.') }
-    if (!sessionHasAdminAccess('parent', parent.can_admin, isAdminRole(role))) {
+    const { data, error } = await supabase
+      .from('family_members')
+      .select('role')
+      .eq('family_id', familyId)
+      .eq('parent_id', session.memberId)
+      .maybeSingle()
+
+    if (error) return { error: new Error(error.message) }
+    if (!data) return { error: new Error('Familienmitglied nicht gefunden.') }
+
+    const role = data.role as FamilyMemberRole
+    if (role === 'owner') return { error: null }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('parent_profiles')
+      .select('can_admin')
+      .eq('id', session.memberId)
+      .maybeSingle()
+
+    if (profileError) return { error: new Error(profileError.message) }
+    if (!sessionHasAdminAccess('parent', profile?.can_admin ?? false, isAdminRole(role))) {
       return { error: new Error('Nur Familien-Admins können diese Aktion ausführen.') }
     }
     return { error: null }
   }
 
-  const { child, error: childError } = await fetchChildById(session.memberId)
-  if (childError) return { error: childError }
-  if (!child || child.family_id !== familyId) {
-    return { error: new Error('Profil nicht gefunden.') }
-  }
-  if (!sessionHasAdminAccess('child', child.can_admin)) {
+  const { data, error } = await supabase
+    .from('child_profiles')
+    .select('can_admin')
+    .eq('id', session.memberId)
+    .eq('family_id', familyId)
+    .maybeSingle()
+
+  if (error) return { error: new Error(error.message) }
+  if (!data) return { error: new Error('Familienmitglied nicht gefunden.') }
+  if (!sessionHasAdminAccess('child', data.can_admin)) {
     return { error: new Error('Nur Familien-Admins können diese Aktion ausführen.') }
   }
   return { error: null }
@@ -87,46 +101,9 @@ export async function resyncFamilyXpHistoryForDate(familyId: string, scoreDate: 
   })
 }
 
-function isMissingRelationError(error: { message?: string; code?: string }): boolean {
-  return Boolean(
-    error.code === 'PGRST205' ||
-      error.code === '42P01' ||
-      error.message?.includes('schema cache') ||
-      error.message?.includes('does not exist'),
-  )
-}
-
-async function deleteRowsByFamilyId(table: string, familyId: string): Promise<Error | null> {
-  const { error } = await supabase.from(table).delete().eq('family_id', familyId)
-  if (!error) return null
-  if (isMissingRelationError(error)) return null
-  return new Error(error.message)
-}
-
-async function deleteQuestCompletionStorageForFamily(familyId: string): Promise<void> {
-  const { data: completionFolders, error: listError } = await supabase.storage
-    .from(QUEST_COMPLETION_PHOTOS_BUCKET)
-    .list(familyId)
-
-  if (listError || !completionFolders?.length) return
-
-  const paths: string[] = []
-  for (const folder of completionFolders) {
-    const prefix = `${familyId}/${folder.name}`
-    const { data: files } = await supabase.storage.from(QUEST_COMPLETION_PHOTOS_BUCKET).list(prefix)
-    for (const file of files ?? []) {
-      paths.push(`${prefix}/${file.name}`)
-    }
-  }
-
-  if (paths.length > 0) {
-    await supabase.storage.from(QUEST_COMPLETION_PHOTOS_BUCKET).remove(paths)
-  }
-}
-
 export async function deleteFamilyById(familyId: string): Promise<{ error: Error | null }> {
-  const adminError = await assertFamilyAdminSession(familyId)
-  if (adminError.error) return adminError
+  const sessionError = await assertValidFamilySession(familyId)
+  if (sessionError.error) return sessionError
 
   const session = readFamilySession()
   if (!session) {
@@ -144,116 +121,84 @@ export async function deleteFamilyById(familyId: string): Promise<{ error: Error
       }),
     })
 
-    const payload = (await response.json()) as { error?: string }
+    let payload: { error?: string } = {}
+    try {
+      payload = (await response.json()) as { error?: string }
+    } catch {
+      payload = {}
+    }
+
     if (response.ok) {
       return { error: null }
     }
 
-    if (response.status === 503) {
-      return deleteFamilyCascadeDirect(supabase, familyId)
+    return {
+      error: new Error(
+        payload.error ??
+          (response.status === 503
+            ? 'SUPABASE_SERVICE_ROLE_KEY fehlt in Vercel — Familie kann nicht gelöscht werden.'
+            : 'Familie konnte nicht gelöscht werden.'),
+      ),
     }
-
-    return { error: new Error(payload.error ?? 'Familie konnte nicht gelöscht werden.') }
-  } catch {
-    return deleteFamilyCascadeDirect(supabase, familyId)
+  } catch (networkError) {
+    return {
+      error: new Error(
+        networkError instanceof Error
+          ? networkError.message
+          : 'Netzwerkfehler — Familie konnte nicht gelöscht werden.',
+      ),
+    }
   }
 }
 
-const FAMILY_PROGRESS_RESET_TABLES = [
-  'quest_completion_creator_reactions',
-  'quest_completion_assignee_photos',
-  'reward_redemptions',
-  'member_personal_goal_tracking',
-  'family_personal_goal_tracking',
-  'member_xp_goal_daily_progress',
-  'member_daily_xp_history',
-  'family_daily_xp_history',
-  'family_challenge_progress',
-  'quest_completions',
-  'daily_xp_entries',
-] as const
-
-/**
- * XP, Verlauf und Fortschritt zurücksetzen — Familie, Mitglieder und Quests bleiben erhalten.
- */
 export async function resetFamilyProgressById(familyId: string): Promise<{ error: Error | null }> {
-  const adminError = await assertFamilyAdminSession(familyId)
-  if (adminError.error) return adminError
+  const sessionError = await assertValidFamilySession(familyId)
+  if (sessionError.error) return sessionError
 
-  await deleteQuestCompletionStorageForFamily(familyId)
-
-  for (const table of FAMILY_PROGRESS_RESET_TABLES) {
-    const prepError = await deleteRowsByFamilyId(table, familyId)
-    if (prepError) return { error: prepError }
+  const session = readFamilySession()
+  if (!session) {
+    return { error: new Error('Keine gültige Familien-Session.') }
   }
 
-  const now = new Date().toISOString()
-
-  const { error: childXpError } = await supabase
-    .from('child_profiles')
-    .update({ total_xp: 0, updated_at: now })
-    .eq('family_id', familyId)
-
-  if (childXpError && !isMissingRelationError(childXpError)) {
-    return { error: new Error(childXpError.message) }
-  }
-
-  const goalProgressReset = { progress_xp: 0, completed_at: null, updated_at: now }
-
-  const { error: memberGoalsError } = await supabase
-    .from('member_personal_goals')
-    .update(goalProgressReset)
-    .eq('family_id', familyId)
-
-  if (memberGoalsError && !isMissingRelationError(memberGoalsError)) {
-    return { error: new Error(memberGoalsError.message) }
-  }
-
-  const { error: familyGoalsError } = await supabase
-    .from('family_personal_goals')
-    .update(goalProgressReset)
-    .eq('family_id', familyId)
-
-  if (familyGoalsError && !isMissingRelationError(familyGoalsError)) {
-    return { error: new Error(familyGoalsError.message) }
-  }
-
-  const { error: familyXpGoalError } = await supabase
-    .from('family_xp_goal_periods')
-    .update({ progress_xp: 0, updated_at: now })
-    .eq('family_id', familyId)
-    .is('ended_at', null)
-
-  if (familyXpGoalError && !isMissingRelationError(familyXpGoalError)) {
-    return { error: new Error(familyXpGoalError.message) }
-  }
-
-  const { error: memberXpGoalError } = await supabase
-    .from('member_xp_goal_periods')
-    .update({ progress_xp: 0, updated_at: now })
-    .eq('family_id', familyId)
-    .is('ended_at', null)
-
-  if (memberXpGoalError && !isMissingRelationError(memberXpGoalError)) {
-    return { error: new Error(memberXpGoalError.message) }
-  }
-
-  await resyncFamilyXpHistoryForDate(familyId, getLocalDateKey())
-
-  const { error: syncGoalsError } = await supabase.rpc('sync_all_xp_goals_for_family', {
-    p_family_id: familyId,
-  })
-
-  if (syncGoalsError && !isMissingRelationError(syncGoalsError)) {
-    const { error: syncPersonalGoalsError } = await supabase.rpc('sync_all_personal_goals_for_family', {
-      p_family_id: familyId,
+  try {
+    const response = await fetch('/api/family/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        familyId,
+        memberId: session.memberId,
+        memberKind: session.memberKind,
+      }),
     })
-    if (syncPersonalGoalsError && !isMissingRelationError(syncPersonalGoalsError)) {
-      return { error: new Error(syncPersonalGoalsError.message) }
+
+    let payload: { error?: string } = {}
+    try {
+      payload = (await response.json()) as { error?: string }
+    } catch {
+      payload = {}
+    }
+
+    if (response.ok) {
+      return { error: null }
+    }
+
+    return {
+      error: new Error(
+        payload.error ??
+          (response.status === 503
+            ? 'SUPABASE_SERVICE_ROLE_KEY fehlt in Vercel — Familie kann nicht zurückgesetzt werden.'
+            : 'Familie konnte nicht zurückgesetzt werden.'),
+      ),
+    }
+  } catch (networkError) {
+    return {
+      error: new Error(
+        networkError instanceof Error
+          ? networkError.message
+          : 'Netzwerkfehler — Familie konnte nicht zurückgesetzt werden.',
+      ),
     }
   }
-
-  return { error: null }
 }
 
 export async function deleteParentById(parentId: string, familyId: string): Promise<{ error: Error | null }> {

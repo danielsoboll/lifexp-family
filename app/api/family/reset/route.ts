@@ -1,16 +1,14 @@
 import { NextResponse } from 'next/server'
 
-import {
-  assertFamilyAdminAuthorized,
-  deleteFamilyCascadeDirect,
-} from '@/lib/family/deleteFamilyCascade'
+import { assertFamilyAdminAuthorized } from '@/lib/family/deleteFamilyCascade'
+import { resetFamilyProgressDirect } from '@/lib/family/resetFamilyProgress'
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
 export async function POST(request: Request) {
   const admin = getSupabaseAdmin()
   if (!admin) {
     return NextResponse.json(
-      { error: 'SUPABASE_SERVICE_ROLE_KEY fehlt — Familie kann nicht gelöscht werden.' },
+      { error: 'SUPABASE_SERVICE_ROLE_KEY fehlt — Familie kann nicht zurückgesetzt werden.' },
       { status: 503 },
     )
   }
@@ -35,7 +33,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: authError.error.message }, { status: 403 })
   }
 
-  const { error } = await deleteFamilyCascadeDirect(admin, familyId)
+  const { error } = await resetFamilyProgressDirect(admin, familyId)
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }

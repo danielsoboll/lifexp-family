@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import { isAdminRole } from './members'
+import type { FamilyMemberRole } from './types'
 import { QUEST_COMPLETION_PHOTOS_BUCKET } from './questCompletionPlus'
 
 function isMissingRelationError(error: { message?: string; code?: string }): boolean {
@@ -8,6 +10,15 @@ function isMissingRelationError(error: { message?: string; code?: string }): boo
       error.code === '42P01' ||
       error.message?.includes('schema cache') ||
       error.message?.includes('does not exist'),
+  )
+}
+
+function isMissingRpcError(error: { message?: string; code?: string }): boolean {
+  return Boolean(
+    isMissingRelationError(error) ||
+      error.code === 'PGRST202' ||
+      error.message?.includes('Could not find the function') ||
+      error.message?.includes('function public.lifexp_delete_family_cascade')
   )
 }
 
@@ -70,7 +81,7 @@ const FAMILY_DELETE_TABLES = [
   'family_members',
 ] as const
 
-export async function deleteFamilyCascadeDirect(
+async function deleteFamilyCascadeManual(
   client: SupabaseClient,
   familyId: string,
 ): Promise<{ error: Error | null }> {
@@ -88,7 +99,7 @@ export async function deleteFamilyCascadeDirect(
   try {
     await deleteQuestCompletionStorageForFamily(client, familyId)
   } catch {
-    /* Fotos optional — Löschen der Familie nicht blockieren */
+    /* Fotos optional */
   }
 
   for (const table of FAMILY_DELETE_TABLES) {
@@ -96,22 +107,29 @@ export async function deleteFamilyCascadeDirect(
     if (tableError) return { error: tableError }
   }
 
-  const { data: deleted, error: familyError } = await client
-    .from('families')
-    .delete()
-    .eq('id', familyId)
-    .select('id')
-
+  const { error: familyError } = await client.from('families').delete().eq('id', familyId)
   if (familyError) {
     const message = familyError.message.includes('foreign key')
-      ? `${familyError.message} — Bitte supabase/family_delete_cascade_fix.sql in Supabase ausführen.`
+      ? `${familyError.message} — Bitte supabase/lifexp_delete_family_cascade.sql in Supabase ausführen.`
       : familyError.message
     return { error: new Error(message) }
   }
 
-  if (!deleted?.length) {
+  const { data: stillThere, error: verifyError } = await client
+    .from('families')
+    .select('id')
+    .eq('id', familyId)
+    .maybeSingle()
+
+  if (verifyError) {
+    return { error: new Error(verifyError.message) }
+  }
+
+  if (stillThere) {
     return {
-      error: new Error('Familie konnte nicht gelöscht werden — keine Berechtigung oder unbekannte Familien-ID.'),
+      error: new Error(
+        'Familie konnte nicht gelöscht werden — bitte supabase/lifexp_delete_family_cascade.sql in Supabase ausführen.',
+      ),
     }
   }
 
@@ -125,42 +143,116 @@ export async function deleteFamilyCascadeDirect(
   return { error: null }
 }
 
-export async function assertFamilyDeleteAuthorized(
+export async function deleteFamilyCascadeDirect(
+  client: SupabaseClient,
+  familyId: string,
+): Promise<{ error: Error | null }> {
+  const { data: familyRow, error: familyLookupError } = await client
+    .from('families')
+    .select('id')
+    .eq('id', familyId)
+    .maybeSingle()
+
+  if (familyLookupError) {
+    return { error: new Error(familyLookupError.message) }
+  }
+
+  if (!familyRow) {
+    return { error: new Error('Familie nicht gefunden — sie wurde bereits gelöscht oder existiert nicht.') }
+  }
+
+  const { data: rpcDeleted, error: rpcError } = await client.rpc('lifexp_delete_family_cascade', {
+    p_family_id: familyId,
+  })
+
+  if (!rpcError) {
+    if (rpcDeleted === true) {
+      try {
+        await deleteQuestCompletionStorageForFamily(client, familyId)
+      } catch {
+        /* optional */
+      }
+      return { error: null }
+    }
+
+    return {
+      error: new Error(
+        'Familie konnte nicht gelöscht werden — bitte supabase/lifexp_delete_family_cascade.sql in Supabase ausführen.',
+      ),
+    }
+  }
+
+  if (!isMissingRpcError(rpcError)) {
+    return { error: new Error(rpcError.message) }
+  }
+
+  return deleteFamilyCascadeManual(client, familyId)
+}
+
+export async function assertFamilyAdminAuthorized(
   client: SupabaseClient,
   familyId: string,
   memberKind: 'parent' | 'child',
   memberId: string,
 ): Promise<{ error: Error | null }> {
+  const { data: familyRow, error: familyError } = await client
+    .from('families')
+    .select('id')
+    .eq('id', familyId)
+    .maybeSingle()
+
+  if (familyError) return { error: new Error(familyError.message) }
+  if (!familyRow) return { error: new Error('Familie nicht gefunden.') }
+
   if (memberKind === 'parent') {
-    const { data, error } = await client
+    const { data: membership, error: membershipError } = await client
       .from('family_members')
-      .select('role, parent_profiles(can_admin)')
+      .select('role')
       .eq('family_id', familyId)
       .eq('parent_id', memberId)
       .maybeSingle()
 
-    if (error) return { error: new Error(error.message) }
-    if (!data) return { error: new Error('Familienmitglied nicht gefunden.') }
-
-    const profile = data.parent_profiles as { can_admin?: boolean } | null
-    const isOwner = data.role === 'owner'
-    if (!profile?.can_admin && !isOwner) {
-      return { error: new Error('Nur Familien-Admins können die Familie löschen.') }
+    if (membershipError) return { error: new Error(membershipError.message) }
+    if (!membership) {
+      return { error: new Error('Keine Berechtigung — Familienmitglied nicht gefunden.') }
     }
+
+    const role = membership.role as FamilyMemberRole
+    if (role === 'owner') {
+      return { error: null }
+    }
+
+    const { data: profile, error: profileError } = await client
+      .from('parent_profiles')
+      .select('can_admin')
+      .eq('id', memberId)
+      .maybeSingle()
+
+    if (profileError) return { error: new Error(profileError.message) }
+    if (!profile?.can_admin || !isAdminRole(role)) {
+      return { error: new Error('Nur Familien-Admins können diese Aktion ausführen.') }
+    }
+
     return { error: null }
   }
 
-  const { data, error } = await client
+  const { data: child, error: childError } = await client
     .from('child_profiles')
-    .select('id, family_id, can_admin')
+    .select('can_admin')
     .eq('id', memberId)
     .eq('family_id', familyId)
     .maybeSingle()
 
-  if (error) return { error: new Error(error.message) }
-  if (!data?.can_admin) {
-    return { error: new Error('Nur Familien-Admins können die Familie löschen.') }
+  if (childError) return { error: new Error(childError.message) }
+  if (!child) {
+    return { error: new Error('Keine Berechtigung — Familienmitglied nicht gefunden.') }
+  }
+  if (!child.can_admin) {
+    return { error: new Error('Nur Familien-Admins können diese Aktion ausführen.') }
   }
 
   return { error: null }
 }
+
+/** @deprecated Alias — nutze assertFamilyAdminAuthorized */
+export const assertFamilyDeleteAuthorized = assertFamilyAdminAuthorized

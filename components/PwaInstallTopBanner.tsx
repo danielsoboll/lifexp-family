@@ -1,33 +1,59 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import PwaInstallPanel from './PwaInstallPanel'
-import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
+import { notifyFamilyDataChanged, useFamily, FAMILY_DATA_CHANGED_EVENT } from './FamilyProvider'
 import { ONBOARDING_UI_ACTIVE_EVENT } from '../lib/family/onboardingFlow'
+import { fetchMemberStreakClaimedToday } from '../lib/family/dailyStreak'
 import { FAMILY_SESSION_CHANGED_EVENT } from '../lib/familySession'
 import { updateMemberAppInstalled } from '../lib/family/memberSettings'
 import {
   getPwaTopBannerDelayRemainingMs,
+  hasPwaInstallLater,
   isPwaTopBannerDelayElapsed,
+  isPwaTopBannerPrerequisitesMet,
   isStandaloneDisplayMode,
-  markPwaTopBannerEligibleNow,
   PWA_TOP_BANNER_DELAY_MS,
+  recordPwaInstallLaterChoice,
   recordPwaInstallSuccess,
+  savePwaInstallLater,
   shouldShowPwaInstallTopBanner,
+  syncPwaTopBannerEligibleMark,
 } from '../lib/pwaInstall'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 export default function PwaInstallTopBanner() {
-  const { session, family, hasSession, loading, refresh } = useFamily()
+  const { session, family, parents, children, hasSession, loading, canAdmin, refresh } = useFamily()
   const [visible, setVisible] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  const [dismissed, setDismissed] = useState(false)
+  const [dismissed, setDismissed] = useState(() => hasPwaInstallLater())
   const [onboardingUiActive, setOnboardingUiActive] = useState(false)
   const [installSaving, setInstallSaving] = useState(false)
   const [delayElapsed, setDelayElapsed] = useState(false)
+  const [ownStreakClaimedToday, setOwnStreakClaimedToday] = useState<boolean | null>(null)
+  const [guideTick, setGuideTick] = useState(0)
 
   const familyReady = hasSession && family !== null && !loading
+
+  const bannerContext = useMemo(
+    () => ({
+      familyReady,
+      family,
+      memberId: session?.memberId ?? null,
+      canAdmin,
+      parentCount: parents.length,
+      childCount: children.length,
+      ownStreakClaimedToday,
+    }),
+    [familyReady, family, session?.memberId, canAdmin, parents.length, children.length, ownStreakClaimedToday],
+  )
+
+  const prerequisitesMet = useMemo(() => {
+    void guideTick
+    if (onboardingUiActive) return false
+    return isPwaTopBannerPrerequisitesMet(bannerContext)
+  }, [bannerContext, onboardingUiActive, guideTick])
 
   const syncVisibility = useCallback(() => {
     if (isStandaloneDisplayMode() || onboardingUiActive) {
@@ -38,20 +64,44 @@ export default function PwaInstallTopBanner() {
       setVisible(false)
       return
     }
-    setVisible(shouldShowPwaInstallTopBanner({ familyReady }) && delayElapsed)
-  }, [delayElapsed, dismissed, familyReady, onboardingUiActive])
+    setVisible(shouldShowPwaInstallTopBanner(bannerContext) && delayElapsed)
+  }, [bannerContext, delayElapsed, dismissed, onboardingUiActive])
 
   useEffect(() => {
-    if (!shouldShowPwaInstallTopBanner({ familyReady }) && !familyReady) {
+    if (!familyReady || !family || !session) {
+      setOwnStreakClaimedToday(null)
+      return
+    }
+
+    let cancelled = false
+    const loadStreak = async () => {
+      const { claimed } = await fetchMemberStreakClaimedToday({
+        familyId: family.id,
+        memberKind: session.memberKind,
+        memberId: session.memberId,
+      })
+      if (!cancelled) setOwnStreakClaimedToday(claimed)
+    }
+
+    void loadStreak()
+    const onStreakRefresh = () => void loadStreak()
+    window.addEventListener(FAMILY_DATA_CHANGED_EVENT, onStreakRefresh)
+    return () => {
+      cancelled = true
+      window.removeEventListener(FAMILY_DATA_CHANGED_EVENT, onStreakRefresh)
+    }
+  }, [familyReady, family, session])
+
+  useEffect(() => {
+    if (!prerequisitesMet) {
       setDelayElapsed(false)
+      syncPwaTopBannerEligibleMark(false)
       return
     }
 
-    if (!familyReady || isStandaloneDisplayMode() || onboardingUiActive) {
-      return
-    }
+    if (isStandaloneDisplayMode()) return
 
-    markPwaTopBannerEligibleNow()
+    syncPwaTopBannerEligibleMark(true)
 
     if (isPwaTopBannerDelayElapsed()) {
       setDelayElapsed(true)
@@ -62,31 +112,40 @@ export default function PwaInstallTopBanner() {
     const remaining = getPwaTopBannerDelayRemainingMs() ?? PWA_TOP_BANNER_DELAY_MS
     const timer = window.setTimeout(() => setDelayElapsed(true), remaining)
     return () => window.clearTimeout(timer)
-  }, [familyReady, onboardingUiActive])
+  }, [prerequisitesMet])
 
   useEffect(() => {
     const onOnboardingUi = (event: Event) => {
       const active = (event as CustomEvent<{ active?: boolean }>).detail?.active === true
       setOnboardingUiActive(active)
     }
+    const onGuideChanged = () => setGuideTick((value) => value + 1)
 
     void syncVisibility()
     const onChange = () => void syncVisibility()
     window.addEventListener('storage', onChange)
-    window.addEventListener('lifexp-family-data-changed', onChange)
+    window.addEventListener(FAMILY_DATA_CHANGED_EVENT, onChange)
     window.addEventListener(FAMILY_SESSION_CHANGED_EVENT, onChange)
     window.addEventListener(ONBOARDING_UI_ACTIVE_EVENT, onOnboardingUi)
+    window.addEventListener('lifexp-setup-guide-changed', onGuideChanged)
     return () => {
       window.removeEventListener('storage', onChange)
-      window.removeEventListener('lifexp-family-data-changed', onChange)
+      window.removeEventListener(FAMILY_DATA_CHANGED_EVENT, onChange)
       window.removeEventListener(FAMILY_SESSION_CHANGED_EVENT, onChange)
       window.removeEventListener(ONBOARDING_UI_ACTIVE_EVENT, onOnboardingUi)
+      window.removeEventListener('lifexp-setup-guide-changed', onGuideChanged)
     }
   }, [syncVisibility])
 
   useEffect(() => {
     void syncVisibility()
   }, [syncVisibility])
+
+  const handleDismissLater = () => {
+    savePwaInstallLater()
+    void recordPwaInstallLaterChoice()
+    setDismissed(true)
+  }
 
   const handleInstallDone = async () => {
     setInstallSaving(true)
@@ -123,7 +182,7 @@ export default function PwaInstallTopBanner() {
           </button>
           <button
             type="button"
-            onClick={() => setDismissed(true)}
+            onClick={handleDismissLater}
             className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-slate-600 underline-offset-2 hover:underline dark:text-slate-400"
             aria-label="Später"
           >
@@ -170,7 +229,7 @@ export default function PwaInstallTopBanner() {
 
         <button
           type="button"
-          onClick={() => setDismissed(true)}
+          onClick={handleDismissLater}
           className="w-full text-center text-sm font-semibold text-slate-950 underline underline-offset-2 dark:text-slate-300"
         >
           Vielleicht später

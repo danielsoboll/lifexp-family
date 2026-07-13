@@ -56,6 +56,7 @@ type FamilyContextValue = {
   session: FamilySession | null
   refresh: () => Promise<void>
   refreshXpTotals: () => Promise<void>
+  patchFamily: (patch: Partial<Family>) => void
   applyTodayXpDelta: (memberKind: FamilySessionMemberKind, memberId: string, delta: number) => void
   setSession: (session: FamilySession) => void
   isImpersonatingChild: boolean
@@ -79,6 +80,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [session, setSessionState] = useState<FamilySession | null>(null)
   const loadedOnceRef = useRef(false)
+  const sessionEstablishedRef = useRef(false)
 
   const refreshXpTotals = useCallback(async () => {
     const stored = readFamilySession()
@@ -110,6 +112,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     },
     [],
   )
+
+  const patchFamily = useCallback((patch: Partial<Family>) => {
+    setFamily((prev) => (prev ? { ...prev, ...patch } : prev))
+  }, [])
 
   const refresh = useCallback(async () => {
     bootstrapPwaClientStorage()
@@ -151,6 +157,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     }
 
     if (!familyRow) {
+      if (sessionEstablishedRef.current) {
+        setError('Familie konnte gerade nicht geladen werden. Bitte kurz warten und erneut versuchen.')
+        setLoading(false)
+        return
+      }
       resetLifeXpFamilyClientState()
       setSessionState(null)
       setFamily(null)
@@ -179,12 +190,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     let nextCanAdmin = false
 
     if (stored.memberKind === 'parent') {
-      const [{ parent: parentRow, error: parentError }, { role, error: roleError }] = await Promise.all([
+      const [{ parent: directParent, error: parentError }, { role, error: roleError }] = await Promise.all([
         fetchParentById(stored.memberId),
         fetchMemberRoleForParent(stored.familyId, stored.memberId),
       ])
 
       if (parentError || roleError) {
+        if (sessionEstablishedRef.current) {
+          setError(parentError?.message ?? roleError?.message ?? 'Daten konnten gerade nicht geladen werden.')
+          setLoading(false)
+          return
+        }
         setParent(null)
         setActiveChild(null)
         setParents([])
@@ -195,7 +211,18 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      let parentRow = directParent
       if (!parentRow) {
+        const { parents: parentRows } = await fetchParentsForFamily(resolvedFamily.id)
+        parentRow = parentRows.find((row) => row.id === stored.memberId) ?? null
+      }
+
+      if (!parentRow) {
+        if (sessionEstablishedRef.current) {
+          setError('Profil konnte gerade nicht geladen werden. Bitte kurz warten und erneut versuchen.')
+          setLoading(false)
+          return
+        }
         resetLifeXpFamilyClientState()
         setSessionState(null)
         setFamily(null)
@@ -223,9 +250,14 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
             : [{ ...parentRow, role: role ?? 'parent', gender: parentRow.gender, todayXp: 0 }]
       }
     } else {
-      const { child: childRow, error: childSessionError } = await fetchChildById(stored.memberId)
+      const { child: directChild, error: childSessionError } = await fetchChildById(stored.memberId)
 
       if (childSessionError) {
+        if (sessionEstablishedRef.current) {
+          setError(childSessionError.message)
+          setLoading(false)
+          return
+        }
         setParent(null)
         setActiveChild(null)
         setParents([])
@@ -236,7 +268,18 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      let childRow = directChild
       if (!childRow || childRow.family_id !== resolvedFamily.id) {
+        const { children: childRows } = await fetchChildrenForFamily(resolvedFamily.id)
+        childRow = childRows.find((row) => row.id === stored.memberId) ?? null
+      }
+
+      if (!childRow || childRow.family_id !== resolvedFamily.id) {
+        if (sessionEstablishedRef.current) {
+          setError('Profil konnte gerade nicht geladen werden. Bitte kurz warten und erneut versuchen.')
+          setLoading(false)
+          return
+        }
         resetLifeXpFamilyClientState()
         setSessionState(null)
         setFamily(null)
@@ -285,6 +328,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     if (xpError) setError(xpError.message)
     void syncAllPersonalGoalsForFamily(resolvedFamily.id)
     loadedOnceRef.current = true
+    sessionEstablishedRef.current = true
     setLoading(false)
   }, [])
 
@@ -369,6 +413,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       session,
       refresh,
       refreshXpTotals,
+      patchFamily,
       applyTodayXpDelta,
       setSession,
       isImpersonatingChild,
@@ -390,6 +435,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       session,
       refresh,
       refreshXpTotals,
+      patchFamily,
       applyTodayXpDelta,
       setSession,
       isImpersonatingChild,

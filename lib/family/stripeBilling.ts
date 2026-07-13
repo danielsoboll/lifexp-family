@@ -1,44 +1,41 @@
 import { prepareBillingExternalRedirect, type VerifiedCheckoutSession } from './billingReturn'
 import { readFamilySession } from '../familySession'
 import { resolveFamilySiteOrigin } from './siteOrigin'
-import { supabase } from '../supabase'
 
-type BillingUrlResponse = { url?: string; error?: string }
+type BillingApiResponse = { error?: string }
 
 function checkoutBody(session: NonNullable<ReturnType<typeof readFamilySession>>) {
   return {
-    family_id: session.familyId,
-    member_kind: session.memberKind,
-    member_id: session.memberId,
-    site_url: resolveFamilySiteOrigin(),
+    familyId: session.familyId,
+    memberKind: session.memberKind,
+    memberId: session.memberId,
+    siteUrl: resolveFamilySiteOrigin(),
   }
 }
 
-async function invokeBilling<T>(name: string, body: Record<string, unknown>): Promise<T> {
-  const { data, error } = await supabase.functions.invoke<T & { error?: string }>(name, { body })
+async function invokeBillingApi<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
 
-  if (error) {
-    if (typeof error === 'object' && error !== null && 'context' in error) {
-      const response = (error as { context?: Response }).context
-      if (response instanceof Response) {
-        try {
-          const payload = (await response.clone().json()) as { error?: string }
-          if (payload.error) throw new Error(payload.error)
-        } catch (parseError) {
-          if (parseError instanceof Error && parseError.message !== 'Unexpected end of JSON input') {
-            throw parseError
-          }
-        }
-      }
-    }
-    throw new Error(error.message || 'Stripe-Anfrage fehlgeschlagen.')
+  let payload: (T & BillingApiResponse) | BillingApiResponse = {}
+  try {
+    payload = (await response.json()) as T & BillingApiResponse
+  } catch {
+    payload = {}
   }
 
-  if (data && typeof data === 'object' && 'error' in data && data.error) {
-    throw new Error(data.error)
+  if (!response.ok) {
+    throw new Error(payload.error ?? 'Stripe-Anfrage fehlgeschlagen.')
   }
 
-  return data as T
+  if (payload.error) {
+    throw new Error(payload.error)
+  }
+
+  return payload as T
 }
 
 export async function createPlusCheckoutSession(): Promise<{ url: string }> {
@@ -47,7 +44,7 @@ export async function createPlusCheckoutSession(): Promise<{ url: string }> {
     throw new Error('Keine aktive Familien-Sitzung — bitte erneut einloggen.')
   }
 
-  const data = await invokeBilling<BillingUrlResponse>('create-checkout-session', checkoutBody(session))
+  const data = await invokeBillingApi<{ url?: string }>('/api/billing/checkout', checkoutBody(session))
   if (!data?.url) throw new Error('Checkout-URL fehlt.')
 
   prepareBillingExternalRedirect()
@@ -60,7 +57,7 @@ export async function createPlusPortalSession(_familyId: string): Promise<{ url:
     throw new Error('Keine aktive Familien-Sitzung — bitte erneut einloggen.')
   }
 
-  const data = await invokeBilling<BillingUrlResponse>('create-customer-portal-session', checkoutBody(session))
+  const data = await invokeBillingApi<{ url?: string }>('/api/billing/portal', checkoutBody(session))
   if (!data?.url) throw new Error('Portal-URL fehlt.')
 
   prepareBillingExternalRedirect()
@@ -68,9 +65,7 @@ export async function createPlusPortalSession(_familyId: string): Promise<{ url:
 }
 
 export async function verifyStripeCheckoutSession(sessionId: string): Promise<VerifiedCheckoutSession> {
-  const data = await invokeBilling<VerifiedCheckoutSession>('verify-checkout-session', {
-    session_id: sessionId,
-  })
+  const data = await invokeBillingApi<VerifiedCheckoutSession>('/api/billing/verify', { sessionId })
   if (!data?.family_id) throw new Error('Checkout konnte nicht verifiziert werden.')
   return data
 }
@@ -81,6 +76,6 @@ export async function syncPlusBillingFromStripe(_familyId: string): Promise<{ sy
     throw new Error('Keine aktive Familien-Sitzung — bitte erneut einloggen.')
   }
 
-  const data = await invokeBilling<{ synced?: boolean }>('sync-family-billing', checkoutBody(session))
+  const data = await invokeBillingApi<{ synced?: boolean }>('/api/billing/sync', checkoutBody(session))
   return { synced: data?.synced === true }
 }

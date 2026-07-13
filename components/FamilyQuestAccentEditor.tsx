@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 import MemberAccentField from './MemberAccentField'
 import MemberEditorSaveBar from './MemberEditorSaveBar'
-import { notifyFamilyDataChanged, useFamily } from './FamilyProvider'
+import { useFamily } from './FamilyProvider'
 import { updateFamilyAccentKey } from '../lib/family/families'
 import { formatFamilyHeading } from '../lib/family/familyDisplayName'
 import { normalizeMemberAccentKey, type MemberAccentKey } from '../lib/family/memberAccentColor'
@@ -16,7 +16,7 @@ type FamilyQuestAccentEditorProps = {
 }
 
 export default function FamilyQuestAccentEditor({ family }: FamilyQuestAccentEditorProps) {
-  const { refresh } = useFamily()
+  const { patchFamily } = useFamily()
   const [accentKey, setAccentKey] = useState<MemberAccentKey>(normalizeMemberAccentKey(family.accent_key))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -39,8 +39,7 @@ export default function FamilyQuestAccentEditor({ family }: FamilyQuestAccentEdi
     }
 
     setSuccess(true)
-    notifyFamilyDataChanged()
-    await refresh()
+    patchFamily({ accent_key: accentKey })
   }
 
   return (

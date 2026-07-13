@@ -1,21 +1,24 @@
 import { NextResponse } from 'next/server'
 
-import {
-  assertFamilyAdminAuthorized,
-  deleteFamilyCascadeDirect,
-} from '@/lib/family/deleteFamilyCascade'
+import { assertFamilyAdminAuthorized } from '@/lib/family/deleteFamilyCascade'
+import { normalizeMemberAccentKey, type MemberAccentKey } from '@/lib/family/memberAccentColor'
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
 export async function POST(request: Request) {
   const admin = getSupabaseAdmin()
   if (!admin) {
     return NextResponse.json(
-      { error: 'SUPABASE_SERVICE_ROLE_KEY fehlt — Familie kann nicht gelöscht werden.' },
+      { error: 'SUPABASE_SERVICE_ROLE_KEY fehlt — Farbe kann nicht gespeichert werden.' },
       { status: 503 },
     )
   }
 
-  let body: { familyId?: string; memberId?: string; memberKind?: 'parent' | 'child' }
+  let body: {
+    familyId?: string
+    memberId?: string
+    memberKind?: 'parent' | 'child'
+    accentKey?: string
+  }
   try {
     body = (await request.json()) as typeof body
   } catch {
@@ -25,6 +28,7 @@ export async function POST(request: Request) {
   const familyId = body.familyId?.trim()
   const memberId = body.memberId?.trim()
   const memberKind = body.memberKind
+  const accentKey = normalizeMemberAccentKey(body.accentKey)
 
   if (!familyId || !memberId || (memberKind !== 'parent' && memberKind !== 'child')) {
     return NextResponse.json({ error: 'Session-Daten fehlen.' }, { status: 400 })
@@ -35,10 +39,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: authError.error.message }, { status: 403 })
   }
 
-  const { error } = await deleteFamilyCascadeDirect(admin, familyId)
+  const { data, error } = await admin
+    .from('families')
+    .update({ accent_key: accentKey, updated_at: new Date().toISOString() })
+    .eq('id', familyId)
+    .select('accent_key')
+    .maybeSingle()
+
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
+  if (!data) {
+    return NextResponse.json({ error: 'Familie nicht gefunden.' }, { status: 404 })
+  }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, accent_key: accentKey })
 }

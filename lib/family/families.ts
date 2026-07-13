@@ -1,5 +1,5 @@
 import { newId } from '../newId'
-import { getStoredParentId, type FamilySession } from '../familySession'
+import { getStoredFamilyId, getStoredParentId, readFamilySession, type FamilySession } from '../familySession'
 import { supabase } from '../supabase'
 import { withSupabaseRlsContextAsync } from '../supabaseRlsContext'
 import { familyDbError } from './dbError'
@@ -42,6 +42,41 @@ export async function updateFamilyAccentKey(
   familyId: string,
   accentKey: MemberAccentKey,
 ): Promise<{ error: Error | null }> {
+  const session = readFamilySession()
+  if (!session || session.familyId !== familyId) {
+    return { error: new Error('Keine gültige Familien-Session.') }
+  }
+
+  try {
+    const response = await fetch('/api/family/accent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        familyId,
+        memberId: session.memberId,
+        memberKind: session.memberKind,
+        accentKey,
+      }),
+    })
+
+    let payload: { error?: string } = {}
+    try {
+      payload = (await response.json()) as { error?: string }
+    } catch {
+      payload = {}
+    }
+
+    if (response.ok) {
+      return { error: null }
+    }
+
+    if (response.status !== 503) {
+      return { error: new Error(payload.error ?? 'Farbe konnte nicht gespeichert werden.') }
+    }
+  } catch {
+    /* Client-Fallback unten */
+  }
+
   const { error } = await supabase
     .from('families')
     .update({ accent_key: accentKey, updated_at: new Date().toISOString() })

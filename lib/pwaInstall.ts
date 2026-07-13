@@ -1,6 +1,9 @@
 import { scopedLocalGet, scopedLocalRemove, scopedLocalSet, scopedSessionGet, scopedSessionRemove, scopedSessionSet } from './scopedClientStorage'
+import { getLocalDateKey } from './cetDate'
 import { hasIncompleteFamilyOnboardingDraft } from './family/onboardingDraft'
 import { isOnboardingFlowActive } from './family/onboardingFlow'
+import { resolveSetupGuideStep, setupGuideStateFromFamily } from './family/setupGuide'
+import type { Family } from './family/types'
 import { hasFamilySession } from './familySession'
 
 export type HomeScreenIconPreference = 'yes' | 'no'
@@ -21,10 +24,21 @@ export const LIFEXP_PWA_INSTALL_PROMPT_READY_EVENT = 'lifexp-pwa-install-prompt-
 export const PWA_INSTALL_OVERLAY_ENABLED = false
 /** Sticky-Hinweis oben: App auf den Home-Bildschirm, solange im Browser geöffnet. */
 export const PWA_INSTALL_TOP_BANNER_ENABLED = true
-/** Erst nach dieser Wartezeit post-onboarding anzeigen (pro Browser-Tab). */
-export const PWA_TOP_BANNER_DELAY_MS = 60_000
+/** Wartezeit nach Assistent + eigenem Streak — erst dann Banner (pro Tab). */
+export const PWA_TOP_BANNER_DELAY_MS = 180_000
 
-const PWA_TOP_BANNER_ELIGIBLE_AT_KEY = 'lifexp-pwa-top-banner-eligible-at'
+/** Live-Builds ≤60s: nur post-onboarding — nicht für neue Voraussetzungen wiederverwenden. */
+const PWA_TOP_BANNER_ELIGIBLE_LEGACY_KEY = 'lifexp-pwa-top-banner-eligible-at'
+const PWA_TOP_BANNER_ELIGIBLE_KEY = 'lifexp-pwa-top-banner-eligible-v2'
+const PWA_TOP_BANNER_MARK_SCHEMA = 2
+
+type PwaTopBannerEligibleMark = {
+  at: number
+  streakDate: string
+  schema: number
+}
+
+let pwaTopBannerStorageMigrated = false
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
@@ -117,6 +131,8 @@ function notifyInstallPromptReady(): void {
 export function attachPwaInstallListener(): void {
   if (typeof window === 'undefined' || listenerAttached) return
   listenerAttached = true
+
+  migratePwaTopBannerStorage()
 
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault()
@@ -226,6 +242,40 @@ export type PwaPostOnboardingContext = {
   familyReady?: boolean
 }
 
+export type PwaTopBannerContext = PwaPostOnboardingContext & {
+  family?: Family | null
+  memberId?: string | null
+  canAdmin?: boolean
+  parentCount?: number
+  childCount?: number
+  /** true = „Bin dabei!“ / Tages-Streak heute erledigt; null = noch unbekannt */
+  ownStreakClaimedToday?: boolean | null
+}
+
+/** Einsteiger-Assistent abgeschlossen — kein offener Guide-Schritt mehr. */
+export function isSetupGuideAssistantComplete(context: PwaTopBannerContext = {}): boolean {
+  if (!context.family?.id) return false
+  const state = setupGuideStateFromFamily(context.family)
+  if (!state) return false
+  if (state.finished) return true
+  const step = resolveSetupGuideStep({
+    state,
+    parentCount: context.parentCount ?? 0,
+    childCount: context.childCount ?? 0,
+    canAdmin: context.canAdmin ?? false,
+    memberId: context.memberId,
+  })
+  return step === null
+}
+
+/** Assistent fertig und eigener Tages-Streak erledigt. */
+export function isPwaTopBannerPrerequisitesMet(context: PwaTopBannerContext = {}): boolean {
+  if (!isPostOnboardingPwaPromptEligible(context)) return false
+  if (!isSetupGuideAssistantComplete(context)) return false
+  if (context.ownStreakClaimedToday !== true) return false
+  return true
+}
+
 /** Globaler PWA-Hinweis nur nach abgeschlossenem Onboarding — nie auf Willkommen/Formular. */
 export function isPostOnboardingPwaPromptEligible(context: PwaPostOnboardingContext = {}): boolean {
   if (typeof window === 'undefined') return false
@@ -241,29 +291,87 @@ export function isPwaGlobalOverlayEligible(context: PwaPostOnboardingContext = {
   return isPostOnboardingPwaPromptEligible(context)
 }
 
-export function shouldShowPwaInstallTopBanner(context: PwaPostOnboardingContext = {}): boolean {
+export function shouldShowPwaInstallTopBanner(context: PwaTopBannerContext = {}): boolean {
   if (typeof window === 'undefined') return false
   if (!PWA_INSTALL_TOP_BANNER_ENABLED) return false
-  if (!isPostOnboardingPwaPromptEligible(context)) return false
+  if (loadHomeScreenIconPreference() === 'yes') return false
+  if (hasPwaInstallLater()) return false
+  if (!isPwaTopBannerPrerequisitesMet(context)) return false
   if (!shouldShowPwaInstallPromo()) return false
   if (!isPwaTopBannerDelayElapsed()) return false
   return true
 }
 
-/** Startet die Wartezeit beim ersten post-onboarding Besuch im Tab. */
+/** Alte Timer-Marks (localStorage/sessionStorage) von früheren Builds entfernen. */
+export function migratePwaTopBannerStorage(): void {
+  if (typeof window === 'undefined') return
+  if (pwaTopBannerStorageMigrated) return
+  pwaTopBannerStorageMigrated = true
+
+  scopedSessionRemove(PWA_TOP_BANNER_ELIGIBLE_LEGACY_KEY)
+  scopedLocalRemove(PWA_TOP_BANNER_ELIGIBLE_LEGACY_KEY)
+
+  const mark = readPwaTopBannerEligibleMarkRaw()
+  if (!mark) return
+  if (mark.schema !== PWA_TOP_BANNER_MARK_SCHEMA || mark.streakDate !== getLocalDateKey()) {
+    clearPwaTopBannerEligibleMark()
+  }
+}
+
+function readPwaTopBannerEligibleMarkRaw(): PwaTopBannerEligibleMark | null {
+  const raw = scopedSessionGet(PWA_TOP_BANNER_ELIGIBLE_KEY)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<PwaTopBannerEligibleMark>
+    if (typeof parsed.at !== 'number' || !Number.isFinite(parsed.at)) return null
+    if (typeof parsed.streakDate !== 'string' || !parsed.streakDate.trim()) return null
+    if (parsed.schema !== PWA_TOP_BANNER_MARK_SCHEMA) return null
+    return parsed as PwaTopBannerEligibleMark
+  } catch {
+    return null
+  }
+}
+
+function readValidPwaTopBannerEligibleMark(): PwaTopBannerEligibleMark | null {
+  migratePwaTopBannerStorage()
+  const mark = readPwaTopBannerEligibleMarkRaw()
+  if (!mark) return null
+  if (mark.streakDate !== getLocalDateKey()) {
+    clearPwaTopBannerEligibleMark()
+    return null
+  }
+  return mark
+}
+
+/** Timer starten, wenn Voraussetzungen erfüllt; sonst zurücksetzen. */
+export function syncPwaTopBannerEligibleMark(prerequisitesMet: boolean): void {
+  if (typeof window === 'undefined') return
+  if (!prerequisitesMet) {
+    clearPwaTopBannerEligibleMark()
+    return
+  }
+  markPwaTopBannerEligibleNow()
+}
+
+/** Startet die Wartezeit, wenn Assistent + Streak erfüllt (pro Tab, Streak-Tag). */
 export function markPwaTopBannerEligibleNow(): void {
   if (typeof window === 'undefined') return
-  if (scopedSessionGet(PWA_TOP_BANNER_ELIGIBLE_AT_KEY)) return
-  scopedSessionSet(PWA_TOP_BANNER_ELIGIBLE_AT_KEY, String(Date.now()))
+  migratePwaTopBannerStorage()
+  if (readValidPwaTopBannerEligibleMark()) return
+
+  const mark: PwaTopBannerEligibleMark = {
+    at: Date.now(),
+    streakDate: getLocalDateKey(),
+    schema: PWA_TOP_BANNER_MARK_SCHEMA,
+  }
+  scopedSessionSet(PWA_TOP_BANNER_ELIGIBLE_KEY, JSON.stringify(mark))
 }
 
 export function getPwaTopBannerDelayRemainingMs(): number | null {
   if (typeof window === 'undefined') return null
-  const raw = scopedSessionGet(PWA_TOP_BANNER_ELIGIBLE_AT_KEY)
-  if (!raw) return null
-  const eligibleAt = Number(raw)
-  if (!Number.isFinite(eligibleAt)) return null
-  return Math.max(0, PWA_TOP_BANNER_DELAY_MS - (Date.now() - eligibleAt))
+  const mark = readValidPwaTopBannerEligibleMark()
+  if (!mark) return null
+  return Math.max(0, PWA_TOP_BANNER_DELAY_MS - (Date.now() - mark.at))
 }
 
 export function isPwaTopBannerDelayElapsed(): boolean {
@@ -274,7 +382,9 @@ export function isPwaTopBannerDelayElapsed(): boolean {
 
 export function clearPwaTopBannerEligibleMark(): void {
   if (typeof window === 'undefined') return
-  scopedSessionRemove(PWA_TOP_BANNER_ELIGIBLE_AT_KEY)
+  scopedSessionRemove(PWA_TOP_BANNER_ELIGIBLE_KEY)
+  scopedSessionRemove(PWA_TOP_BANNER_ELIGIBLE_LEGACY_KEY)
+  scopedLocalRemove(PWA_TOP_BANNER_ELIGIBLE_LEGACY_KEY)
 }
 
 export function shouldOfferPwaInstall(appInstalled = false, context: PwaPostOnboardingContext = {}): boolean {
