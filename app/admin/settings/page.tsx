@@ -57,31 +57,37 @@ export default function AdminSettingsPage() {
     if (!family) return false
     setResetFamilyBusy(true)
     setResetFamilyError(null)
-    const { error: resetError } = await resetFamilyProgressById(family.id)
-    setResetFamilyBusy(false)
-    if (resetError) {
-      setResetFamilyError(resetError.message)
-      return false
+    try {
+      const { error: resetError } = await resetFamilyProgressById(family.id)
+      if (resetError) {
+        setResetFamilyError(resetError.message)
+        return false
+      }
+      notifyFamilyDataChanged()
+      await refresh()
+      return true
+    } finally {
+      setResetFamilyBusy(false)
     }
-    notifyFamilyDataChanged()
-    await refresh()
-    return true
   }
 
   const handleDeleteFamily = async (): Promise<boolean> => {
     if (!family) return false
     setDeleteFamilyBusy(true)
     setDeleteFamilyError(null)
-    const { error: deleteError } = await deleteFamilyById(family.id)
-    setDeleteFamilyBusy(false)
-    if (deleteError) {
-      setDeleteFamilyError(deleteError.message)
-      return false
+    try {
+      const { error: deleteError } = await deleteFamilyById(family.id)
+      if (deleteError) {
+        setDeleteFamilyError(deleteError.message)
+        return false
+      }
+      resetLifeXpFamilyClientState()
+      router.replace('/')
+      router.refresh()
+      return true
+    } finally {
+      setDeleteFamilyBusy(false)
     }
-    resetLifeXpFamilyClientState()
-    router.replace('/')
-    router.refresh()
-    return true
   }
 
   return (

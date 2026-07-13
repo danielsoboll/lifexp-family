@@ -98,30 +98,36 @@ export default function AdminPage() {
     if (!family) return false
     setChildDeleteBusy(childId)
     setChildDeleteError(null)
-    const { error: deleteError } = await deleteChildById(childId, family.id)
-    setChildDeleteBusy(null)
-    if (deleteError) {
-      setChildDeleteError(deleteError.message)
-      return false
+    try {
+      const { error: deleteError } = await deleteChildById(childId, family.id)
+      if (deleteError) {
+        setChildDeleteError(deleteError.message)
+        return false
+      }
+      notifyFamilyDataChanged()
+      await refresh()
+      return true
+    } finally {
+      setChildDeleteBusy(null)
     }
-    notifyFamilyDataChanged()
-    await refresh()
-    return true
   }
 
   const handleDeleteParent = async (parentId: string): Promise<boolean> => {
     if (!family) return false
     setParentDeleteBusy(parentId)
     setParentDeleteError(null)
-    const { error: deleteError } = await deleteParentById(parentId, family.id)
-    setParentDeleteBusy(null)
-    if (deleteError) {
-      setParentDeleteError(deleteError.message)
-      return false
+    try {
+      const { error: deleteError } = await deleteParentById(parentId, family.id)
+      if (deleteError) {
+        setParentDeleteError(deleteError.message)
+        return false
+      }
+      notifyFamilyDataChanged()
+      await refresh()
+      return true
+    } finally {
+      setParentDeleteBusy(null)
     }
-    notifyFamilyDataChanged()
-    await refresh()
-    return true
   }
 
   const showInviteTeaser = totalFamilyMembers(parents.length, children.length) >= 2

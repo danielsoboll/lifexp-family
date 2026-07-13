@@ -27,25 +27,26 @@ export default function OrangeConfirmAction({
   error = null,
 }: OrangeConfirmActionProps) {
   const [open, setOpen] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
+  const actionBusy = busy || confirming
 
   useEffect(() => {
     if (!open) return
     const node = panelRef.current
     if (!node) return
-
-    const scrollPanelIntoView = () => {
-      node.scrollIntoView({ behavior: 'smooth', block: 'end' })
-    }
-
-    scrollPanelIntoView()
-    requestAnimationFrame(scrollPanelIntoView)
-    window.setTimeout(scrollPanelIntoView, 150)
+    node.scrollIntoView({ behavior: 'auto', block: 'nearest' })
   }, [open])
 
   const handleConfirm = async () => {
-    const ok = await onConfirm()
-    if (ok !== false) setOpen(false)
+    if (actionBusy) return
+    setConfirming(true)
+    try {
+      const ok = await onConfirm()
+      if (ok !== false) setOpen(false)
+    } finally {
+      setConfirming(false)
+    }
   }
 
   if (open) {
@@ -62,16 +63,16 @@ export default function OrangeConfirmAction({
           </p>
         ) : null}
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <button type="button" onClick={() => setOpen(false)} className={ORANGE_CONFIRM_CANCEL_CLASS} disabled={busy}>
+          <button type="button" onClick={() => setOpen(false)} className={ORANGE_CONFIRM_CANCEL_CLASS} disabled={actionBusy}>
             Nein
           </button>
           <button
             type="button"
             onClick={() => void handleConfirm()}
             className={ORANGE_CONFIRM_YES_CLASS}
-            disabled={busy}
+            disabled={actionBusy}
           >
-            {busy ? '…' : 'Ja'}
+            {actionBusy ? '…' : 'Ja'}
           </button>
         </div>
       </div>

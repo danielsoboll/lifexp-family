@@ -1,6 +1,7 @@
 import { getLocalDateKey } from '../cetDate'
 import { getStoredFamilyId, readFamilySession } from '../familySession'
 import { supabase } from '../supabase'
+import { deleteFamilyCascadeDirect } from './deleteFamilyCascade'
 import { fetchChildById } from './children'
 import { fetchParentById } from './families'
 import { sessionHasAdminAccess } from './memberAdmin'
@@ -127,53 +128,35 @@ export async function deleteFamilyById(familyId: string): Promise<{ error: Error
   const adminError = await assertFamilyAdminSession(familyId)
   if (adminError.error) return adminError
 
-  const { data: memberships, error: membershipError } = await supabase
-    .from('family_members')
-    .select('parent_id')
-    .eq('family_id', familyId)
-
-  if (membershipError) return { error: new Error(membershipError.message) }
-
-  const parentIds = [...new Set((memberships ?? []).map((row) => row.parent_id as string))]
-
-  await deleteQuestCompletionStorageForFamily(familyId)
-
-  const prepTables = [
-    'quest_completion_creator_reactions',
-    'quest_completion_assignee_photos',
-    'reward_redemptions',
-    'member_personal_goal_tracking',
-    'member_personal_goals',
-    'member_daily_xp_history',
-    'family_daily_xp_history',
-  ] as const
-
-  for (const table of prepTables) {
-    const prepError = await deleteRowsByFamilyId(table, familyId)
-    if (prepError) return { error: prepError }
+  const session = readFamilySession()
+  if (!session) {
+    return { error: new Error('Keine gültige Familien-Session.') }
   }
 
-  for (const parentId of parentIds) {
-    const { error: parentDeleteError } = await supabase.from('parent_profiles').delete().eq('id', parentId)
-    if (parentDeleteError) return { error: new Error(parentDeleteError.message) }
-  }
+  try {
+    const response = await fetch('/api/family/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        familyId,
+        memberId: session.memberId,
+        memberKind: session.memberKind,
+      }),
+    })
 
-  const { data: deleted, error } = await supabase.from('families').delete().eq('id', familyId).select('id')
-
-  if (error) {
-    const message = error.message.includes('foreign key')
-      ? `${error.message} — Bitte supabase/family_delete_cascade_fix.sql in Supabase ausführen.`
-      : error.message
-    return { error: new Error(message) }
-  }
-
-  if (!deleted?.length) {
-    return {
-      error: new Error('Familie konnte nicht gelöscht werden — keine Berechtigung oder unbekannte Familien-ID.'),
+    const payload = (await response.json()) as { error?: string }
+    if (response.ok) {
+      return { error: null }
     }
-  }
 
-  return { error: null }
+    if (response.status === 503) {
+      return deleteFamilyCascadeDirect(supabase, familyId)
+    }
+
+    return { error: new Error(payload.error ?? 'Familie konnte nicht gelöscht werden.') }
+  } catch {
+    return deleteFamilyCascadeDirect(supabase, familyId)
+  }
 }
 
 const FAMILY_PROGRESS_RESET_TABLES = [
