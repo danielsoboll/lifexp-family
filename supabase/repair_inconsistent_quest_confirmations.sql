@@ -1,30 +1,21 @@
--- Repair: inconsistent quest confirmations after RLS failure on child_profiles during XP booking.
+-- Repair: inkonsistente Quest-Bestätigungen nach RLS-Fehler bei XP-Buchung.
 --
--- Scenario:
--- - quest_completions was updated (creator_confirmed_at set, xp_awarded set)
--- - inserting into daily_xp_entries failed (trigger tried to update child_profiles.total_xp and hit RLS)
--- => UI shows "confirmed" but XP missing / state feels stuck.
+-- Szenario (vor fix_daily_xp_entry_child_total_rls.sql):
+-- - quest_completions wurde aktualisiert (creator_confirmed_at gesetzt)
+-- - daily_xp_entries INSERT schlug fehl
+-- => App wirkt „kaputt“, Bestätigen erneut sagt „schon bestätigt“.
 --
--- What this script does (per family):
--- 1) Re-insert missing daily_xp_entries rows for confirmed child quest completions.
--- 2) Resync family XP history for affected days.
--- 3) Recompute child_profiles.total_xp from daily_xp_entries (authoritative), to be safe.
---
--- Run in Supabase SQL editor. Replace :family_id with your family's UUID.
+-- Dieses Skript repariert ALLE betroffenen Familien.
+-- Optional: WHERE qc.family_id = 'DEINE-UUID' in den INSERT/UPDATE-Teilen ergänzen.
 
 DO $$
 DECLARE
-  v_family_id uuid := :family_id;
+  fam record;
   rec record;
 BEGIN
-  IF v_family_id IS NULL THEN
-    RAISE EXCEPTION 'family_id is required';
-  END IF;
-
-  -- Ensure we can do the repairs without RLS blocking internal updates.
   PERFORM set_config('row_security', 'off', true);
 
-  -- 1) Insert missing XP entries for confirmed child completions.
+  -- 1) Fehlende XP-Einträge nachbuchen
   INSERT INTO public.daily_xp_entries (family_id, child_id, entry_date, source, source_id, xp_amount, metadata)
   SELECT
     qc.family_id,
@@ -39,8 +30,7 @@ BEGIN
     )
   FROM public.quest_completions qc
   JOIN public.quests q ON q.id = qc.quest_id
-  WHERE qc.family_id = v_family_id
-    AND qc.child_id IS NOT NULL
+  WHERE qc.child_id IS NOT NULL
     AND qc.creator_confirmed_at IS NOT NULL
     AND qc.xp_awarded IS NOT NULL
     AND qc.xp_awarded > 0
@@ -54,27 +44,33 @@ BEGIN
         AND de.source_id = qc.quest_id
     );
 
-  -- 2) Resync family XP history for all dates that have completions/entries.
-  FOR rec IN
-    SELECT DISTINCT qc.completed_on AS score_date
+  -- 2) XP-Historie pro Familie/Tag neu synchronisieren
+  FOR fam IN
+    SELECT DISTINCT qc.family_id
     FROM public.quest_completions qc
-    WHERE qc.family_id = v_family_id
     UNION
-    SELECT DISTINCT de.entry_date AS score_date
+    SELECT DISTINCT de.family_id
     FROM public.daily_xp_entries de
-    WHERE de.family_id = v_family_id
   LOOP
-    PERFORM public.sync_family_xp_history(v_family_id, rec.score_date);
+    FOR rec IN
+      SELECT DISTINCT qc.completed_on AS score_date
+      FROM public.quest_completions qc
+      WHERE qc.family_id = fam.family_id
+      UNION
+      SELECT DISTINCT de.entry_date AS score_date
+      FROM public.daily_xp_entries de
+      WHERE de.family_id = fam.family_id
+    LOOP
+      PERFORM public.sync_family_xp_history(fam.family_id, rec.score_date);
+    END LOOP;
   END LOOP;
 
-  -- 3) Recompute child total_xp from daily_xp_entries.
+  -- 3) total_xp aller Kinder aus daily_xp_entries neu berechnen
   UPDATE public.child_profiles cp
   SET total_xp = COALESCE((
     SELECT SUM(de.xp_amount)::integer
     FROM public.daily_xp_entries de
     WHERE de.child_id = cp.id
-  ), 0)
-  WHERE cp.family_id = v_family_id;
+  ), 0);
 END;
 $$;
-

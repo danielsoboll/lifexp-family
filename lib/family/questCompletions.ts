@@ -257,9 +257,6 @@ export async function confirmQuestByCreator(
   if (!row.assignee_confirmed_at) {
     return { error: new Error('Die Quest wurde noch nicht als erledigt gemeldet.') }
   }
-  if (row.creator_confirmed_at) {
-    return { error: new Error('Diese Quest wurde schon bestätigt.') }
-  }
 
   const questRaw = row.quests as Quest | Quest[] | null
   const quest = Array.isArray(questRaw) ? questRaw[0] ?? null : questRaw
@@ -268,6 +265,36 @@ export async function confirmQuestByCreator(
   const childId = row.child_id as string | null
   const parentId = row.parent_id as string | null
   const familyId = row.family_id as string
+  const xpAwarded = clampQuestXp(quest.xp_reward)
+  const entryDate = normalizeDateKey(row.completed_on as string)
+
+  if (row.creator_confirmed_at) {
+    if (childId && xpAwarded > 0) {
+      const { missing, error: missingError } = await childQuestCompletionMissingXpEntry({
+        familyId,
+        completionId,
+        questId: quest.id,
+        childId,
+        entryDate,
+      })
+      if (missingError) return { error: missingError }
+      if (missing) {
+        const xpError = await recordDailyXpEntry({
+          familyId,
+          childId,
+          entryDate,
+          source: 'quest',
+          sourceId: quest.id,
+          xpAmount: xpAwarded,
+          metadata: { quest_completion_id: completionId, quest_title: quest.title },
+        })
+        if (xpError) return { error: xpError }
+        await resyncFamilyXpHistoryForDate(familyId, entryDate)
+        return { error: null, xpAwarded, assigneeChildId: childId, assigneeParentId: parentId }
+      }
+    }
+    return { error: new Error('Diese Quest wurde schon bestätigt.') }
+  }
 
   if (
     !options.allowSelfAssignee &&
@@ -283,9 +310,6 @@ export async function confirmQuestByCreator(
       return { error: new Error('Nur der Quest-Ersteller oder ein Admin kann die Quest bestätigen.') }
     }
   }
-
-  const xpAwarded = clampQuestXp(quest.xp_reward)
-  const entryDate = normalizeDateKey(row.completed_on as string)
 
   const now = new Date().toISOString()
 
@@ -305,20 +329,6 @@ export async function confirmQuestByCreator(
   const creatorParentId = session.memberKind === 'parent' ? session.memberId : null
   const creatorChildId = session.memberKind === 'child' ? session.memberId : null
 
-  const { error: updateError } = await supabase
-    .from('quest_completions')
-    .update({
-      creator_confirmed_at: now,
-      creator_confirmed_by_parent_id: creatorParentId,
-      creator_confirmed_by_child_id: creatorChildId,
-      xp_awarded: xpAwarded,
-      completed_at: now,
-    })
-    .eq('id', completionId)
-    .is('creator_confirmed_at', null)
-
-  if (updateError) return { error: new Error(updateError.message) }
-
   if (childId) {
     const xpError = await recordDailyXpEntry({
       familyId,
@@ -330,6 +340,46 @@ export async function confirmQuestByCreator(
       metadata: { quest_completion_id: completionId, quest_title: quest.title },
     })
     if (xpError) return { error: xpError }
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from('quest_completions')
+    .update({
+      creator_confirmed_at: now,
+      creator_confirmed_by_parent_id: creatorParentId,
+      creator_confirmed_by_child_id: creatorChildId,
+      xp_awarded: xpAwarded,
+      completed_at: now,
+    })
+    .eq('id', completionId)
+    .is('creator_confirmed_at', null)
+    .select('id')
+    .maybeSingle()
+
+  if (updateError) {
+    if (childId) {
+      await deleteQuestXpEntryForCompletion({
+        familyId,
+        completionId,
+        questId: quest.id,
+        childId,
+        entryDate,
+      })
+    }
+    return { error: new Error(updateError.message) }
+  }
+
+  if (!updated) {
+    if (childId) {
+      await deleteQuestXpEntryForCompletion({
+        familyId,
+        completionId,
+        questId: quest.id,
+        childId,
+        entryDate,
+      })
+    }
+    return { error: new Error('Diese Quest wurde schon bestätigt.') }
   }
 
   if (options.reaction?.message.trim() && options.reaction.portraitId) {
@@ -345,6 +395,7 @@ export async function confirmQuestByCreator(
     if (reactionError.error) return { error: reactionError.error }
   }
 
+  await resyncFamilyXpHistoryForDate(familyId, entryDate)
   return { error: null, xpAwarded, assigneeChildId: childId, assigneeParentId: parentId }
 }
 
@@ -516,6 +567,38 @@ export async function familyHasQuestCompletionActivity(
 
   if (error) return { hasActivity: false, error: new Error(error.message) }
   return { hasActivity: (count ?? 0) > 0, error: null }
+}
+
+async function childQuestCompletionMissingXpEntry(input: {
+  familyId: string
+  completionId: string
+  questId: string
+  childId: string
+  entryDate: string
+}): Promise<{ missing: boolean; error: Error | null }> {
+  const { data: byMetadata, error: metaFetchError } = await supabase
+    .from('daily_xp_entries')
+    .select('id')
+    .eq('family_id', input.familyId)
+    .eq('child_id', input.childId)
+    .filter('metadata->>quest_completion_id', 'eq', input.completionId)
+    .limit(1)
+
+  if (metaFetchError) return { missing: false, error: new Error(metaFetchError.message) }
+  if ((byMetadata ?? []).length > 0) return { missing: false, error: null }
+
+  const { data: bySource, error: sourceFetchError } = await supabase
+    .from('daily_xp_entries')
+    .select('id')
+    .eq('family_id', input.familyId)
+    .eq('child_id', input.childId)
+    .eq('entry_date', input.entryDate)
+    .eq('source', 'quest')
+    .eq('source_id', input.questId)
+    .limit(1)
+
+  if (sourceFetchError) return { missing: false, error: new Error(sourceFetchError.message) }
+  return { missing: (bySource ?? []).length === 0, error: null }
 }
 
 async function deleteQuestXpEntryForCompletion(input: {
