@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server'
 
-import {
-  createPlusPortalSessionServer,
-  parseBillingSessionBody,
-  type BillingSessionBody,
-} from '@/lib/family/billingServer'
-import { createSupabaseServerSessionClient } from '@/lib/supabaseServerSession'
+import { parseBillingSessionBody, type BillingSessionBody } from '@/lib/family/billingServer'
+import { invokeSupabaseEdgeFunction } from '@/lib/supabaseEdgeFunctions'
 
 export async function POST(request: Request) {
   let body: BillingSessionBody
@@ -17,15 +13,16 @@ export async function POST(request: Request) {
 
   try {
     const session = parseBillingSessionBody(body)
-    const { url } = await createPlusPortalSessionServer({
-      admin: createSupabaseServerSessionClient(session),
-      request,
-      familyId: session.familyId,
-      memberKind: session.memberKind,
-      memberId: session.memberId,
-      siteUrl: session.siteUrl,
+    const edge = await invokeSupabaseEdgeFunction<{ url?: string }>('create-customer-portal-session', {
+      family_id: session.familyId,
+      member_kind: session.memberKind,
+      member_id: session.memberId,
+      site_url: session.siteUrl,
     })
-    return NextResponse.json({ url })
+    if (!edge.url) {
+      return NextResponse.json({ error: 'Portal-URL fehlt.' }, { status: 502 })
+    }
+    return NextResponse.json({ url: edge.url })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Portal konnte nicht geöffnet werden.'
     const status = message.includes('Berechtigung') || message.includes('Admins') ? 403 : 400
