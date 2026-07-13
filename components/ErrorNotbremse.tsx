@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
+import { useFamily } from './FamilyProvider'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
+import { APP_ERROR_EVENT, type AppErrorDetail } from '../lib/errorNotbremse'
 
 type NotbremseState = {
   message: string
-  where: 'unhandled' | 'error-boundary'
+  where: AppErrorDetail['source']
 }
 
 function normalizeErrorMessage(value: unknown): string {
@@ -23,8 +25,10 @@ function normalizeErrorMessage(value: unknown): string {
 export default function ErrorNotbremse() {
   const router = useRouter()
   const pathname = usePathname()
+  const { memberKind } = useFamily()
   const [active, setActive] = useState<NotbremseState | null>(null)
   const [stay, setStay] = useState(false)
+  const showDetails = memberKind !== 'child'
 
   const autoTarget = useMemo(() => {
     // avoid loops if we're already on the start page
@@ -40,11 +44,19 @@ export default function ErrorNotbremse() {
       setActive({ where: 'unhandled', message: normalizeErrorMessage(event.error ?? event.message) })
     }
 
+    const onAppError = (event: Event) => {
+      const detail = (event as CustomEvent<AppErrorDetail>).detail
+      if (!detail?.message) return
+      setActive({ where: detail.source, message: detail.message })
+    }
+
     window.addEventListener('unhandledrejection', onUnhandledRejection)
     window.addEventListener('error', onError)
+    window.addEventListener(APP_ERROR_EVENT, onAppError)
     return () => {
       window.removeEventListener('unhandledrejection', onUnhandledRejection)
       window.removeEventListener('error', onError)
+      window.removeEventListener(APP_ERROR_EVENT, onAppError)
     }
   }, [])
 
@@ -89,15 +101,16 @@ export default function ErrorNotbremse() {
           Hier bleiben
         </button>
 
-        {/* Keep details hidden but still helpful for debugging */}
-        <details className="mt-4">
-          <summary className="cursor-pointer text-xs font-semibold text-slate-500 dark:text-slate-400">
-            Details
-          </summary>
-          <pre className="mt-2 max-h-40 overflow-auto rounded-xl bg-slate-100 p-2 text-[11px] text-slate-700 dark:bg-slate-900 dark:text-slate-200">
-            {active.where}: {active.message}
-          </pre>
-        </details>
+        {showDetails ? (
+          <details className="mt-4">
+            <summary className="cursor-pointer text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Details
+            </summary>
+            <pre className="mt-2 max-h-40 overflow-auto rounded-xl bg-slate-100 p-2 text-[11px] text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+              {active.where}: {active.message}
+            </pre>
+          </details>
+        ) : null}
       </div>
     </div>
   )

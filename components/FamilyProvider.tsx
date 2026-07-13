@@ -38,6 +38,7 @@ import {
   type FamilySessionMemberKind,
 } from '../lib/familySession'
 import type { ChildProfile, ChildWithTodayXp, Family, ParentProfile } from '../lib/family/types'
+import { reportAppError, STUCK_LOADING_MS } from '../lib/errorNotbremse'
 
 export const FAMILY_DATA_CHANGED_EVENT = 'lifexp-family-data-changed'
 
@@ -81,6 +82,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<FamilySession | null>(null)
   const loadedOnceRef = useRef(false)
   const sessionEstablishedRef = useRef(false)
+  const refreshGenerationRef = useRef(0)
 
   const refreshXpTotals = useCallback(async () => {
     const stored = readFamilySession()
@@ -118,9 +120,25 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const refresh = useCallback(async () => {
+    const generation = ++refreshGenerationRef.current
     bootstrapPwaClientStorage()
     const stored = readFamilySession()
     setSessionState(stored)
+
+    const clearStuckLoading = () => {
+      if (generation !== refreshGenerationRef.current) return
+      setLoading(false)
+    }
+
+    const stuckTimer =
+      typeof window !== 'undefined'
+        ? window.setTimeout(() => {
+            clearStuckLoading()
+            reportAppError('Laden dauert ungewöhnlich lange.', 'loading-timeout')
+          }, STUCK_LOADING_MS)
+        : null
+
+    try {
 
     if (!stored) {
       loadedOnceRef.current = false
@@ -330,6 +348,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     loadedOnceRef.current = true
     sessionEstablishedRef.current = true
     setLoading(false)
+    } finally {
+      if (stuckTimer !== null) window.clearTimeout(stuckTimer)
+    }
   }, [])
 
   useEffect(() => {

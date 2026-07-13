@@ -19,6 +19,7 @@ import { isFamilyPlus } from '../../../lib/family/familyPlus'
 import { FAMILY_PLUS_TAGLINE } from '../../../lib/family/familyPlusFeatures'
 import { markSetupGuideAdminVisited } from '../../../lib/family/setupGuide'
 import { resetLifeXpFamilyClientState } from '../../../lib/familySession'
+import { reportAppError } from '../../../lib/errorNotbremse'
 import { usePlusDiscoverHeader } from '../../../hooks/usePlusDiscoverHeader'
 import { shouldShowPwaInstallPromo } from '../../../lib/pwaInstall'
 import { CARD_SURFACE_CLASS, MUTED_BODY_TEXT_CLASS } from '../../../lib/appShell'
@@ -61,6 +62,7 @@ export default function AdminSettingsPage() {
       const { error: resetError } = await resetFamilyProgressById(family.id)
       if (resetError) {
         setResetFamilyError(resetError.message)
+        reportAppError(resetError.message)
         return false
       }
       notifyFamilyDataChanged()
@@ -79,6 +81,7 @@ export default function AdminSettingsPage() {
       const { error: deleteError } = await deleteFamilyById(family.id)
       if (deleteError) {
         setDeleteFamilyError(deleteError.message)
+        reportAppError(deleteError.message)
         return false
       }
       resetLifeXpFamilyClientState()

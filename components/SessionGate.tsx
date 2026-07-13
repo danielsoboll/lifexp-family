@@ -13,6 +13,7 @@ import {
 import { bootstrapPwaClientStorage } from '../lib/pwaClientStorage'
 import { HOME_PATH, isPublicLegalPath } from '../lib/legalRoutes'
 import { hasFamilySession } from '../lib/familySession'
+import { reportAppError, STUCK_LOADING_MS } from '../lib/errorNotbremse'
 import { runProductionDomainFreshStartIfNeeded } from '../lib/productionDomainFreshStart'
 import { MAIN_SHELL_CLASS } from '../lib/appShell'
 
@@ -22,10 +23,33 @@ export default function SessionGate({ children }: { children: React.ReactNode })
   const { hasSession, loading: familyLoading } = useFamily()
   const [hydrated, setHydrated] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false)
 
   useEffect(() => {
     setHydrated(true)
   }, [])
+
+  useEffect(() => {
+    if (!familyLoading) {
+      setLoadingTimedOut(false)
+    }
+  }, [familyLoading])
+
+  useEffect(() => {
+    const waitingForFamily =
+      familyLoading &&
+      (hasSession || hasFamilySession() || isBillingReturnPath(pathname)) &&
+      !isPublicLegalPath(pathname)
+
+    if (!waitingForFamily || loadingTimedOut) return
+
+    const timer = window.setTimeout(() => {
+      setLoadingTimedOut(true)
+      reportAppError('Laden dauert ungewöhnlich lange.', 'loading-timeout')
+    }, STUCK_LOADING_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [familyLoading, hasSession, pathname, loadingTimedOut])
 
   useEffect(() => {
     if (!hydrated) return
@@ -70,8 +94,11 @@ export default function SessionGate({ children }: { children: React.ReactNode })
   }
 
   const showLoader =
-    redirecting ||
-    (familyLoading && (hasSession || hasFamilySession() || isBillingReturnPath(pathname)) && !isPublicLegalPath(pathname))
+    !loadingTimedOut &&
+    (redirecting ||
+      (familyLoading &&
+        (hasSession || hasFamilySession() || isBillingReturnPath(pathname)) &&
+        !isPublicLegalPath(pathname)))
 
   if (showLoader) {
     return (

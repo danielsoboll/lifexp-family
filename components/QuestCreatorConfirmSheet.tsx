@@ -21,6 +21,7 @@ import type { QuestCompletionPhoto } from '../lib/family/questCompletionPlus'
 import { markPlusDiscoverUnlocked } from '../lib/family/plusDiscoverUnlock'
 import type { PendingCreatorConfirmation } from '../lib/family/types'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
+import { reportAppError, STUCK_BUSY_MS } from '../lib/errorNotbremse'
 
 type ReactionDraft = {
   message: string
@@ -34,6 +35,7 @@ export default function QuestCreatorConfirmSheet() {
   const [visible, setVisible] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [dismissed, setDismissed] = useState(false)
   const [photosByCompletion, setPhotosByCompletion] = useState<Map<string, QuestCompletionPhoto[]>>(new Map())
   const [messagesByCompletion, setMessagesByCompletion] = useState<Map<string, string>>(new Map())
   const [reactionsByCompletion, setReactionsByCompletion] = useState<Map<string, ReactionDraft>>(new Map())
@@ -63,6 +65,7 @@ export default function QuestCreatorConfirmSheet() {
     )
     if (fetchError) {
       setError(fetchError.message)
+      reportAppError(fetchError.message)
       setItems([])
       return
     }
@@ -104,12 +107,24 @@ export default function QuestCreatorConfirmSheet() {
 
   useEffect(() => {
     if (items.length > 0) {
+      setDismissed(false)
       const frame = requestAnimationFrame(() => setVisible(true))
       return () => cancelAnimationFrame(frame)
     }
     setVisible(false)
     return undefined
   }, [items.length])
+
+  useEffect(() => {
+    if (!busyId) return
+    const timer = window.setTimeout(() => {
+      setBusyId(null)
+      const message = 'Bestätigen dauert ungewöhnlich lange.'
+      setError(message)
+      reportAppError(message, 'busy-timeout')
+    }, STUCK_BUSY_MS)
+    return () => window.clearTimeout(timer)
+  }, [busyId])
 
   useEffect(() => {
     if (!plusActive || !creatorBasePortraitId) return
@@ -154,6 +169,7 @@ export default function QuestCreatorConfirmSheet() {
     setBusyId(null)
     if (confirmError) {
       setError(confirmError.message)
+      reportAppError(confirmError.message)
       return
     }
     if (xpAwarded && xpAwarded > 0) {
@@ -165,7 +181,7 @@ export default function QuestCreatorConfirmSheet() {
     setItems((prev) => prev.filter((row) => row.completionId !== item.completionId))
   }
 
-  if (items.length === 0) return null
+  if (items.length === 0 || dismissed) return null
 
   return (
     <div
@@ -266,10 +282,21 @@ export default function QuestCreatorConfirmSheet() {
           </ul>
 
           {error ? (
-            <p className="mx-4 mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+            <p className="mx-4 mb-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
               {error}
             </p>
           ) : null}
+
+          <div className="px-4 pb-4">
+            <button
+              type="button"
+              disabled={Boolean(busyId)}
+              onClick={() => setDismissed(true)}
+              className={`${PRESSABLE_3D_CLASS} w-full rounded-xl border-2 border-slate-300 bg-gradient-to-b from-slate-100 to-slate-200 px-3 py-2.5 text-sm font-bold text-slate-900 disabled:opacity-60 dark:border-slate-600 dark:from-slate-800 dark:to-slate-900 dark:text-slate-100`}
+            >
+              Später entscheiden
+            </button>
+          </div>
         </div>
       </div>
     </div>

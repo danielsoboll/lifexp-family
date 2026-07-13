@@ -14,6 +14,7 @@ import PwaSessionBootstrap from "../components/PwaSessionBootstrap";
 import SessionGate from "../components/SessionGate";
 import { FamilyProvider } from "../components/FamilyProvider";
 import ErrorNotbremse from "../components/ErrorNotbremse";
+import AppStuckWatchdog from "../components/AppStuckWatchdog";
 import { CLIENT_STORAGE_SCOPE_INLINE } from "../lib/clientStorageScope";
 import { productionDomainFreshStartScript } from "../lib/productionDomainFreshStart";
 import { clientStorageBootstrapScript } from "../lib/clientStorageBootstrap";
@@ -145,8 +146,9 @@ export default function RootLayout({
         <PwaInstallListener />
         <PwaIconSync />
         <FamilyProvider>
+          <ErrorNotbremse />
+          <AppStuckWatchdog />
           <SessionGate>
-            <ErrorNotbremse />
             {children}
             <QuestCreatorConfirmSheet />
           </SessionGate>
