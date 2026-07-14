@@ -21,6 +21,7 @@ import {
   questStatusSurfaceClass,
 } from '../lib/family/questCardSurface'
 import { formatParentDisplayName } from '../lib/family/familyDisplayName'
+import { questCreatorLabel } from '../lib/family/questCreatorLabel'
 import type { FamilySession } from '../lib/familySession'
 import type { QuestAssignee, QuestFulfillmentStatus } from '../lib/family/types'
 
@@ -107,22 +108,6 @@ function resolveQuestCardDisplay(input: {
   }
 }
 
-function creatorLabel(
-  quest: QuestWithCompletion,
-  parents: ParentMember[],
-  children: ChildWithTodayXp[],
-): string {
-  if (quest.created_by_child_id) {
-    const child = children.find((c) => c.id === quest.created_by_child_id)
-    return child?.display_name ?? 'Kind'
-  }
-  if (quest.created_by) {
-    const parent = parents.find((p) => p.id === quest.created_by)
-    return parent ? formatParentDisplayName(parent.display_name, parent.gender) : 'Erwachsene'
-  }
-  return 'Familie'
-}
-
 export default function QuestCard({
   quest,
   children,
@@ -175,7 +160,7 @@ export default function QuestCard({
           <span className="text-slate-950 dark:text-slate-500" aria-hidden>
             ·
           </span>
-          <h3 className="min-w-0 truncate text-base font-bold leading-snug text-slate-900 dark:text-slate-100">
+          <h3 className="min-w-0 line-clamp-2 text-base font-bold leading-snug text-slate-900 dark:text-slate-100">
             {quest.title}
           </h3>
         </div>
@@ -188,7 +173,7 @@ export default function QuestCard({
       ) : null}
 
       <p className="mt-1.5 text-[11px] text-slate-950/95 dark:text-slate-400/90">
-        von {creatorLabel(quest, parents, children)}
+        von {questCreatorLabel(quest, parents, children)}
       </p>
       {manageable ? (
         <p className="mt-1 text-[10px] font-semibold text-slate-950 dark:text-slate-400">

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 
 import FamilyPersonalGoalsReadySection from './FamilyPersonalGoalsReadySection'
@@ -266,9 +267,23 @@ export default function QuestList() {
       <FamilyQuestConferenceSection placement="top" />
 
       {!hasToday && !hasYesterdayOpen ? (
-        <p className="text-sm text-slate-950 dark:text-slate-400">
-          Noch keine Quests für heute oder morgen.
-        </p>
+        <div className={`rounded-2xl border-2 border-slate-300/90 bg-slate-50 px-5 py-8 text-center shadow-sm ring-1 ring-slate-400/12 dark:border-slate-600 dark:bg-slate-900/90 dark:ring-slate-700/50`}>
+          <p className="text-3xl" aria-hidden>
+            🎯
+          </p>
+          <p className="mt-3 text-base font-bold text-slate-900 dark:text-slate-100">
+            Noch keine Quests für heute
+          </p>
+          <p className="mt-2 text-sm text-slate-700 dark:text-slate-400">
+            Lege Quests an — dann erscheinen sie hier für die ganze Familie.
+          </p>
+          <Link
+            href="/quests/new"
+            className="lifexp-pressable-3d mt-5 inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-blue-950 bg-gradient-to-b from-blue-700 via-blue-600 to-blue-950 px-6 text-sm font-bold text-white dark:border-blue-400/80 dark:from-blue-300 dark:via-blue-500 dark:to-blue-900 dark:text-slate-900"
+          >
+            Quest anlegen
+          </Link>
+        </div>
       ) : (
         <div className="space-y-5">
           {!hasToday && hasYesterdayOpen ? (
