@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 
 import { useVisualViewportLayout } from '../lib/useVisualViewportLayout'
+import { keyboardScrollPaddingBottom } from '../lib/keyboardScrollPadding'
 import { MAIN_SHELL_CLASS } from '../lib/appShell'
 
 type AdminScrollPageProps = {
@@ -11,11 +12,8 @@ type AdminScrollPageProps = {
 
 /** Admin/Formular-Seiten: fester Viewport, Inhalt scrollt — Tastatur & iOS-Safe-Area berücksichtigt. */
 export default function AdminScrollPage({ children }: AdminScrollPageProps) {
-  const { keyboardOpen, keyboardHeight } = useVisualViewportLayout()
-
-  const scrollPaddingBottom = keyboardOpen
-    ? `${Math.max(keyboardHeight + 160, 220)}px`
-    : 'max(10rem, calc(6rem + env(safe-area-inset-bottom)))'
+  const layout = useVisualViewportLayout()
+  const scrollPaddingBottom = keyboardScrollPaddingBottom(layout, 'admin')
 
   return (
     <main

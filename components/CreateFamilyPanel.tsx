@@ -42,6 +42,8 @@ import {
 import { storeFamilySession, type FamilySession } from '../lib/familySession'
 import { isStandaloneDisplayMode } from '../lib/pwaInstall'
 import { FORM_FIELD_INPUT_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
+import { keyboardScrollPaddingBottom } from '../lib/keyboardScrollPadding'
+import { useVisualViewportLayout } from '../lib/useVisualViewportLayout'
 import AutofillSafeTextInput from './AutofillSafeTextInput'
 import { familyTitleInputProps } from '../lib/formInputAutofill'
 import { resetOnboardingSheetScroll } from '../lib/slowScroll'
@@ -98,6 +100,8 @@ function createStateFromDraft(): CreateState {
 
 export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFamilyPanelProps) {
   const router = useRouter()
+  const viewport = useVisualViewportLayout()
+  const formPaddingBottom = keyboardScrollPaddingBottom(viewport, 'onboarding')
   const draftHydratedRef = useRef(false)
   const submitBusyRef = useRef(false)
   const onboardingBusyRef = useRef(false)
@@ -506,7 +510,13 @@ export default function CreateFamilyPanel({ onBack, sheetScrollRef }: CreateFami
   }
 
   return (
-    <form noValidate autoComplete="off" onSubmit={(event) => void handleFormSubmit(event)} className="space-y-4 pb-52">
+    <form
+      noValidate
+      autoComplete="off"
+      onSubmit={(event) => void handleFormSubmit(event)}
+      className="space-y-4"
+      style={{ paddingBottom: formPaddingBottom }}
+    >
       <div ref={formIntroRef} className="space-y-4">
         <button
           ref={backButtonRef}

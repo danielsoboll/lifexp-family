@@ -51,6 +51,11 @@ BEGIN
   DELETE FROM public.quests WHERE family_id = p_family_id;
   DELETE FROM public.child_profiles WHERE family_id = p_family_id;
   DELETE FROM public.family_members WHERE family_id = p_family_id;
+
+  -- XP-Trigger können beim Löschen von quest_completions/daily_xp_entries Historie neu schreiben.
+  DELETE FROM public.member_daily_xp_history WHERE family_id = p_family_id;
+  DELETE FROM public.family_daily_xp_history WHERE family_id = p_family_id;
+
   DELETE FROM public.families WHERE id = p_family_id;
 
   FOR v_parent_id IN SELECT parent_id FROM _lifexp_delete_parents LOOP

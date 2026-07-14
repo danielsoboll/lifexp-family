@@ -1,3 +1,4 @@
+import { cetFormatDateFromIso } from '../cetDate'
 import type { Family } from './types'
 
 const ACTIVE_PLUS_STATUSES = new Set(['active', 'trialing', 'past_due'])
@@ -39,9 +40,7 @@ export function isFamilyPlus(
 }
 
 function formatPlusUntilDe(plusUntil: string): string {
-  const date = new Date(plusUntil)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: 'numeric' })
+  return cetFormatDateFromIso(plusUntil)
 }
 
 export function familyPlusStatusLabel(

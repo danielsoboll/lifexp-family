@@ -1,10 +1,16 @@
 -- Diagnose: inkonsistente Quest-Bestätigungen (Read-only).
 -- Im Supabase SQL Editor ausführen.
+-- Familien immer über family_id (UUID) filtern — nie über den Namen (kann mehrfach vorkommen).
+
+-- Optional: eine Familie einschränken
+-- AND qc.family_id = 'DEINE-FAMILIEN-UUID'::uuid
 
 -- A) Bestätigt, aber kein XP-Eintrag (Hauptproblem nach RLS-Fehler)
 SELECT
   qc.id AS completion_id,
   qc.family_id,
+  f.invite_code AS family_code,
+  f.name AS family_name,
   q.title AS quest_title,
   cp.display_name AS child_name,
   qc.completed_on,
@@ -12,6 +18,7 @@ SELECT
   qc.creator_confirmed_at
 FROM public.quest_completions qc
 JOIN public.quests q ON q.id = qc.quest_id
+JOIN public.families f ON f.id = qc.family_id
 LEFT JOIN public.child_profiles cp ON cp.id = qc.child_id
 WHERE qc.creator_confirmed_at IS NOT NULL
   AND qc.child_id IS NOT NULL
@@ -31,11 +38,14 @@ ORDER BY qc.creator_confirmed_at DESC;
 SELECT
   qc.id AS completion_id,
   qc.family_id,
+  f.invite_code AS family_code,
+  f.name AS family_name,
   q.title AS quest_title,
   qc.assignee_confirmed_at,
   qc.completed_on
 FROM public.quest_completions qc
 JOIN public.quests q ON q.id = qc.quest_id
+JOIN public.families f ON f.id = qc.family_id
 WHERE qc.assignee_confirmed_at IS NOT NULL
   AND qc.creator_confirmed_at IS NULL
 ORDER BY qc.assignee_confirmed_at ASC;

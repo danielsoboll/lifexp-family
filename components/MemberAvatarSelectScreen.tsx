@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 
 import { portraitSrc, type AvatarPortraitId } from '../lib/family/memberAvatar'
 import { useVisualViewportLayout } from '../lib/useVisualViewportLayout'
+import { keyboardScrollPaddingBottom } from '../lib/keyboardScrollPadding'
 import { PILL_BACK_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
 
 type MemberAvatarSelectScreenProps = {
@@ -27,7 +28,8 @@ export default function MemberAvatarSelectScreen({
   title = 'Avatar wählen',
 }: MemberAvatarSelectScreenProps) {
   const [mounted, setMounted] = useState(false)
-  const { keyboardOpen, keyboardHeight } = useVisualViewportLayout()
+  const viewport = useVisualViewportLayout()
+  const scrollPaddingBottom = keyboardScrollPaddingBottom(viewport, 'sheet')
 
   useEffect(() => {
     setMounted(true)
@@ -64,9 +66,6 @@ export default function MemberAvatarSelectScreen({
   if (!open || !mounted) return null
 
   const groups = optionGroups && optionGroups.length > 0 ? optionGroups : [options]
-  const scrollPaddingBottom = keyboardOpen
-    ? `${Math.max(keyboardHeight + 24, 96)}px`
-    : 'max(2rem, env(safe-area-inset-bottom))'
 
   return createPortal(
     <div

@@ -98,7 +98,7 @@ function ensureOnboardingScrollRoom(scrollContainer: HTMLElement, targetScrollTo
     content.appendChild(spacer)
   }
 
-  const neededHeight = Math.ceil(deficit + 32)
+  const neededHeight = Math.ceil(deficit + 120)
   const currentHeight = Number.parseFloat(spacer.style.height) || 0
   if (neededHeight > currentHeight) {
     spacer.style.height = `${neededHeight}px`

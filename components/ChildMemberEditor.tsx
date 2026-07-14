@@ -13,7 +13,8 @@ import { updateChild } from '../lib/family/children'
 import {
   coercePortraitForCategory,
   memberAvatarCategoryForChild,
-  resolveChildAvatar,
+  resolveChildAvatarWhileEditing,
+  shouldSyncChildPortraitForAgeInput,
   type AvatarPortraitId,
 } from '../lib/family/memberAvatar'
 import { formatChildAge, parseAgeInput, type ChildGender } from '../lib/family/memberGender'
@@ -39,6 +40,7 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
   const [noOwnDevice, setNoOwnDevice] = useState(child.no_own_device)
   const [accentKey, setAccentKey] = useState<MemberAccentKey>(normalizeMemberAccentKey(child.accent_key))
   const [portraitId, setPortraitId] = useState<AvatarPortraitId | null>(() => savedChildPortraitId(child))
+  const [ageInputCommitted, setAgeInputCommitted] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -46,14 +48,16 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
   const parsedAge = parseAgeInput(ageInput)
 
   const avatarResolved = useMemo(
-    () => resolveChildAvatar(gender, parsedAge ?? child.age, portraitId),
-    [gender, parsedAge, child.age, portraitId],
+    () => resolveChildAvatarWhileEditing(gender, ageInput, portraitId, ageInputCommitted),
+    [gender, ageInput, ageInputCommitted, portraitId],
   )
 
-  const effectivePortraitId = useMemo(
-    () => coercePortraitForCategory(memberAvatarCategoryForChild(gender, parsedAge ?? child.age), portraitId),
-    [gender, parsedAge, child.age, portraitId],
-  )
+  const effectivePortraitId = useMemo(() => {
+    const age = shouldSyncChildPortraitForAgeInput(ageInput, ageInputCommitted)
+      ? parseAgeInput(ageInput)
+      : child.age
+    return coercePortraitForCategory(memberAvatarCategoryForChild(gender, age ?? child.age), portraitId)
+  }, [gender, ageInput, ageInputCommitted, child.age, portraitId])
 
   const isDirty =
     displayName.trim() !== child.display_name ||
@@ -64,7 +68,10 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
     (parsedAge ?? null) !== child.age ||
     effectivePortraitId !== savedChildPortraitId(child)
 
-  const syncPortrait = (nextGender: ChildGender, nextAge: number | null) => {
+  const syncPortrait = (nextGender: ChildGender, nextAgeInput: string) => {
+    if (!shouldSyncChildPortraitForAgeInput(nextAgeInput, ageInputCommitted)) return
+    const nextAge = parseAgeInput(nextAgeInput)
+    if (nextAge === null || nextAge < 2) return
     setPortraitId((current) =>
       coercePortraitForCategory(memberAvatarCategoryForChild(nextGender, nextAge), current),
     )
@@ -146,7 +153,11 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
               value={ageInput}
               onChange={(e) => {
                 setAgeInput(e.target.value)
-                syncPortrait(gender, parseAgeInput(e.target.value))
+                setAgeInputCommitted(false)
+                syncPortrait(gender, e.target.value)
+              }}
+              onBlur={(e) => {
+                if (parseAgeInput(e.target.value) !== null) setAgeInputCommitted(true)
               }}
               placeholder="z. B. 8"
               className={FORM_FIELD_INPUT_COMPACT_CLASS}
@@ -159,7 +170,8 @@ export default function ChildMemberEditor({ child }: ChildMemberEditorProps) {
             value={gender}
             onChange={(next) => {
               setGender(next)
-              syncPortrait(next, parsedAge)
+              setAgeInputCommitted(false)
+              syncPortrait(next, ageInput)
             }}
           />
         </div>

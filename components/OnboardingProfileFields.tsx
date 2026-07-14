@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, type RefObject } from 'react'
+import { useMemo, useRef, useState, type RefObject } from 'react'
 
 import AutofillSafeTextInput from './AutofillSafeTextInput'
 import IosContactAutofillDecoy from './IosContactAutofillDecoy'
@@ -15,8 +15,9 @@ import {
   coerceOnboardingPortrait,
   coercePortraitForCategory,
   memberAvatarCategoryForChild,
-  resolveChildAvatar,
+  resolveChildAvatarWhileEditing,
   resolveOnboardingAvatar,
+  shouldSyncChildPortraitForAgeInput,
   type AvatarPortraitId,
 } from '../lib/family/memberAvatar'
 import { parseAgeInput, type ChildGender } from '../lib/family/memberGender'
@@ -52,35 +53,40 @@ export default function OnboardingProfileFields({
 }: OnboardingProfileFieldsProps) {
   const nameSectionRef = useRef<HTMLDivElement>(null)
   const ageSectionRef = useRef<HTMLDivElement>(null)
+  const [ageInputCommitted, setAgeInputCommitted] = useState(false)
   const isChild = !isParentOnboardingGender(gender)
-  const parsedAge = useMemo(() => parseAgeInput(ageInput), [ageInput])
 
   const avatarResolved = useMemo(() => {
     if (isChild) {
-      return resolveChildAvatar(gender as ChildGender, parsedAge, portraitId)
+      return resolveChildAvatarWhileEditing(gender as ChildGender, ageInput, portraitId, ageInputCommitted)
     }
     return resolveOnboardingAvatar(gender, portraitId)
-  }, [gender, isChild, parsedAge, portraitId])
+  }, [gender, isChild, ageInput, ageInputCommitted, portraitId])
 
-  const syncChildPortrait = (nextGender: ChildGender, nextAge: number | null, current: AvatarPortraitId | null) => {
-    const category = memberAvatarCategoryForChild(nextGender, nextAge)
+  const syncChildPortrait = (nextGender: ChildGender, nextAgeInput: string, current: AvatarPortraitId | null) => {
+    if (!shouldSyncChildPortraitForAgeInput(nextAgeInput, ageInputCommitted)) return
+    const age = parseAgeInput(nextAgeInput)
+    if (age === null || age < 2) return
+    const category = memberAvatarCategoryForChild(nextGender, age)
     const nextPortrait = coercePortraitForCategory(category, current)
     if (nextPortrait) onPortraitIdChange(nextPortrait)
   }
 
   const handleGenderChange = (next: OnboardingMemberGender) => {
     onGenderChange(next)
+    setAgeInputCommitted(false)
     if (isParentOnboardingGender(next)) {
       onPortraitIdChange(coerceOnboardingPortrait(next, portraitId))
       return
     }
-    syncChildPortrait(next, parseAgeInput(ageInput), portraitId)
+    syncChildPortrait(next as ChildGender, ageInput, portraitId)
   }
 
   const handleAgeChange = (value: string) => {
     onAgeInputChange(value)
+    setAgeInputCommitted(false)
     if (!isChild) return
-    syncChildPortrait(gender as ChildGender, parseAgeInput(value), portraitId)
+    syncChildPortrait(gender as ChildGender, value, portraitId)
   }
 
   return (
@@ -160,6 +166,9 @@ export default function OnboardingProfileFields({
             max={99}
             value={ageInput}
             onChange={(e) => handleAgeChange(e.target.value)}
+            onBlur={(e) => {
+              if (parseAgeInput(e.target.value) !== null) setAgeInputCommitted(true)
+            }}
             placeholder="z. B. 8"
             scrollBlockRef={ageSectionRef}
             scrollOnFocus="slow"

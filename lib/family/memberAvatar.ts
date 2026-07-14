@@ -1,5 +1,6 @@
 import { memberPortraitTierFromDailyXp } from './dailyXpDisplay'
 import type { ChildGender, ParentGender } from './memberGender'
+import { isAgeInputCompleteForAvatar, parseAgeInput } from './memberGender'
 
 /** Onboarding-Rollen — re-exportiert für Portrait-Optionen ohne Zirkelimport. */
 export type OnboardingPortraitGender = ParentGender | ChildGender
@@ -480,6 +481,28 @@ export function resolveOnboardingAvatar(
     optionGroups,
     error: null,
   }
+}
+
+/** Kind-Formular: Onboarding-Avatar bis Alter vollständig, dann altersgerechtes Portrait (ab 2 Jahren). */
+export function resolveChildAvatarWhileEditing(
+  gender: ChildGender,
+  ageInput: string,
+  portraitId: AvatarPortraitId | null | undefined,
+  ageInputCommitted = false,
+): ResolvedMemberAvatar {
+  const complete = isAgeInputCompleteForAvatar(ageInput) || ageInputCommitted
+  if (!complete) return resolveOnboardingAvatar(gender, portraitId)
+
+  const age = parseAgeInput(ageInput)
+  if (age === null || age < 2) return resolveOnboardingAvatar(gender, portraitId)
+
+  return resolveChildAvatar(gender, age, portraitId)
+}
+
+export function shouldSyncChildPortraitForAgeInput(ageInput: string, ageInputCommitted = false): boolean {
+  if (!isAgeInputCompleteForAvatar(ageInput) && !ageInputCommitted) return false
+  const age = parseAgeInput(ageInput)
+  return age !== null && age >= 2
 }
 
 export function resolveParentAvatar(

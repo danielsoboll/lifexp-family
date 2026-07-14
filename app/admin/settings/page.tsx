@@ -23,6 +23,8 @@ import { reportAppError } from '../../../lib/errorNotbremse'
 import { usePlusDiscoverHeader } from '../../../hooks/usePlusDiscoverHeader'
 import { shouldShowPwaInstallPromo } from '../../../lib/pwaInstall'
 import { CARD_SURFACE_CLASS, MUTED_BODY_TEXT_CLASS } from '../../../lib/appShell'
+import { formatFamilyCodeLabel } from '../../../lib/family/familyIdentity'
+import { cetFormatDateTimeFromIso } from '../../../lib/cetDate'
 
 export default function AdminSettingsPage() {
   const router = useRouter()
@@ -121,6 +123,32 @@ export default function AdminSettingsPage() {
               appInstalled={activeMember.app_installed}
               appLater={activeMember.app_later}
             />
+          ) : null}
+
+          {family ? (
+            <section className={`${CARD_SURFACE_CLASS} space-y-1.5 rounded-2xl p-4`}>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Deine Familie</h2>
+              <p className={`text-sm ${MUTED_BODY_TEXT_CLASS}`}>
+                Name: <span className="font-semibold text-slate-950 dark:text-slate-100">{family.name}</span>
+              </p>
+              <p className={`text-sm ${MUTED_BODY_TEXT_CLASS}`}>
+                Familiencode:{' '}
+                <span className="font-mono font-semibold tracking-wide text-slate-950 dark:text-slate-100">
+                  {formatFamilyCodeLabel(family)}
+                </span>
+              </p>
+              <p className="text-xs leading-snug text-slate-600 dark:text-slate-400">
+                Technisch eindeutig — auch wenn mehrere Familien denselben Namen haben.
+              </p>
+              {family.created_at ? (
+                <p className={`text-xs ${MUTED_BODY_TEXT_CLASS}`}>
+                  Angelegt:{' '}
+                  <span className="text-slate-950 dark:text-slate-100">
+                    {cetFormatDateTimeFromIso(family.created_at)} (CET)
+                  </span>
+                </p>
+              ) : null}
+            </section>
           ) : null}
 
           {family ? (

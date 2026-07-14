@@ -17,7 +17,9 @@ import {
   onboardingPreviewFamily2PromoHideMs,
 } from '../lib/family/onboardingPreviewFamily'
 import { bootstrapPwaClientStorage } from '../lib/pwaClientStorage'
+import { keyboardScrollPaddingBottom } from '../lib/keyboardScrollPadding'
 import { markOnboardingUiActive } from '../lib/family/onboardingFlow'
+import { useVisualViewportLayout } from '../lib/useVisualViewportLayout'
 import { isStandaloneDisplayMode } from '../lib/pwaInstall'
 import { normalizeInviteCodeInput, parseInviteCodeFromQr } from '../lib/parseInviteCode'
 import { CARD_SURFACE_CLASS, ONBOARDING_BACKDROP_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
@@ -36,6 +38,9 @@ function readResumeState(): { open: boolean; view: SheetView; panelKey: number }
 }
 
 export default function WelcomeStartScreen() {
+  const viewport = useVisualViewportLayout()
+  const onboardingScrollPadding = keyboardScrollPaddingBottom(viewport, 'onboarding')
+  const sheetPaddingBottom = keyboardScrollPaddingBottom(viewport, 'sheet')
   const backdropScrollRef = useRef<HTMLDivElement>(null)
   const sheetScrollRef = useRef<HTMLDivElement>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -261,7 +266,8 @@ export default function WelcomeStartScreen() {
                   : sheetView === 'restore'
                     ? 'max-h-[70dvh] min-h-[60dvh]'
                     : 'max-h-[85dvh] min-h-[70dvh]'
-              } flex-col rounded-t-3xl px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl`}
+              } flex-col rounded-t-3xl px-5 pt-5 shadow-2xl`}
+              style={{ paddingBottom: sheetPaddingBottom }}
               onClick={(event) => event.stopPropagation()}
               role="dialog"
               aria-modal="true"
@@ -348,12 +354,19 @@ export default function WelcomeStartScreen() {
                   </div>
                 </div>
               ) : sheetView === 'restore' ? (
-                <OnboardingRecoveryRestorePanel onBack={backToWelcome} />
+                <div
+                  data-lifexp-onboarding-scroll
+                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+                  style={{ paddingBottom: onboardingScrollPadding }}
+                >
+                  <OnboardingRecoveryRestorePanel onBack={backToWelcome} />
+                </div>
               ) : sheetView === 'join' ? (
                 <div
                   ref={sheetScrollRef}
                   data-lifexp-onboarding-scroll
                   className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+                  style={{ paddingBottom: onboardingScrollPadding }}
                 >
                   <JoinFamilyPanel
                     key={`join-${panelKey}`}
@@ -367,6 +380,7 @@ export default function WelcomeStartScreen() {
                   ref={sheetScrollRef}
                   data-lifexp-onboarding-scroll
                   className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+                  style={{ paddingBottom: onboardingScrollPadding }}
                 >
                   <CreateFamilyPanel key={`create-${panelKey}`} onBack={backToWelcome} sheetScrollRef={sheetScrollRef} />
                 </div>

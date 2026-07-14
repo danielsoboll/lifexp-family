@@ -7,11 +7,11 @@ export const ONBOARDING_BACKDROP_CLASS =
 
 /** Vertikaler Innenabstand inkl. Safe Area unten (Browser-Leiste). */
 export const MAIN_PAGE_INSET_CLASS =
-  'pt-[max(1rem,env(safe-area-inset-top))] pb-[max(3.5rem,calc(2.75rem+env(safe-area-inset-bottom)))]'
+  'pt-[max(1rem,env(safe-area-inset-top))] pb-[max(5rem,calc(4rem+env(safe-area-inset-bottom)))]'
 
 /** Startseite: extra Abstand unten (mobile Browser-URL-Leiste). */
 export const HOME_PAGE_INSET_CLASS =
-  'pt-[max(1rem,env(safe-area-inset-top))] pb-[max(8rem,calc(6rem+env(safe-area-inset-bottom)))]'
+  'pt-[max(1rem,env(safe-area-inset-top))] pb-[max(10rem,calc(8rem+env(safe-area-inset-bottom)))]'
 
 /** Karten/Buttons im Tagesmodus: helle Graustufen statt Weiss-auf-Weiss. */
 export const CARD_SURFACE_CLASS =

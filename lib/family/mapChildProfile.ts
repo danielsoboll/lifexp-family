@@ -1,3 +1,4 @@
+import { cetLocalYear } from '../cetDate'
 import type { ChildProfile } from './types'
 import { canAdminForChildProfile } from './memberAdmin'
 import {
@@ -39,7 +40,7 @@ function resolveAge(row: ChildProfileRow): number | null {
   if (birthYearRaw === null || birthYearRaw === undefined) return null
   const birthYear = numberValue(birthYearRaw, NaN)
   if (!Number.isFinite(birthYear)) return null
-  return Math.max(0, new Date().getFullYear() - birthYear)
+  return Math.max(0, cetLocalYear() - birthYear)
 }
 
 function resolvePortraitId(

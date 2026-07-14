@@ -1,11 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 import { useFamily } from '../components/FamilyProvider'
 import { PRESSABLE_3D_CLASS } from '../lib/appShell'
 import {
-  escapeToWelcomeHome,
+  escapeAfterAppCrash,
   isChildNotbremseAudience,
   NOTBREMSE_AUTO_ESCAPE_MS,
 } from '../lib/errorNotbremse'
@@ -17,26 +18,27 @@ export default function AppError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const pathname = usePathname()
   const { memberKind } = useFamily()
   const kidMode = isChildNotbremseAudience(memberKind)
   const [stay, setStay] = useState(false)
   const [escaping, setEscaping] = useState(false)
 
-  const goHome = useCallback(() => {
+  const goBack = useCallback(() => {
     setEscaping(true)
-    escapeToWelcomeHome()
-  }, [])
+    escapeAfterAppCrash(pathname)
+  }, [pathname])
 
   useEffect(() => {
     if (escaping) return
     if (!kidMode && stay) return
 
     const timer = window.setTimeout(() => {
-      goHome()
+      goBack()
     }, NOTBREMSE_AUTO_ESCAPE_MS)
 
     return () => window.clearTimeout(timer)
-  }, [stay, escaping, kidMode, goHome])
+  }, [stay, escaping, kidMode, goBack])
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg items-center justify-center px-4 py-8">
@@ -46,21 +48,19 @@ export default function AppError({
         </h1>
         <p className="mt-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
           {escaping
-            ? kidMode
-              ? 'Gleich geht es weiter …'
-              : 'Startseite wird geladen …'
+            ? 'Einen Moment …'
             : kidMode
-              ? 'Gleich geht es weiter.'
-              : 'Wir bringen dich zurück zur Startseite.'}
+              ? 'Gleich geht es zurück.'
+              : 'Wir gehen zurück zur Familie.'}
         </p>
 
         <button
           type="button"
           disabled={escaping}
-          onClick={goHome}
+          onClick={goBack}
           className={`${PRESSABLE_3D_CLASS} mt-4 w-full rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-base font-extrabold text-white disabled:opacity-70 ${kidMode ? 'py-4 text-lg' : ''}`}
         >
-          {escaping ? 'Einen Moment …' : kidMode ? 'Weiter' : 'Zurück zur Startseite'}
+          {escaping ? 'Einen Moment …' : 'Zurück'}
         </button>
 
         {!kidMode ? (

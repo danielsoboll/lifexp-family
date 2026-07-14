@@ -6,7 +6,8 @@
 -- => App wirkt „kaputt“, Bestätigen erneut sagt „schon bestätigt“.
 --
 -- Dieses Skript repariert ALLE betroffenen Familien.
--- Optional: WHERE qc.family_id = 'DEINE-UUID' in den INSERT/UPDATE-Teilen ergänzen.
+-- Optional: WHERE qc.family_id = 'DEINE-FAMILIEN-UUID'::uuid in den INSERT/UPDATE-Teilen ergänzen.
+-- Familien immer über family_id (UUID) filtern — nie über den Namen.
 
 DO $$
 DECLARE

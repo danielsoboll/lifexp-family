@@ -6,9 +6,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## Zeitzone
 
-Kalendertage und Uhrzeiten für deutsche Nutzer über **Europe/Berlin** (`lib/cetDate.ts`):
+Kalendertage und Uhrzeiten für deutsche Nutzer über **CET/CEST** (`Europe/Berlin`, `lib/cetDate.ts`):
 
 - Tageslogik zentral über `getLocalDateKey()` (Alias: `cetToday`, `cetYesterday`, …)
+- Anzeige von ISO-Zeitstempeln über `cetFormatTimeFromIso`, `cetFormatDateFromIso`, `cetFormatDateTimeFromIso`
 - Keine UTC-`toISOString()`-Tageskeys, keine feste UTC+1-Offset-Logik
 
 ## Produktions-Domain (family.life-xp.de)

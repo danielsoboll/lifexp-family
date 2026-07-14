@@ -1,4 +1,5 @@
 import { cetToday } from '../cetDate'
+import { isChildImpersonationActive } from './childImpersonation'
 import { readFamilySession } from '../familySession'
 import { supabase } from '../supabase'
 import { formatParentDisplayName } from './familyDisplayName'
@@ -109,7 +110,12 @@ export function memberCanEditPersonalGoals(input: {
   memberKind?: 'parent' | 'child'
 }): boolean {
   if (!input.isSelf) return input.canAdmin
-  if (input.memberKind === 'child' && !input.canAdmin) return false
+  if (input.memberKind === 'child' && !input.canAdmin) {
+    if (isChildImpersonationActive(readFamilySession())) {
+      return !memberHasLockedPersonalGoals(input.goals)
+    }
+    return false
+  }
   if (memberHasLockedPersonalGoals(input.goals)) return input.canAdmin
   return true
 }
@@ -290,12 +296,13 @@ export async function saveMemberPersonalGoals(
 
   const isSelf =
     session.memberKind === input.member.memberKind && session.memberId === input.member.memberId
+  const parentActingAsChild = isChildImpersonationActive(session)
 
   if (!isSelf && !input.canAdmin) {
     return { goals: [], error: new Error('Nur Admins können Belohnungen für andere eintragen.') }
   }
 
-  if (isSelf && !input.canAdmin && input.member.memberKind === 'child') {
+  if (isSelf && !input.canAdmin && input.member.memberKind === 'child' && !parentActingAsChild) {
     return { goals: [], error: new Error('Belohnungen legt ein Elternteil oder Admin fest.') }
   }
 

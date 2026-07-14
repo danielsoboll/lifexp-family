@@ -28,7 +28,7 @@ export default function MemberEditorSaveBar({
     return (
       <div
         className="pointer-events-none fixed inset-x-0 z-[110] mx-auto max-w-lg px-4"
-        style={{ bottom: Math.max(keyboardHeight + 8, 72) }}
+        style={{ bottom: Math.max(keyboardHeight + 56, 120) }}
       >
         <div className="pointer-events-auto rounded-xl border border-slate-300/90 bg-slate-100/98 p-2 shadow-lg backdrop-blur-md dark:border-slate-600/90 dark:bg-slate-900/98">
           {button}

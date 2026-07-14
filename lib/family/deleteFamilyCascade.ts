@@ -22,6 +22,30 @@ function isMissingRpcError(error: { message?: string; code?: string }): boolean 
   )
 }
 
+/** RPC nur für service_role — Client fällt auf manuelle Cascade zurück. */
+function isRpcUnavailableError(error: { message?: string; code?: string }): boolean {
+  return Boolean(
+    isMissingRpcError(error) ||
+      error.code === '42501' ||
+      error.code === 'PGRST301' ||
+      error.message?.includes('permission denied') ||
+      error.message?.includes('not authorized')
+  )
+}
+
+const XP_HISTORY_TABLES = ['member_daily_xp_history', 'family_daily_xp_history'] as const
+
+async function purgeFamilyXpHistory(
+  client: SupabaseClient,
+  familyId: string,
+): Promise<Error | null> {
+  for (const table of XP_HISTORY_TABLES) {
+    const tableError = await deleteRowsByFamilyId(client, table, familyId)
+    if (tableError) return tableError
+  }
+  return null
+}
+
 async function deleteRowsByFamilyId(
   client: SupabaseClient,
   table: string,
@@ -107,6 +131,10 @@ async function deleteFamilyCascadeManual(
     if (tableError) return { error: tableError }
   }
 
+  // XP-Trigger können beim Löschen von quest_completions/daily_xp_entries Historie neu schreiben.
+  const historyPurgeError = await purgeFamilyXpHistory(client, familyId)
+  if (historyPurgeError) return { error: historyPurgeError }
+
   const { error: familyError } = await client.from('families').delete().eq('id', familyId)
   if (familyError) {
     const message = familyError.message.includes('foreign key')
@@ -182,7 +210,7 @@ export async function deleteFamilyCascadeDirect(
     }
   }
 
-  if (!isMissingRpcError(rpcError)) {
+  if (!isRpcUnavailableError(rpcError)) {
     return { error: new Error(rpcError.message) }
   }
 

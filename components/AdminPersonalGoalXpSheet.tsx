@@ -14,6 +14,7 @@ import {
   updatePersonalGoalXp,
 } from '../lib/family/personalGoals'
 import { focusFormField } from '../lib/mobileFormFocus'
+import { keyboardScrollPaddingBottom } from '../lib/keyboardScrollPadding'
 import { useVisualViewportLayout } from '../lib/useVisualViewportLayout'
 
 type AdminPersonalGoalXpSheetProps = {
@@ -46,9 +47,7 @@ export default function AdminPersonalGoalXpSheet({
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const viewport = useVisualViewportLayout()
 
-  const scrollPaddingBottom = viewport.keyboardOpen
-    ? `${Math.max(viewport.keyboardHeight + 32, 112)}px`
-    : 'max(1.25rem, env(safe-area-inset-bottom))'
+  const scrollPaddingBottom = keyboardScrollPaddingBottom(viewport, 'sheet')
 
   const handleSave = async () => {
     const parsed = Number.parseInt(xp, 10)

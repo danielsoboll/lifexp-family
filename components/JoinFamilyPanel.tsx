@@ -45,6 +45,8 @@ import { normalizeInviteCodeInput } from '../lib/parseInviteCode'
 import { storeFamilySession, type FamilySession } from '../lib/familySession'
 import { isStandaloneDisplayMode } from '../lib/pwaInstall'
 import { FORM_FIELD_INPUT_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
+import { keyboardScrollPaddingBottom } from '../lib/keyboardScrollPadding'
+import { useVisualViewportLayout } from '../lib/useVisualViewportLayout'
 import { oneLineTextInputProps } from '../lib/formInputAutofill'
 import { resetOnboardingSheetScroll } from '../lib/slowScroll'
 
@@ -104,6 +106,8 @@ function joinStateFromDraft(): JoinState {
 
 export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteCode = null }: JoinFamilyPanelProps) {
   const router = useRouter()
+  const viewport = useVisualViewportLayout()
+  const formPaddingBottom = keyboardScrollPaddingBottom(viewport, 'onboarding')
   const draftHydratedRef = useRef(false)
   const submitBusyRef = useRef(false)
   const onboardingBusyRef = useRef(false)
@@ -751,7 +755,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
 
   if (step === 'pick_member') {
     return (
-      <div key="join-pick-member" className="space-y-4 pb-8">
+      <div key="join-pick-member" className="space-y-4" style={{ paddingBottom: formPaddingBottom }}>
         <button
           type="button"
           onClick={() => navigateJoinStep(pickMemberBackStep())}
@@ -772,7 +776,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
 
   if (step === 'profile') {
     return (
-      <form key="join-profile" noValidate autoComplete="off" onSubmit={(event) => void handleProfileSubmit(event)} className="space-y-4 pb-36">
+      <form key="join-profile" noValidate autoComplete="off" onSubmit={(event) => void handleProfileSubmit(event)} className="space-y-4" style={{ paddingBottom: formPaddingBottom }}>
         <div ref={joinFormIntroRef} className="space-y-4">
           <button
             type="button"
@@ -804,7 +808,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
 
   if (step === 'confirm') {
     return (
-      <form key="join-confirm" noValidate autoComplete="off" onSubmit={(event) => void handleProfileSubmit(event)} className="space-y-4 pb-36">
+      <form key="join-confirm" noValidate autoComplete="off" onSubmit={(event) => void handleProfileSubmit(event)} className="space-y-4" style={{ paddingBottom: formPaddingBottom }}>
         <div ref={joinFormIntroRef} className="space-y-4">
           <button
             type="button"
@@ -836,7 +840,7 @@ export default function JoinFamilyPanel({ onBack, sheetScrollRef, initialInviteC
 
   if (step === 'code') {
     return (
-      <form key="join-code" noValidate autoComplete="off" onSubmit={(event) => void handleCodeValidate(event)} className="space-y-4 pb-8">
+      <form key="join-code" noValidate autoComplete="off" onSubmit={(event) => void handleCodeValidate(event)} className="space-y-4" style={{ paddingBottom: formPaddingBottom }}>
         <div className="space-y-4">
           <button
             type="button"

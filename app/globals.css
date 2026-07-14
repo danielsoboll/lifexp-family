@@ -54,7 +54,15 @@ html {
 .lifexp-admin-scroll {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  scroll-padding-bottom: max(5rem, calc(3rem + env(safe-area-inset-bottom)));
+  scroll-padding-bottom: max(8rem, calc(5rem + env(safe-area-inset-bottom)));
+}
+
+html.lifexp-keyboard-open .lifexp-admin-scroll {
+  scroll-padding-bottom: max(22rem, calc(14rem + env(safe-area-inset-bottom)));
+}
+
+html.lifexp-keyboard-open [data-lifexp-onboarding-scroll] {
+  scroll-padding-bottom: max(24rem, calc(16rem + env(safe-area-inset-bottom)));
 }
 
 /* iOS Safari: Inputs unter 16px zoomen beim Fokus hinein */

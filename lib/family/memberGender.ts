@@ -49,6 +49,15 @@ export function parseAgeInput(raw: string): number | null {
   return parsed
 }
 
+/** Alter fertig getippt — Avatar erst danach umschalten (nicht schon bei „1“ von „12“). */
+export function isAgeInputCompleteForAvatar(raw: string): boolean {
+  const trimmed = raw.trim()
+  if (!trimmed || parseAgeInput(trimmed) === null) return false
+  if (trimmed.length >= 2) return true
+  const parsed = parseInt(trimmed, 10)
+  return Number.isFinite(parsed) && parsed >= 2 && parsed <= 9
+}
+
 export function childMemberSubtitle(age: number | null, todayXp: number): string {
   const ageLabel = formatChildAge(age)
   const xpLabel = `+${todayXp} XP heute`

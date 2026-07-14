@@ -18,9 +18,9 @@ import {
   memberAvatarCategoryForChild,
   memberAvatarCategoryForParent,
   portraitSrc,
-  resolveChildAvatar,
-  resolveOnboardingAvatar,
+  resolveChildAvatarWhileEditing,
   resolveParentAvatar,
+  shouldSyncChildPortraitForAgeInput,
   type AvatarPortraitId,
 } from '../lib/family/memberAvatar'
 import {
@@ -31,6 +31,8 @@ import { CHILD_GENDER_OPTIONS, parseAgeInput, type ChildGender, type ParentGende
 import { defaultCanAdminForParent } from '../lib/family/memberAdmin'
 import { createParentForFamily } from '../lib/family/parents'
 import { CARD_SURFACE_CLASS, FORM_FIELD_INPUT_COMPACT_CLASS, PRESSABLE_3D_CLASS } from '../lib/appShell'
+import { keyboardScrollPaddingBottom } from '../lib/keyboardScrollPadding'
+import { useVisualViewportLayout } from '../lib/useVisualViewportLayout'
 import { displayNameInputProps, integerInputProps } from '../lib/formInputAutofill'
 
 type FamilyMemberAddFormProps = {
@@ -41,6 +43,8 @@ type FamilyMemberAddFormProps = {
 
 export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }: FamilyMemberAddFormProps) {
   const { refresh, children } = useFamily()
+  const viewport = useVisualViewportLayout()
+  const formPaddingBottom = keyboardScrollPaddingBottom(viewport, 'admin')
   const [displayName, setDisplayName] = useState('')
   const [adultGender, setAdultGender] = useState<ParentGender>('male')
   const [childGender, setChildGender] = useState<ChildGender>('boy')
@@ -48,12 +52,14 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
   const [portraitId, setPortraitId] = useState<AvatarPortraitId | null>(null)
   const [canAdmin, setCanAdmin] = useState(() => defaultCanAdminForParent('male'))
   const [noOwnDevice, setNoOwnDevice] = useState(false)
+  const [ageInputCommitted, setAgeInputCommitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const childrenFull = isChildLimitReached(children.length)
   const parsedAge = parseAgeInput(ageInput)
+  const ageReadyForPortrait = shouldSyncChildPortraitForAgeInput(ageInput, ageInputCommitted)
   const roleOptions =
     memberKind === 'adult'
       ? ADULT_MEMBER_OPTIONS
@@ -64,11 +70,8 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
     if (memberKind === 'adult') {
       return resolveParentAvatar(adultGender, portraitId ? portraitSrc(portraitId) : null)
     }
-    if (parsedAge === null) {
-      return resolveOnboardingAvatar(childGender, portraitId)
-    }
-    return resolveChildAvatar(childGender, parsedAge, portraitId)
-  }, [memberKind, adultGender, childGender, parsedAge, portraitId])
+    return resolveChildAvatarWhileEditing(childGender, ageInput, portraitId, ageInputCommitted)
+  }, [memberKind, adultGender, childGender, ageInput, ageInputCommitted, portraitId])
 
   const syncPortrait = (
     kind: 'adult' | 'child',
@@ -85,6 +88,7 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
       setPortraitId(coerceOnboardingPortrait(gender as ChildGender, current))
       return
     }
+    if (!shouldSyncChildPortraitForAgeInput(String(age), true)) return
     const category = memberAvatarCategoryForChild(gender as ChildGender, age)
     setPortraitId(coercePortraitForCategory(category, current))
   }
@@ -96,7 +100,8 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
       return
     }
     setChildGender(value as ChildGender)
-    syncPortrait('child', value as ChildGender, parsedAge, portraitId)
+    setAgeInputCommitted(false)
+    syncPortrait('child', value as ChildGender, ageReadyForPortrait ? parsedAge : null, portraitId)
   }
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -205,7 +210,12 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
   const submitLabel = memberKind === 'adult' ? 'Erwachsenen hinzufügen' : 'Kind hinzufügen'
 
   return (
-    <form autoComplete="off" onSubmit={(e) => void handleSubmit(e)} className={`${CARD_SURFACE_CLASS} space-y-3 rounded-xl p-3`}>
+    <form
+      autoComplete="off"
+      onSubmit={(e) => void handleSubmit(e)}
+      className={`${CARD_SURFACE_CLASS} space-y-3 rounded-xl p-3`}
+      style={{ paddingBottom: formPaddingBottom }}
+    >
       <div className="flex gap-2">
         <MemberAvatarPicker
           resolved={resolved}
@@ -310,7 +320,13 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
                 value={ageInput}
                 onChange={(e) => {
                   setAgeInput(e.target.value)
-                  syncPortrait('child', childGender, parseAgeInput(e.target.value), portraitId)
+                  setAgeInputCommitted(false)
+                  if (shouldSyncChildPortraitForAgeInput(e.target.value)) {
+                    syncPortrait('child', childGender, parseAgeInput(e.target.value), portraitId)
+                  }
+                }}
+                onBlur={(e) => {
+                  if (parseAgeInput(e.target.value) !== null) setAgeInputCommitted(true)
                 }}
                 placeholder="z. B. 8"
                 className={FORM_FIELD_INPUT_COMPACT_CLASS}
@@ -349,7 +365,7 @@ export default function FamilyMemberAddForm({ familyId, memberKind, onCreated }:
         {loading ? 'Wird gespeichert …' : submitLabel}
       </button>
 
-      <div className="h-28 shrink-0 sm:h-24" aria-hidden />
+      <div className="h-16 shrink-0" aria-hidden />
     </form>
   )
 }

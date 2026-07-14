@@ -20,6 +20,8 @@ import {
 } from '../../lib/family/memberRemovable'
 import { CARD_SURFACE_CLASS, HOME_BACK_LABEL, MUTED_BODY_TEXT_CLASS, PRESSABLE_3D_CLASS } from '../../lib/appShell'
 import { formatParentDisplayName } from '../../lib/family/familyDisplayName'
+import { formatFamilyCodeLabel } from '../../lib/family/familyIdentity'
+import { cetFormatDateTimeFromIso } from '../../lib/cetDate'
 
 const ADMIN_ADD_LINK_CLASS = `${PRESSABLE_3D_CLASS} flex w-full items-center justify-center rounded-2xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3.5 text-base font-bold text-white shadow-[0_4px_14px_-4px_rgba(5,150,105,0.55)] ring-1 ring-emerald-400/30 dark:border-emerald-500 dark:ring-emerald-600/40`
 
@@ -153,6 +155,23 @@ export default function AdminPage() {
               Familie:{' '}
               <span className="font-semibold text-slate-950 dark:text-slate-100">{family?.name ?? '—'}</span>
             </p>
+            <p className={MUTED_BODY_TEXT_CLASS}>
+              Familiencode:{' '}
+              <span className="font-mono font-semibold tracking-wide text-slate-950 dark:text-slate-100">
+                {family ? formatFamilyCodeLabel(family) : '—'}
+              </span>
+            </p>
+            <p className="text-xs leading-snug text-slate-600 dark:text-slate-400">
+              Eindeutige Kennung — XP und Verlauf gehören zu diesem Code, nicht zum Namen.
+            </p>
+            {family?.created_at ? (
+              <p className={`text-xs ${MUTED_BODY_TEXT_CLASS}`}>
+                Angelegt:{' '}
+                <span className="text-slate-950 dark:text-slate-100">
+                  {cetFormatDateTimeFromIso(family.created_at)} (CET)
+                </span>
+              </p>
+            ) : null}
             <p className={MUTED_BODY_TEXT_CLASS}>
               Angemeldet als:{' '}
               <span className="font-semibold text-slate-950 dark:text-slate-100">

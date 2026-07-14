@@ -6,6 +6,7 @@ import MemberPortraitMini from './MemberPortraitMini'
 import XpGoalVerticalBar, { HISTORY_TOTAL_XP_LABEL_CLASS } from './XpGoalVerticalBar'
 import XpHistoryChart, { XpHistoryChartLegend } from './XpHistoryChart'
 import { useFamily } from './FamilyProvider'
+import { formatFamilyIdentityLabel } from '../lib/family/familyIdentity'
 import { formatParentDisplayName } from '../lib/family/familyDisplayName'
 import { resolveChildAvatar, resolveParentAvatar } from '../lib/family/memberAvatar'
 import {
@@ -15,12 +16,12 @@ import {
   type XpGoalPeriod,
 } from '../lib/family/xpGoals'
 import { fetchFamilyPersonalGoalBarState } from '../lib/family/familyPersonalGoals'
-import { fetchMemberPersonalGoalBarState, syncAllPersonalGoalsForFamily } from '../lib/family/personalGoals'
+import { fetchMemberPersonalGoalBarState } from '../lib/family/personalGoals'
 import { personalGoalSymbolEmoji } from '../lib/family/personalGoalSymbols'
 import {
+  familyHistoryStartDateFromCreatedAt,
   fetchFamilyXpHistory,
-  fetchMemberXpHistory,
-  syncFamilyXpHistoryToday,
+  fetchMemberXpHistoriesBatch,
   type XpHistoryDay,
 } from '../lib/family/xpHistory'
 import { cetToday } from '../lib/cetDate'
@@ -50,10 +51,22 @@ function fallbackMemberGoal(): XpGoalPeriod {
 }
 
 export default function FamilyHistoryList() {
-  const { family, parents, children, loading: familyLoading } = useFamily()
+  const { family, parents, children } = useFamily()
   const todayKey = cetToday()
 
   const memberCount = parents.length + children.length
+
+  const historyStartDate = useMemo(
+    () => familyHistoryStartDateFromCreatedAt(family?.created_at),
+    [family?.created_at],
+  )
+
+  const liveFamilyTodayTotal = useMemo(
+    () =>
+      parents.reduce((sum, parent) => sum + Math.max(0, parent.todayXp ?? 0), 0)
+      + children.reduce((sum, child) => sum + Math.max(0, child.todayXp ?? 0), 0),
+    [parents, children],
+  )
 
   const [familyHistory, setFamilyHistory] = useState<{
     days: XpHistoryDay[]
@@ -118,11 +131,14 @@ export default function FamilyHistoryList() {
 
     const load = async () => {
       setFamilyHistory((prev) => ({ ...prev, loading: true, error: null }))
-      await syncFamilyXpHistoryToday(family.id)
-      await syncAllPersonalGoalsForFamily(family.id)
 
       const [result, familyGoalBar] = await Promise.all([
-        fetchFamilyXpHistory({ familyId: family.id, memberCount }),
+        fetchFamilyXpHistory({
+          familyId: family.id,
+          memberCount,
+          startDate: historyStartDate,
+          liveTodayTotal: liveFamilyTodayTotal,
+        }),
         fetchFamilyPersonalGoalBarState(family.id),
       ])
       if (cancelled) return
@@ -165,7 +181,7 @@ export default function FamilyHistoryList() {
     return () => {
       cancelled = true
     }
-  }, [family, memberCount])
+  }, [family, memberCount, historyStartDate, liveFamilyTodayTotal])
 
   useEffect(() => {
     if (!family || members.length === 0) return
@@ -173,6 +189,13 @@ export default function FamilyHistoryList() {
 
     const loadMembers = async () => {
       const next: Record<string, MemberHistoryState> = {}
+      const liveTodayXpByKey: Record<string, number> = {}
+      const memberKeys: Array<{
+        key: string
+        memberKind: 'parent' | 'child'
+        memberId: string
+      }> = []
+
       for (const member of members) {
         next[member.key] = {
           days: [],
@@ -182,17 +205,24 @@ export default function FamilyHistoryList() {
           error: null,
           goal: null,
         }
+        liveTodayXpByKey[member.key] = member.todayXp
+        memberKeys.push({
+          key: member.key,
+          memberKind: member.memberKind,
+          memberId: member.memberId,
+        })
       }
       setMemberHistories(next)
 
-      await Promise.all(
-        members.map(async (member) => {
-          const [result, goalResult, personalBar] = await Promise.all([
-            fetchMemberXpHistory({
-              familyId: family.id,
-              member: { memberKind: member.memberKind, memberId: member.memberId },
-              liveTodayXp: member.todayXp,
-            }),
+      const [historyBatch, ...memberMeta] = await Promise.all([
+        fetchMemberXpHistoriesBatch({
+          familyId: family.id,
+          members: memberKeys.map(({ memberKind, memberId }) => ({ memberKind, memberId })),
+          startDate: historyStartDate,
+          liveTodayXpByKey,
+        }),
+        ...members.map(async (member) => {
+          const [goalResult, personalBar] = await Promise.all([
             fetchActiveMemberXpGoal(family.id, {
               memberKind: member.memberKind,
               memberId: member.memberId,
@@ -202,43 +232,46 @@ export default function FamilyHistoryList() {
               memberId: member.memberId,
             }),
           ])
-          if (cancelled) return
-
-          const fallbackGoal = goalResult.goal ?? fallbackMemberGoal()
-          const activePersonal = personalBar.bar
-          const displayGoal: XpGoalPeriod = activePersonal
-            ? {
-                id: activePersonal.goalId,
-                goalName: activePersonal.title,
-                targetXp: activePersonal.target,
-                progressXp: activePersonal.progress,
-                startedAt: fallbackGoal.startedAt,
-              }
-            : fallbackGoal
-
-          setMemberHistories((prev) => ({
-            ...prev,
-            [member.key]: {
-              days: result.error ? [] : result.days,
-              target: result.target,
-              max: result.max,
-              loading: false,
-              error: result.error?.message ?? null,
-              goal: displayGoal,
-              personalSymbolEmoji: activePersonal
-                ? personalGoalSymbolEmoji(activePersonal.symbolId)
-                : undefined,
-            },
-          }))
+          return { member, goalResult, personalBar }
         }),
-      )
+      ])
+      if (cancelled) return
+
+      for (const { member, goalResult, personalBar } of memberMeta) {
+        const fallbackGoal = goalResult.goal ?? fallbackMemberGoal()
+        const activePersonal = personalBar.bar
+        const displayGoal: XpGoalPeriod = activePersonal
+          ? {
+              id: activePersonal.goalId,
+              goalName: activePersonal.title,
+              targetXp: activePersonal.target,
+              progressXp: activePersonal.progress,
+              startedAt: fallbackGoal.startedAt,
+            }
+          : fallbackGoal
+
+        setMemberHistories((prev) => ({
+          ...prev,
+          [member.key]: {
+            days: historyBatch.error ? [] : (historyBatch.byMember[member.key] ?? []),
+            target: historyBatch.target,
+            max: historyBatch.max,
+            loading: false,
+            error: historyBatch.error?.message ?? null,
+            goal: displayGoal,
+            personalSymbolEmoji: activePersonal
+              ? personalGoalSymbolEmoji(activePersonal.symbolId)
+              : undefined,
+          },
+        }))
+      }
     }
 
     void loadMembers()
     return () => {
       cancelled = true
     }
-  }, [family, members])
+  }, [family, members, historyStartDate])
 
   if (!family) return null
 
@@ -250,10 +283,10 @@ export default function FamilyHistoryList() {
     <div className="space-y-6 pb-4">
       <section className={`${CARD_SURFACE_CLASS} rounded-2xl p-4`}>
         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-          Familie {family.name} — XP pro Tag
+          {formatFamilyIdentityLabel(family)} — XP pro Tag
         </h2>
 
-        {familyLoading || familyHistory.loading ? (
+        {familyHistory.loading ? (
           <p className="mt-1 text-sm text-slate-950 dark:text-slate-400">Verlauf wird geladen …</p>
         ) : familyHistory.error ? (
           <p className="mt-1 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">

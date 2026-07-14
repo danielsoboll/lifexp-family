@@ -1,7 +1,7 @@
 import { HOME_PATH } from './legalRoutes'
 import {
   getStoredMemberKind,
-  resetLifeXpFamilyClientState,
+  hasFamilySession,
   type FamilySessionMemberKind,
 } from './familySession'
 
@@ -34,15 +34,21 @@ export function reportAppError(message: string, source: AppErrorSource = 'app') 
   )
 }
 
-/** Session löschen und Willkommens-Startseite per Hard-Reload — funktioniert auch wenn man schon auf / ist. */
-export function escapeToWelcomeHome() {
+/** Nur navigieren — Session, Storage und Familie bleiben unverändert. */
+export function escapeAfterAppCrash(currentPathname: string) {
   if (typeof window === 'undefined') return
 
-  try {
-    resetLifeXpFamilyClientState()
-  } catch {
-    /* trotzdem weiter zur Startseite */
+  const path = currentPathname.split('?')[0] || HOME_PATH
+
+  if (!hasFamilySession()) {
+    window.location.assign(HOME_PATH)
+    return
   }
 
-  window.location.assign(HOME_PATH)
+  if (path !== HOME_PATH) {
+    window.location.assign(HOME_PATH)
+    return
+  }
+
+  window.location.reload()
 }

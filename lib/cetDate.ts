@@ -6,6 +6,9 @@
  */
 export const LIFEXP_LOCAL_TIMEZONE = 'Europe/Berlin'
 
+/** Alias — CET/CEST über IANA `Europe/Berlin` (Sommerzeit automatisch). */
+export const CET_TIMEZONE = LIFEXP_LOCAL_TIMEZONE
+
 /** @deprecated Alias für Abwärtskompatibilität. */
 export const LIFEXP_TIMEZONE = LIFEXP_LOCAL_TIMEZONE
 
@@ -42,6 +45,23 @@ const LONG_DATE_FORMAT = new Intl.DateTimeFormat('de-DE', {
   timeZone: LIFEXP_LOCAL_TIMEZONE,
 })
 
+const MEDIUM_DATE_FORMAT = new Intl.DateTimeFormat('de-DE', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: LIFEXP_LOCAL_TIMEZONE,
+})
+
+const DATE_TIME_FORMAT = new Intl.DateTimeFormat('de-DE', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: LIFEXP_LOCAL_TIMEZONE,
+})
+
 const WEEKDAY_SHORT_DE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'] as const
 
 const WEEKDAY_MAP: Record<string, number> = {
@@ -59,6 +79,20 @@ const DAY_MS = 86_400_000
 /** Kalendertag in Europe/Berlin als `YYYY-MM-DD`. */
 export function getLocalDateKey(instant: number = Date.now()): string {
   return DATE_KEY_FORMAT.format(new Date(instant))
+}
+
+/** Kalendertag (CET/CEST) aus ISO-Zeitstempel. */
+export function cetDateKeyFromIso(iso: string): string {
+  const instant = Date.parse(iso)
+  if (!Number.isFinite(instant)) return ''
+  return getLocalDateKey(instant)
+}
+
+/** Aktuelles Kalenderjahr in Europe/Berlin. */
+export function cetLocalYear(instant: number = Date.now()): number {
+  const key = getLocalDateKey(instant)
+  const year = parseInt(key.slice(0, 4), 10)
+  return Number.isFinite(year) ? year : new Date(instant).getFullYear()
 }
 
 /** DB-/API-Wert auf `YYYY-MM-DD` normalisieren. */
@@ -224,6 +258,20 @@ export function cetFormatTimeFromIso(iso: string): string {
   const instant = Date.parse(iso)
   if (!Number.isFinite(instant)) return ''
   return LOCAL_TIME_FORMAT.format(new Date(instant))
+}
+
+/** Datum (`13. Juli 2026`) in CET/CEST für ISO-Zeitstempel. */
+export function cetFormatDateFromIso(iso: string): string {
+  const instant = Date.parse(iso)
+  if (!Number.isFinite(instant)) return ''
+  return MEDIUM_DATE_FORMAT.format(new Date(instant))
+}
+
+/** Datum + Uhrzeit in CET/CEST für ISO-Zeitstempel. */
+export function cetFormatDateTimeFromIso(iso: string): string {
+  const instant = Date.parse(iso)
+  if (!Number.isFinite(instant)) return ''
+  return DATE_TIME_FORMAT.format(new Date(instant))
 }
 
 /** Wanduhr (`HH:MM`) in Europe/Berlin, auf Viertelstunden abgerundet. */
