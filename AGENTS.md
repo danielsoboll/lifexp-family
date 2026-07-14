@@ -15,3 +15,16 @@ Kalendertage und Uhrzeiten für deutsche Nutzer über **CET/CEST** (`Europe/Berl
 ## Produktions-Domain (family.life-xp.de)
 
 Beim **ersten** Besuch auf `family.life-xp.de` / `www.family.life-xp.de` wird alter LifeXP-Solo-`localStorage` und Session-Cookies gelöscht (Theme bleibt). Marker: `lifexp_family_life_xp_de_initialized`. Logik: `lib/productionDomainFreshStart.ts` — Inline-Script in `app/layout.tsx`.
+
+## Agent & Deploy
+
+| | |
+|---|---|
+| Branch | `main` — Push erlaubt wenn Aufgabe fertig |
+| Supabase | `rethdsbfcwwvyynkmbjb` |
+| Production | family.life-xp.de (Vercel via GitHub) |
+| Deploy Stripe | `bash scripts/deploy-supabase-billing.sh` |
+| Stripe Webhook | `https://rethdsbfcwwvyynkmbjb.supabase.co/functions/v1/stripe-webhook` |
+| Billing | Family PLUS über `plus_until` — DB-first |
+
+Setup-Checkliste (einmalig): `~/.cursor/AGENT-SETUP.md`

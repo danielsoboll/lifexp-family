@@ -1,0 +1,32 @@
+---
+description: Agent-Vollmachten, Deploy und Blocker-Handling (LifeXP Family)
+alwaysApply: true
+---
+
+# Agent — LifeXP Family
+
+## Vollmachten
+
+- Commits + Push auf `main` erlaubt, wenn Aufgabe fertig oder Nutzer es wünscht
+- Supabase deployen: `bash scripts/deploy-supabase-billing.sh`
+- Build prüfen: `npm run build`
+
+## Projekt-Fakten
+
+| | |
+|---|---|
+| Repo | lifexp-family |
+| Domain | family.life-xp.de |
+| Supabase | `rethdsbfcwwvyynkmbjb` |
+| Stripe Webhook | `https://rethdsbfcwwvyynkmbjb.supabase.co/functions/v1/stripe-webhook` |
+| Billing | Family PLUS über `plus_until` — DB-first |
+
+## Konventionen
+
+- UI: Deutsch · Zeitzone: `Europe/Berlin` (`lib/cetDate.ts`)
+- Domain-Fresh-Start: `lib/productionDomainFreshStart.ts`
+- Secrets: `.env.example` — nie committen
+
+## Bei Blockern
+
+Stoppen und dem Nutzer exakt sagen: Tool, URL, Klick.
